@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import { buildHull, type HullGeometry } from './hull';
-import { canvas, toTexture, FONT_NUM, grime, hexA } from './paint';
 import { PAL } from './palette';
-import { Rng } from '../core/rng';
 import { Crane } from './crane';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { paintHull, addWaterline } from './ships/hullPaint';
+import { buildBulwark, buildDeckFittings } from './ships/fittings';
+import { buildCargoDeck } from './ships/cargoDeck';
+import { buildSuperstructure } from './ships/superstructure';
 
 /** One container slot along the ship (world units). */
 export const SLOT = 1.0;
@@ -26,8 +27,6 @@ const BEAM = 1.55;
 /** Hull heights (from the keel) of the light waterline and the summer load line. */
 export const LIGHT_Y = 0.24;
 export const MARK_Y = 0.74;
-
-const waterUniforms = { uWaterY: { value: 0 }, uTime: { value: 0 } };
 
 /**
  * The feeder ship: hull painted as the gauge (red antifouling up to the mark = spare deadweight),
@@ -53,7 +52,11 @@ export class ShipModel {
   readonly deckY: number;
   readonly manifold = new THREE.Vector3();
   readonly cranes: Crane[];
-  private hullMat: THREE.MeshStandardMaterial;
+  readonly funnelTop = new THREE.Vector3();
+  /** Mast attachment points in body coordinates, used by the animated signal flags. */
+  readonly yard = new THREE.Vector3();
+  readonly foremastTop = new THREE.Vector3();
+  private readonly waterUniforms = { uWaterY: { value: 0 }, uTime: { value: 0 } };
 
   constructor(stacks: number, tiers: number, name = 'FULL & DOWN', plugs: number[] = [], registry = 'MONROVIA', kind: ShipKind = 'feeder') {
     this.kind = kind;
@@ -83,9 +86,13 @@ export class ShipModel {
     hullGroup.position.x = midX;
     this.body.add(hullGroup);
 
-    this.hullMat = new THREE.MeshStandardMaterial({ map: paintHull(this.length, DEPTH + 0.32, name, registry), roughness: 0.55, metalness: 0.05 });
-    addWaterline(this.hullMat);
-    const side = new THREE.Mesh(this.hull.side, this.hullMat);
+    const hullMat = new THREE.MeshStandardMaterial({
+      map: paintHull({ length: this.length, height: DEPTH + 0.32, name, registry, deckY: DEPTH, lightY: LIGHT_Y, markY: MARK_Y }),
+      roughness: 0.55,
+      metalness: 0.05,
+    });
+    addWaterline(hullMat, this.waterUniforms);
+    const side = new THREE.Mesh(this.hull.side, hullMat);
     side.castShadow = true;
     side.receiveShadow = true;
     hullGroup.add(side);
@@ -94,11 +101,19 @@ export class ShipModel {
     deck.receiveShadow = true;
     hullGroup.add(deck);
 
-    this.buildBulwark(hullGroup);
-    if (kind === 'bulker') this.buildHolds();
-    else this.buildCellGuides(cargoLen, plugs);
-    this.buildSuperstructure();
-    this.buildForecastle();
+    buildBulwark(hullGroup, this.hull, this.length);
+    buildCargoDeck({
+      body: this.body, stacks, tiers: this.tiers, kind, deckY: this.deckY, beam: BEAM,
+      slot: SLOT, boxHeight: BOX_H, holdFloor: HOLD_FLOOR, coamingHeight: COAMING_H, plugs,
+    });
+    const fittings = buildSuperstructure({ body: this.body, sternX: this.sternX, deckY: this.deckY, beam: BEAM, tiers: this.tiers, kind });
+    this.funnelTop.copy(fittings.funnelTop);
+    this.yard.copy(fittings.yard);
+    this.manifold.copy(fittings.manifold);
+    this.foremastTop.copy(buildDeckFittings({
+      body: this.body, hull: this.hull, hullOffsetX: midX, bowX: this.bowX, sternX: this.sternX,
+      deckY: this.deckY, cargoLength: cargoLen, beam: BEAM,
+    }));
     this.cranes = [
       new Crane(new THREE.Vector3(-cargoLen / 2 - 0.42, this.deckY, 0), Math.PI * 0.86, kind === 'bulker'),
       new Crane(new THREE.Vector3(cargoLen / 2 + 0.5, this.deckY, 0), Math.PI * 0.14, kind === 'bulker'),
@@ -121,422 +136,7 @@ export class ShipModel {
   }
 
   setWater(y: number, t: number): void {
-    waterUniforms.uWaterY.value = y;
-    waterUniforms.uTime.value = t;
+    this.waterUniforms.uWaterY.value = y;
+    this.waterUniforms.uTime.value = t;
   }
-
-  private buildBulwark(hullGroup: THREE.Group): void {
-    // a thin rail along the deck edge, from the forecastle to the stern
-    const mat = new THREE.MeshStandardMaterial({ color: PAL.white, roughness: 0.6 });
-    const L = this.length;
-    const pts: THREE.Vector3[] = [];
-    for (let i = 0; i <= 40; i++) {
-      const x = -L / 2 + 0.05 + (L - 0.12) * (i / 40);
-      pts.push(new THREE.Vector3(x, this.hull.deckAt(x) + 0.09, this.hull.halfBeamAt(x) - 0.02));
-    }
-    const curve = new THREE.CatmullRomCurve3(pts);
-    const rail = new THREE.Mesh(new THREE.TubeGeometry(curve, 80, 0.018, 5), mat);
-    hullGroup.add(rail);
-    const back = rail.clone();
-    back.scale.z = -1;
-    hullGroup.add(back);
-    // stanchions
-    const st = new THREE.CylinderGeometry(0.012, 0.012, 0.09, 4);
-    const stMesh = new THREE.InstancedMesh(st, mat, 64);
-    const m = new THREE.Matrix4();
-    let n = 0;
-    for (let i = 0; i < 32 && n < 64; i++) {
-      const x = -L / 2 + 0.2 + (L - 0.5) * (i / 31);
-      for (const s of [1, -1]) {
-        m.makeTranslation(x, this.hull.deckAt(x) + 0.045, s * (this.hull.halfBeamAt(x) - 0.02));
-        stMesh.setMatrixAt(n++, m);
-      }
-    }
-    stMesh.count = n;
-    hullGroup.add(stMesh);
-  }
-
-  private buildCellGuides(cargoLen: number, plugs: number[]): void {
-    // hatch covers under the stacks, and lashing bridges between bays sized to the stack height
-    const hatchMat = new THREE.MeshStandardMaterial({ color: PAL.hatch, roughness: 0.6 });
-    const ribMat = new THREE.MeshStandardMaterial({ color: '#35505f', roughness: 0.6 });
-    for (let i = 0; i < this.stacks; i++) {
-      const hatch = new THREE.Mesh(new THREE.BoxGeometry(SLOT - 0.06, 0.07, BEAM - 0.36), hatchMat);
-      hatch.position.set(this.bayX(i), this.deckY + 0.035, 0);
-      hatch.castShadow = true;
-      hatch.receiveShadow = true;
-      this.body.add(hatch);
-      if (plugs.includes(i)) {
-        // a reefer power plate on the hatch front and a cable reel
-        const [pc, pg] = canvas(64, 64);
-        pg.fillStyle = '#1e4fa3';
-        pg.beginPath();
-        pg.roundRect(2, 2, 60, 60, 10);
-        pg.fill();
-        pg.strokeStyle = '#ffffff';
-        pg.lineWidth = 5;
-        pg.lineCap = 'round';
-        for (let k = 0; k < 3; k++) {
-          const a = (k / 3) * Math.PI;
-          pg.beginPath();
-          pg.moveTo(32 - Math.cos(a) * 20, 32 - Math.sin(a) * 20);
-          pg.lineTo(32 + Math.cos(a) * 20, 32 + Math.sin(a) * 20);
-          pg.stroke();
-        }
-        const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.3), new THREE.MeshStandardMaterial({ map: toTexture(pc), roughness: 0.4, emissive: '#1e4fa3', emissiveIntensity: 0.25 }));
-        plate.position.set(this.bayX(i), this.deckY - 0.12, BEAM / 2 + 0.005);
-        this.body.add(plate);
-      }
-      for (let k = 0; k < 3; k++) {
-        const rib = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.02, BEAM - 0.4), ribMat);
-        rib.position.set(this.bayX(i) - 0.3 + k * 0.3, this.deckY + 0.075, 0);
-        this.body.add(rib);
-      }
-    }
-    const bridgeMat = new THREE.MeshStandardMaterial({ color: '#d9d4c7', roughness: 0.55 });
-    const h = this.tiers * BOX_H * 0.62;
-    for (let i = 0; i <= this.stacks; i++) {
-      const x = -cargoLen / 2 + i * SLOT;
-      for (const z of [-(BEAM / 2 - 0.2), BEAM / 2 - 0.2]) {
-        const post = new THREE.Mesh(new THREE.BoxGeometry(0.035, h, 0.035), bridgeMat);
-        post.position.set(x, this.deckY + h / 2, z);
-        post.castShadow = true;
-        this.body.add(post);
-      }
-      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, BEAM - 0.4), bridgeMat);
-      bar.position.set(x, this.deckY + h, 0);
-      this.body.add(bar);
-    }
-  }
-
-  /** Bulker: an open hold per bay: coaming with a yellow top edge, a dark hold, hatch covers folded up at the aft end. */
-  private buildHolds(): void {
-    const L = SLOT - 0.06; // coaming, outer length (x)
-    const Wd = 1.06; // coaming, outer width (z)
-    const t = 0.05; // wall thickness
-    const sink = 0.09; // the coaming's foot sits below the deck line: the deck rises toward the bow
-    const top = this.deckY + COAMING_H;
-    const parts: Record<'green' | 'rib' | 'yellow' | 'dark' | 'floor' | 'red' | 'redRib' | 'steel', THREE.BufferGeometry[]> = { green: [], rib: [], yellow: [], dark: [], floor: [], red: [], redRib: [], steel: [] };
-    const box = (key: keyof typeof parts, x: number, y: number, z: number, w: number, h: number, d: number): void => {
-      parts[key].push(new THREE.BoxGeometry(w, h, d).translate(x, y, z));
-    };
-    const innerL = L - 2 * t;
-    const innerW = Wd - 2 * t;
-    for (let i = 0; i < this.stacks; i++) {
-      const cx = this.bayX(i);
-      const wallY = top - (COAMING_H + sink) / 2;
-      const wallH = COAMING_H + sink;
-      // walls
-      for (const sz of [-1, 1]) box('green', cx, wallY, sz * (Wd / 2 - t / 2), L, wallH, t);
-      for (const sx of [-1, 1]) box('green', cx + sx * (L / 2 - t / 2), wallY, 0, t, wallH, Wd - 2 * t);
-      // the yellow top edge
-      for (const sz of [-1, 1]) box('yellow', cx, top - 0.008, sz * (Wd / 2 - t / 2), L + 0.014, 0.026, t + 0.014);
-      for (const sx of [-1, 1]) box('yellow', cx + sx * (L / 2 - t / 2), top - 0.008, 0, t + 0.014, 0.026, Wd - 2 * t);
-      // stiffeners on the outside of the walls
-      for (const sz of [-1, 1]) for (const k of [-0.31, -0.105, 0.105, 0.31]) box('rib', cx + k, top - 0.1, sz * (Wd / 2 + 0.012), 0.034, 0.17, 0.03);
-      for (const sx of [-1, 1]) for (const k of [-0.33, -0.11, 0.11, 0.33]) box('rib', cx + sx * (L / 2 + 0.012), top - 0.1, k, 0.03, 0.17, 0.034);
-      // the hold: floor, liners on the inside of the walls, a few ribs on the far wall
-      box('floor', cx, this.deckY + HOLD_FLOOR - 0.012, 0, innerL, 0.024, innerW);
-      for (const sz of [-1, 1]) box('dark', cx, this.deckY + (HOLD_FLOOR + COAMING_H) / 2 - 0.012, sz * (innerW / 2 - 0.004), innerL, COAMING_H - HOLD_FLOOR, 0.008);
-      for (const sx of [-1, 1]) box('dark', cx + sx * (innerL / 2 - 0.004), this.deckY + (HOLD_FLOOR + COAMING_H) / 2 - 0.012, 0, 0.008, COAMING_H - HOLD_FLOOR, innerW);
-      for (const k of [-0.25, 0, 0.25]) box('steel', cx + k, this.deckY + (HOLD_FLOOR + COAMING_H) / 2 - 0.012, -innerW / 2 + 0.012, 0.03, COAMING_H - HOLD_FLOOR, 0.012);
-      // hatch covers folded up and leaning over the hold at the aft end: two panels, hinged on the coaming
-      const pw = innerW - 0.04;
-      const ph = 0.27;
-      const lean = -0.15;
-      for (const k of [0, 1]) {
-        // everything is built upright around the panel's foot, then leaned about it
-        const foot = new THREE.Vector3(cx - L / 2 + t / 2 + 0.005 + k * 0.058, top - 0.005, 0);
-        const part = (key: keyof typeof parts, px: number, py: number, pz: number, w: number, h: number, d: number): void => {
-          parts[key].push(new THREE.BoxGeometry(w, h, d).translate(px, py, pz).rotateZ(lean).translate(foot.x, foot.y, foot.z));
-        };
-        part('red', 0, ph / 2, 0, 0.024, ph, pw);
-        // cross ribs and a yellow top edge
-        for (const rz of [-0.36, -0.12, 0.12, 0.36]) part('redRib', 0.017, ph / 2, rz, 0.012, ph - 0.04, 0.03);
-        part('yellow', 0, ph - 0.006, 0, 0.03, 0.014, pw + 0.01);
-      }
-      // the hinge pins at the foot of the covers
-      for (const sz of [-1, 1]) box('steel', cx - L / 2 + t / 2 + 0.03, top + 0.012, sz * (pw / 2 - 0.02), 0.07, 0.03, 0.05);
-    }
-    const mats: Record<keyof typeof parts, THREE.MeshStandardMaterial> = {
-      green: new THREE.MeshStandardMaterial({ color: '#2e4a3f', roughness: 0.55 }),
-      rib: new THREE.MeshStandardMaterial({ color: '#3d5e50', roughness: 0.6 }),
-      yellow: new THREE.MeshStandardMaterial({ color: '#e3ae1b', roughness: 0.5 }),
-      dark: new THREE.MeshStandardMaterial({ color: '#232b31', roughness: 0.85 }),
-      floor: new THREE.MeshStandardMaterial({ color: '#171d22', roughness: 0.9 }),
-      red: new THREE.MeshStandardMaterial({ color: '#8a3a2b', roughness: 0.55 }),
-      redRib: new THREE.MeshStandardMaterial({ color: '#6a2a1f', roughness: 0.6 }),
-      steel: new THREE.MeshStandardMaterial({ color: '#2d343b', roughness: 0.6 }),
-    };
-    for (const key of Object.keys(parts) as (keyof typeof parts)[]) {
-      const g = mergeGeometries(parts[key], false);
-      if (!g) continue;
-      const m = new THREE.Mesh(g, mats[key]);
-      m.castShadow = key !== 'floor' && key !== 'dark';
-      m.receiveShadow = true;
-      this.body.add(m);
-    }
-    // a deck pipe along each side of the holds on little saddles
-    const pipeMat = new THREE.MeshStandardMaterial({ color: '#7c8a86', roughness: 0.5, metalness: 0.2 });
-    const cargoLen = this.stacks * SLOT;
-    for (const sz of [-1, 1]) {
-      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, cargoLen - 0.1, 8), pipeMat);
-      pipe.rotation.z = Math.PI / 2;
-      pipe.position.set(0, this.deckY + 0.05, sz * 0.67);
-      pipe.castShadow = true;
-      this.body.add(pipe);
-      for (let i = 0; i <= this.stacks; i++) {
-        const x = -cargoLen / 2 + i * SLOT;
-        const saddle = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, 0.05), new THREE.MeshStandardMaterial({ color: '#2d343b' }));
-        saddle.position.set(Math.min(Math.max(x, -cargoLen / 2 + 0.05), cargoLen / 2 - 0.05), this.deckY + 0.025, sz * 0.67);
-        this.body.add(saddle);
-      }
-    }
-  }
-
-  private buildSuperstructure(): void {
-    const white = new THREE.MeshStandardMaterial({ color: PAL.superstructure, roughness: 0.5 });
-    const windows = windowTexture();
-    const winMat = new THREE.MeshStandardMaterial({ map: windows, roughness: 0.35 });
-    const x0 = this.sternX + 0.32;
-    const w = 1.25;
-    const levels = Math.max(3, this.tiers + 1);
-    const lh = 0.36;
-    const hb = BEAM / 2 - 0.12;
-    for (let k = 0; k < levels; k++) {
-      const inset = k === levels - 1 ? 0.06 : 0.02 * k;
-      const geo = new THREE.BoxGeometry(w - inset * 2, lh, (hb - inset) * 2);
-      const mats = [white, white, white, white, winMat, white];
-      const m = new THREE.Mesh(geo, mats);
-      m.position.set(x0 + w / 2, this.deckY + lh / 2 + k * lh, 0);
-      m.castShadow = true;
-      m.receiveShadow = true;
-      this.body.add(m);
-    }
-    // bridge wings
-    const top = this.deckY + levels * lh;
-    const wing = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.05, BEAM + 0.18), white);
-    wing.position.set(x0 + w - 0.25, top - lh + 0.02, 0);
-    wing.castShadow = true;
-    this.body.add(wing);
-    // the bridge roof and mast
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(w + 0.06, 0.05, hb * 2 + 0.06), white);
-    roof.position.set(x0 + w / 2, top + 0.025, 0);
-    this.body.add(roof);
-    const mastMat = new THREE.MeshStandardMaterial({ color: PAL.funnel, roughness: 0.5 });
-    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.75, 6), mastMat);
-    mast.position.set(x0 + w - 0.35, top + 0.4, 0);
-    this.body.add(mast);
-    const yard = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 0.7), mastMat);
-    yard.position.set(x0 + w - 0.35, top + 0.62, 0);
-    this.body.add(yard);
-    this.yard.set(x0 + w - 0.35, top + 0.62, 0.3);
-    const radar = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.03, 0.06), new THREE.MeshStandardMaterial({ color: '#30343c' }));
-    radar.position.set(x0 + w - 0.35, top + 0.47, 0);
-    radar.name = 'radar';
-    this.body.add(radar);
-    // funnel: yellow with a blue band and a black top
-    const funnel = new THREE.Group();
-    const fShape = new THREE.Shape();
-    fShape.moveTo(-0.22, 0);
-    fShape.lineTo(0.2, 0);
-    fShape.lineTo(0.16, 0.62);
-    fShape.quadraticCurveTo(0.14, 0.68, 0.08, 0.68);
-    fShape.lineTo(-0.28, 0.68);
-    fShape.lineTo(-0.22, 0);
-    const fGeo = new THREE.ExtrudeGeometry(fShape, { depth: 0.36, bevelEnabled: true, bevelSize: 0.03, bevelThickness: 0.03, bevelSegments: 2 });
-    fGeo.translate(0, 0, -0.18);
-    const fMat = new THREE.MeshStandardMaterial({ map: funnelTexture(), roughness: 0.45 });
-    // planar UV by height so the bands stay horizontal
-    const p = fGeo.attributes.position;
-    const uv = fGeo.attributes.uv;
-    for (let i = 0; i < p.count; i++) uv.setXY(i, 0.5, p.getY(i) / 0.7);
-    const f = new THREE.Mesh(fGeo, fMat);
-    f.castShadow = true;
-    funnel.add(f);
-    funnel.position.set(x0 + 0.32, top, 0);
-    this.body.add(funnel);
-    this.funnelTop.set(x0 + 0.28, top + 0.7, 0);
-    this.manifold.set(x0 + w + 0.25, this.deckY + 0.1, -0.3);
-  }
-
-  readonly funnelTop = new THREE.Vector3();
-  /** the yard on the bridge mast (Blue Peter flies here) and the foremast truck */
-  readonly yard = new THREE.Vector3();
-  readonly foremastTop = new THREE.Vector3();
-
-  private buildForecastle(): void {
-    const mat = new THREE.MeshStandardMaterial({ color: PAL.deck, roughness: 0.8 });
-    const white = new THREE.MeshStandardMaterial({ color: PAL.white, roughness: 0.6 });
-    const x = this.bowX - 0.75;
-    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.7, 6), new THREE.MeshStandardMaterial({ color: PAL.funnel }));
-    mast.position.set(x, this.hull.deckAt(x + 0.2) + 0.35, 0);
-    this.foremastTop.set(x, this.hull.deckAt(x + 0.2) + 0.7, 0);
-    mast.castShadow = true;
-    this.body.add(mast);
-    // windlass
-    const winch = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.3, 10), mat);
-    winch.rotation.x = Math.PI / 2;
-    winch.position.set(x + 0.35, this.hull.deckAt(x + 0.35) + 0.08, 0);
-    this.body.add(winch);
-    // breakwater plate in front of the first bay
-    const bw = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.3, BEAM - 0.3), white);
-    bw.position.set(this.bayX(this.stacks - 1) + SLOT / 2 + 0.95, this.deckY + 0.15, 0);
-    bw.castShadow = true;
-    this.body.add(bw);
-  }
-}
-
-/** The hull side: antifouling red up to the summer mark, navy topsides, draft numerals, the Plimsoll disc. */
-function paintHull(length: number, height: number, name: string, registry: string): THREE.CanvasTexture {
-  const W = 2048;
-  const H = Math.round((W / length) * height);
-  const [c, g] = canvas(W, H);
-  const rng = new Rng(7);
-  const yOf = (hy: number) => H - (hy / height) * H; // hull height → canvas y
-  const xOf = (u: number) => u * W; // 0..1 along the length (stern → bow)
-  const markY = yOf(MARK_Y);
-  // topsides
-  g.fillStyle = PAL.hullNavy;
-  g.fillRect(0, 0, W, markY);
-  // a white sheer line just under the deck edge
-  g.fillStyle = PAL.white;
-  g.fillRect(0, yOf(DEPTH) + 2, W, 5);
-  // red antifouling up to the mark: "hide the red" = load to the marks
-  g.fillStyle = PAL.antifouling;
-  g.fillRect(0, markY, W, H - markY);
-  // boot-top: a thin black band right at the mark
-  g.fillStyle = PAL.bootTop;
-  g.fillRect(0, markY - 3, W, 6);
-  // plating seams
-  const px = W / length;
-  g.strokeStyle = 'rgba(0,0,0,0.12)';
-  g.lineWidth = 1.5;
-  for (let x = 0.6 * px; x < W; x += 0.8 * px) {
-    g.beginPath();
-    g.moveTo(x, 0);
-    g.lineTo(x, H);
-    g.stroke();
-  }
-  for (const hy of [0.42, 0.98]) {
-    g.beginPath();
-    g.moveTo(0, yOf(hy));
-    g.lineTo(W, yOf(hy));
-    g.stroke();
-  }
-  grime(g, rng, 0, 0, W, markY, 900, '#000000', 0.08);
-  grime(g, rng, 0, markY, W, H - markY, 700, '#3a0d05', 0.12);
-  // tonne ticks: short white dashes in the red band between light line and mark, at the bow and stern
-  const tick = (u: number) => {
-    g.fillStyle = hexA(PAL.white, 0.85);
-    const steps = 5;
-    for (let k = 0; k <= steps; k++) {
-      const hy = LIGHT_Y + ((MARK_Y - LIGHT_Y) * k) / steps;
-      const y = yOf(hy);
-      g.fillRect(xOf(u) - 10, y - 1.5, k === steps ? 26 : 16, 3);
-    }
-  };
-  // draft numerals at bow and stern
-  g.font = `600 ${Math.round(0.16 * px)}px ${FONT_NUM}`;
-  g.textBaseline = 'middle';
-  g.fillStyle = PAL.white;
-  const draftMarks = (u: number) => {
-    for (let k = 0; k <= 4; k++) {
-      const hy = 0.3 + k * 0.2;
-      if (hy > DEPTH - 0.1) break;
-      const label = k === 4 ? '10M' : String(2 + k * 2);
-      g.fillText(label, xOf(u), yOf(hy));
-    }
-  };
-  draftMarks(0.035);
-  draftMarks(0.93);
-  tick(0.075);
-  tick(0.905);
-  // the Plimsoll mark amidships: disc, bar through the centre at the summer line, the LR letters,
-  // and the load-line ladder (TF F T S W) to the forward side
-  const cx = xOf(0.56);
-  const cy = markY;
-  const R = 0.2 * px;
-  g.strokeStyle = PAL.white;
-  g.fillStyle = PAL.white;
-  g.lineWidth = 5;
-  g.beginPath();
-  g.arc(cx, cy, R, 0, Math.PI * 2);
-  g.stroke();
-  g.fillRect(cx - R * 1.35, cy - 3, R * 2.7, 6);
-  g.fillRect(cx - R * 1.35, yOf(DEPTH) + 10, R * 2.7, 6); // deck line above
-  g.font = `700 ${Math.round(R * 0.62)}px ${FONT_NUM}`;
-  g.textAlign = 'center';
-  g.fillText('L', cx - R * 0.95, cy - R * 0.62);
-  g.fillText('R', cx + R * 0.95, cy - R * 0.62);
-  const lx = cx + R * 2.0;
-  g.fillRect(lx, cy - R * 1.1, 5, R * 2.0);
-  const ladder: [string, number][] = [['TF', -0.9], ['F', -0.55], ['T', -0.3], ['S', 0], ['W', 0.3]];
-  g.font = `600 ${Math.round(R * 0.42)}px ${FONT_NUM}`;
-  g.textAlign = 'left';
-  for (const [lab, k] of ladder) {
-    const y = cy + k * R;
-    g.fillRect(lx, y - 2.5, R * 0.7, 5);
-    g.fillText(lab, lx + R * 0.78, y);
-  }
-  // ship's name at the bow, port of registry at the stern
-  g.textAlign = 'center';
-  let size = Math.round(0.2 * px);
-  g.font = `700 ${size}px ${FONT_NUM}`;
-  const room = W * 0.2;
-  while (g.measureText(name).width > room && size > 10) {
-    size -= 2;
-    g.font = `700 ${size}px ${FONT_NUM}`;
-  }
-  g.fillStyle = PAL.white;
-  g.fillText(name, xOf(0.8), yOf(DEPTH - 0.2));
-  g.font = `600 ${Math.round(0.12 * px)}px ${FONT_NUM}`;
-  g.fillText(registry, xOf(0.11), yOf(DEPTH - 0.2));
-  return toTexture(c);
-}
-
-function windowTexture(): THREE.CanvasTexture {
-  const [c, g] = canvas(256, 64);
-  g.fillStyle = PAL.superstructure;
-  g.fillRect(0, 0, 256, 64);
-  g.fillStyle = '#2b3a4f';
-  for (let i = 0; i < 7; i++) {
-    g.fillRect(14 + i * 34, 20, 22, 22);
-  }
-  g.fillStyle = 'rgba(255,255,255,0.35)';
-  for (let i = 0; i < 7; i++) g.fillRect(16 + i * 34, 22, 7, 18);
-  return toTexture(c);
-}
-
-function funnelTexture(): THREE.CanvasTexture {
-  const [c, g] = canvas(16, 128);
-  g.fillStyle = PAL.funnel;
-  g.fillRect(0, 0, 16, 128);
-  g.fillStyle = PAL.funnelBand;
-  g.fillRect(0, 128 - 0.62 * 128, 16, 22);
-  g.fillStyle = PAL.black;
-  g.fillRect(0, 0, 16, 16);
-  return toTexture(c);
-}
-
-/** A foam line where the water meets the hull, and a darker wet band just above it. */
-function addWaterline(mat: THREE.MeshStandardMaterial): void {
-  mat.onBeforeCompile = (shader) => {
-    shader.uniforms.uWaterY = waterUniforms.uWaterY;
-    shader.uniforms.uTime = waterUniforms.uTime;
-    shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vWorldPos;')
-      .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-    shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vWorldPos;\nuniform float uWaterY;\nuniform float uTime;')
-      .replace(
-        '#include <map_fragment>',
-        `#include <map_fragment>
-        float wave = sin(vWorldPos.x * 5.0 + uTime * 1.6) * 0.012 + sin(vWorldPos.x * 11.0 - uTime * 2.3) * 0.006;
-        float d = vWorldPos.y - (uWaterY + wave);
-        diffuseColor.rgb *= mix(0.72, 1.0, smoothstep(0.0, 0.07, d));
-        float foam = 1.0 - smoothstep(0.0, 0.028, abs(d - 0.012));
-        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.98, 0.99), foam * 0.9);`,
-      );
-  };
 }

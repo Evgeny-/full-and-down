@@ -50,6 +50,7 @@ export function openDialog(opts: DialogOptions): DialogHandle {
       closed = true;
       const i = stack.indexOf(handle);
       if (i >= 0) stack.splice(i, 1);
+      if (!stack.length) document.documentElement.classList.remove('dialog-open');
       overlay.classList.add('out');
       setTimeout(() => overlay.remove(), 180);
     },
@@ -63,7 +64,7 @@ export function openDialog(opts: DialogOptions): DialogHandle {
     });
     dlg.append(x);
   }
-  const body = h('div', { class: 'dlg-body' });
+  const body = h('div', { class: 'dlg-body', attrs: { tabindex: '0', 'aria-label': `${opts.title} details` } });
   for (const b of opts.body ?? []) body.append(typeof b === 'string' ? h('p', { html: b }) : b);
   dlg.append(body);
   if (opts.buttons?.length) {
@@ -86,6 +87,7 @@ export function openDialog(opts: DialogOptions): DialogHandle {
   overlay.append(dlg);
   layer.append(overlay);
   stack.push(handle);
+  document.documentElement.classList.add('dialog-open');
   return handle;
 }
 

@@ -36,5 +36,10 @@ export const NATION_REGION: Partial<Record<Nation, RegionId>> = {
   GB: 'uk', IE: 'uk', FR: 'fr', ES: 'med', PT: 'med', IT: 'med', GR: 'med', MT: 'med', GI: 'med', SI: 'med', HR: 'med', CY: 'med', TR: 'med',
   MA: 'afN', DZ: 'afN', TN: 'afN', LY: 'afN', EG: 'afN', MR: 'afN', IL: 'afN',
   SN: 'afW', GM: 'afW', SL: 'afW', GN: 'afW', GW: 'afW', LR: 'afW', CI: 'afW', GH: 'afW', TG: 'afW', BJ: 'afW', NG: 'afW', CM: 'afW', GA: 'afW', CG: 'afW', AO: 'afW', CV: 'afW',
-  IS: 'arctic', FO: 'arctic', GL: 'arctic', CA: 'na', US: 'na', RU: 'scan', UA: 'med',
+  IS: 'arctic', FO: 'arctic', GL: 'arctic', CA: 'na', US: 'na', RU: 'scan',
+  // the world beyond Europe
+  UA: 'blacksea', RO: 'blacksea', BG: 'blacksea', GE: 'blacksea', SA: 'gulf', DJ: 'gulf', OM: 'gulf', AE: 'gulf',
+  ZA: 'austral', AU: 'austral', IN: 'southasia', LK: 'southasia', MY: 'seasia', SG: 'seasia', TH: 'seasia', VN: 'seasia',
+  PH: 'seasia', CN: 'eastasia', HK: 'eastasia', TW: 'eastasia', KR: 'eastasia', JP: 'japan', PE: 'latam', EC: 'latam',
+  CO: 'latam', CR: 'latam', GT: 'latam', MX: 'latam', PA: 'latam', BR: 'latam', AR: 'latam', UY: 'latam', JM: 'caribbean', BS: 'caribbean',
 };

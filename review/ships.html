@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ship model review</title>
+  <link rel="icon" href="data:,">
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body { display: flex; flex-direction: column; background: #bfe3f5; color: #182c3c; font: 14px/1.3 'Sofia Sans Variable', system-ui, sans-serif; }
+    header { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 24px; padding: 14px 20px; background: #f7f5ed; border-bottom: 1px solid #d4d7d3; }
+    h1 { margin: 0; font: 600 22px/1.2 'Oswald Variable', sans-serif; }
+    form { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 12px; }
+    label { display: grid; gap: 3px; font-size: 12px; }
+    select { min-height: 32px; border: 1px solid #b7c1c7; border-radius: 4px; padding: 4px 20px 4px 6px; color: inherit; background: white; font: inherit; }
+    #gl { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+    #gl canvas { display: block; width: 100%; height: 100%; }
+    footer { padding: 8px 20px; background: #f7f5ed; border-top: 1px solid #d4d7d3; font-size: 12px; }
+    @media (max-width: 520px) {
+      header { padding: 10px 12px; gap: 8px; }
+      h1 { width: 100%; font-size: 20px; }
+      form { gap: 6px 8px; }
+      select { min-height: 30px; }
+      footer { padding: 8px 12px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Ship model review</h1>
+    <form aria-label="Ship configuration">
+      <label>Ship<select name="kind"><option value="feeder">Feeder</option><option value="bulker">Bulker</option></select></label>
+      <label>Bays<select name="bays"><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
+      <label>Tiers<select name="tiers"><option>1</option><option>2</option><option>3</option></select></label>
+      <label>Cargo<select name="loaded"><option value="0">Empty</option><option value="1">Loaded</option></select></label>
+      <label>View<select name="angle"><option value="bow">Bow quarter</option><option value="side">Side</option><option value="stern">Stern quarter</option></select></label>
+    </form>
+  </header>
+  <div id="gl"></div>
+  <footer id="info" aria-live="polite"></footer>
+  <script type="module" src="./ships.ts"></script>
+</body>
+</html>

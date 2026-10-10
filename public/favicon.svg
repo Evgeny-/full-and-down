@@ -1,10 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="512" height="512">
   <rect width="100" height="100" rx="22" fill="#1f2e4d"/>
-  <g id="icon-art">
-    <rect x="0" y="54" width="100" height="46" fill="#2d8daf"/>
-    <rect x="0" y="52" width="100" height="4" fill="#eaf9fb"/>
-    <circle cx="50" cy="54" r="21" fill="none" stroke="#f8f7f2" stroke-width="6"/>
-    <rect x="18" y="51" width="64" height="6" fill="#f8f7f2"/>
-    <rect x="44" y="24" width="12" height="8" rx="1.5" fill="#ee8b1e"/>
-  </g>
+  <g transform="translate(50 50) scale(1) translate(-50 -50)"><g transform="translate(0 4)">
+    <path d="M14 18h33l-4 12H26v10h15l-4 11H26v23H14zM51 18h18l19 18v19L69 74H51zM63 30v32h2l11-11V40L65 30z" fill="#f8f7f2" fill-rule="evenodd"/>
+    <path d="M8 54h37l8 8h38" fill="none" stroke="#ee8b1e" stroke-width="6.5" stroke-linejoin="miter"/>
+  </g></g>
 </svg>

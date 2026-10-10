@@ -6,15 +6,7 @@
 .map-top { position: absolute; top: 0; left: 0; right: 0; z-index: 2; display: flex; align-items: center; gap: 8px; padding: calc(10px + var(--safe-top)) 12px 10px; background: linear-gradient(rgba(214, 233, 241, 0.97) 70%, rgba(214, 233, 241, 0)); }
 html.night .map { background: #142034; }
 html.night .map-top { background: linear-gradient(rgba(20, 32, 52, 0.97) 70%, rgba(20, 32, 52, 0)); }
-.map-top .logo { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; }
-.map-top .logo .mark { width: 38px; height: 38px; flex: none; border-radius: 8px; background:
-  linear-gradient(transparent 49%, #f8f7f2 49% 55%, transparent 55%) center / 30px 100% no-repeat,
-  radial-gradient(circle, transparent 9.5px, #f8f7f2 10px 12.5px, transparent 13px),
-  linear-gradient(var(--navy) 52%, #2d8daf 52%);
-  box-shadow: var(--shadow-sm); }
-.map-top .logo b { display: block; font: 600 23px/1 var(--num); letter-spacing: 0.05em; text-transform: uppercase; color: var(--navy); }
-html.night .map-top .logo b { color: var(--ink); }
-.map-top .logo small { display: block; margin-top: 3px; font-size: 9px; color: var(--ink-2); }
+.map-top .logo { flex: 1; display: flex; align-items: center; min-width: 0; padding-left: 4px; }
 .map-top .tot { display: flex; align-items: center; gap: 4px; height: 40px; padding: 0 10px; font: 600 17px/1 var(--num); }
 .map-top .tot .of { font-size: 12px; color: var(--ink-2); }
 .map-scroll { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
@@ -80,7 +72,7 @@ html.night .report { filter: brightness(0.92); }
 .report .logbook { margin: 8px 0 2px; padding: 8px 10px; border-left: 3px solid #1e4fa3; background: rgba(30, 79, 163, 0.06); font: italic 500 13.5px/1.4 var(--font); color: #1b2436; }
 
 /* ── notices ── */
-.notice .notice-sub { margin: -6px 0 10px; font-size: 10px; color: var(--ink-2); }
+.notice .notice-sub { margin: 0 0 10px; font-size: 11px; line-height: 1.4; color: var(--ink-2); }
 .notice .notice-art { display: grid; place-items: center; margin: 4px 0 10px; padding: 10px; border-radius: 6px; background: #e3f0f5; }
 .notice .notice-art svg { max-width: 100%; height: auto; }
 .notice p { margin: 0 2px 10px; padding-left: 14px; position: relative; }
@@ -139,19 +131,14 @@ html.night .report { filter: brightness(0.92); }
 
 /* ── the social card (?og) ── */
 #ui.og .hud, #ui.og .coach, #ui.og .overlay, #ui.og .area-card { display: none !important; }
-.og-title { position: absolute; left: 50%; top: 34px; transform: translateX(-50%); display: flex; align-items: center; gap: 18px; padding: 16px 28px 16px 18px; border-radius: 12px; background: var(--enamel); box-shadow: var(--shadow); }
-.og-title .mark { width: 72px; height: 72px; border-radius: 14px; flex: none; background:
-  linear-gradient(transparent 49%, #f8f7f2 49% 55%, transparent 55%) center / 56px 100% no-repeat,
-  radial-gradient(circle, transparent 18px, #f8f7f2 18.5px 23px, transparent 23.5px),
-  linear-gradient(var(--navy) 52%, #2d8daf 52%); }
-.og-title b { display: block; font: 600 58px/1 var(--num); letter-spacing: 0.05em; text-transform: uppercase; color: var(--navy); }
-.og-title small { display: block; margin-top: 6px; font: 700 15px/1 var(--font); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-2); }
+.og-title { position: absolute; left: 50%; top: 34px; transform: translateX(-50%); padding: 22px 40px; border-radius: 12px; background: var(--enamel); box-shadow: var(--shadow); }
+.og-title .wordmark { font-size: 64px; }
 
 
 .landscape .toast { top: 10px; left: calc((100% - 376px) / 2); max-width: min(440px, calc(100% - 400px)); }
 .has-coach .toast { top: calc(var(--top-block, 296px) + 74px); }
 
-/* short screens (landscape phones): the report in two columns, the notice without its picture */
+/* Short screens: compact spacing, with the full notice inside its scrollable body. */
 @media (max-height: 480px) {
   .overlay { padding-top: 8px; padding-bottom: 8px; }
   .dialog-head { padding: 10px 46px 9px 16px; margin-bottom: 10px; font-size: 18px; }
@@ -164,7 +151,7 @@ html.night .report { filter: brightness(0.92); }
   .report .remarks, .report .logbook { grid-column: 2; }
   .report .remarks { grid-row: 4 / span 3; margin: 0; }
   .report .logbook { grid-row: 7 / span 3; }
-  .notice .notice-art { display: none; }
+  .notice .notice-art { margin-bottom: 8px; padding: 8px; }
   .dialog .actions { margin-top: 8px; }
   .dialog .actions .btn { min-height: 40px; }
 }

@@ -7,7 +7,9 @@ export type Nation =
   | 'MA' | 'SN' | 'GH' | 'NG' | 'CI' | 'IS' | 'IE' | 'CA' | 'US' | 'PL' | 'EE' | 'LV' | 'LT' | 'RU' | 'UA'
   | 'TR' | 'EG' | 'AE' | 'IN' | 'SG' | 'CN' | 'JP' | 'KR' | 'BR' | 'AR' | 'LR' | 'PA' | 'MH' | 'CV' | 'PH'
   | 'GM' | 'SL' | 'TG' | 'BJ' | 'RO' | 'TW' | 'SI' | 'HR' | 'BG' | 'GE' | 'CY' | 'IL' | 'TN' | 'DZ' | 'LY'
-  | 'MR' | 'GN' | 'GW' | 'CM' | 'GA' | 'CG' | 'AO' | 'FO' | 'GL' | 'BS' | 'UY';
+  | 'MR' | 'GN' | 'GW' | 'CM' | 'GA' | 'CG' | 'AO' | 'FO' | 'GL' | 'BS' | 'UY'
+  // the world beyond Europe
+  | 'SA' | 'DJ' | 'OM' | 'ZA' | 'AU' | 'LK' | 'MY' | 'TH' | 'VN' | 'HK' | 'PE' | 'EC' | 'CR' | 'CO' | 'JM' | 'GT' | 'MX';
 
 const NAMES: Record<Nation, string> = {
   NL: 'Netherlands', GB: 'United Kingdom', DE: 'Germany', DK: 'Denmark', NO: 'Norway', SE: 'Sweden', FI: 'Finland',
@@ -20,6 +22,9 @@ const NAMES: Record<Nation, string> = {
   TW: 'Taiwan', SI: 'Slovenia', HR: 'Croatia', BG: 'Bulgaria', GE: 'Georgia', CY: 'Cyprus', IL: 'Israel',
   TN: 'Tunisia', DZ: 'Algeria', LY: 'Libya', MR: 'Mauritania', GN: 'Guinea', GW: 'Guinea-Bissau', CM: 'Cameroon',
   GA: 'Gabon', CG: 'Congo', AO: 'Angola', FO: 'Faroe Islands', GL: 'Greenland', BS: 'Bahamas', UY: 'Uruguay',
+  SA: 'Saudi Arabia', DJ: 'Djibouti', OM: 'Oman', ZA: 'South Africa', AU: 'Australia', LK: 'Sri Lanka', MY: 'Malaysia',
+  TH: 'Thailand', VN: 'Vietnam', HK: 'Hong Kong', PE: 'Peru', EC: 'Ecuador', CR: 'Costa Rica', CO: 'Colombia',
+  JM: 'Jamaica', GT: 'Guatemala', MX: 'Mexico',
 };
 
 /** Every nation code, in a stable order. */
@@ -736,6 +741,254 @@ const FLAGS: Record<Nation, Draw> = {
     rect(g, W, 0, 0, c, c);
     sun(g, '#FCD116', c / 2, c / 2, 0.085 * h, 0.2 * h, 16, '#7B3F00');
   },
+  // ── the world beyond Europe ──
+  SA: seq(hz(['#006C35']), (g, w, h) => {
+    // the creed in white script: a wavy run of strokes with a few uprights, above the sword (blade toward the hoist)
+    g.strokeStyle = W;
+    g.lineWidth = 0.05 * h;
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    g.beginPath();
+    for (let i = 0; i <= 18; i++) g.lineTo(w * (0.16 + (0.68 * i) / 18), h * (0.34 + (i % 2 ? -0.05 : 0.04) * (i % 4 < 2 ? 1 : 0.55)));
+    g.stroke();
+    g.lineCap = 'butt';
+    for (const f of [0.22, 0.36, 0.52, 0.68, 0.8]) rect(g, W, w * f, h * 0.17, 0.028 * h, h * 0.15);
+    poly(g, W, [w * 0.15, h * 0.665, w * 0.79, h * 0.615, w * 0.79, h * 0.7]);
+    rect(g, W, w * 0.79, h * 0.57, 0.02 * w, h * 0.2);
+    rect(g, W, w * 0.81, h * 0.64, w * 0.09, h * 0.05);
+    disc(g, W, w * 0.9, h * 0.665, 0.035 * h);
+  }), // Saudi Arabia
+  DJ: seq(hz(['#6AB2E7', '#12AD2B']), (g, w, h) => {
+    poly(g, W, [0, 0, 0.5 * w, h / 2, 0, h]);
+    star(g, '#D7141A', 0.165 * w, h / 2, 0.12 * h);
+  }), // Djibouti
+  OM: seq(hz([W, '#DB161B', '#008000']), (g, w, h) => {
+    rect(g, '#DB161B', 0, 0, w * 0.27, h);
+    // the emblem, simplified: crossed swords over a curved khanjar, white at the top of the band
+    const cx = w * 0.135;
+    const cy = h * 0.19;
+    g.strokeStyle = W;
+    g.lineCap = 'round';
+    g.lineWidth = 0.034 * h;
+    g.beginPath();
+    g.moveTo(cx - 0.085 * w, cy - 0.11 * h);
+    g.lineTo(cx + 0.085 * w, cy + 0.1 * h);
+    g.moveTo(cx + 0.085 * w, cy - 0.11 * h);
+    g.lineTo(cx - 0.085 * w, cy + 0.1 * h);
+    g.stroke();
+    g.lineWidth = 0.045 * h;
+    g.beginPath();
+    g.arc(cx, cy - 0.035 * h, 0.07 * w, 0.15 * Math.PI, 0.85 * Math.PI);
+    g.stroke();
+    g.lineCap = 'butt';
+  }), // Oman
+  ZA: (g, w, h) => {
+    // red over blue, a green Y with white edges, and a black triangle edged with yellow at the hoist
+    hz(['#E03C31', '#001489'])(g, w, h);
+    const j = 0.4 * w;
+    const th = Math.atan2(h / 2, j);
+    const ex = Math.cos(th) * 0.3 * w;
+    const arms = (c: string, t: number): void => {
+      g.strokeStyle = c;
+      g.lineWidth = t;
+      g.lineJoin = 'miter';
+      g.lineCap = 'butt';
+      g.beginPath();
+      g.moveTo(-ex, -ex * Math.tan(th));
+      g.lineTo(j, h / 2);
+      g.lineTo(w + 2, h / 2);
+      g.moveTo(-ex, h + ex * Math.tan(th));
+      g.lineTo(j, h / 2);
+      g.stroke();
+    };
+    arms(W, 0.3 * h);
+    arms('#007749', 0.17 * h);
+    const tri = (c: string, off: number): void => {
+      const xa = j * (1 - (2 * off) / h);
+      poly(g, c, [0, off, xa, h / 2, 0, h - off]);
+    };
+    const o1 = (0.15 * h) / Math.cos(th);
+    tri('#FFB81C', o1);
+    tri(K, o1 + (0.05 * h) / Math.cos(th));
+  }, // South Africa
+  AU: seq(
+    (g, w, h) => rect(g, '#00008B', 0, 0, w, h),
+    (g, w, h) => unionJack(g, w / 2, h / 2),
+    (g, w, h) => {
+      // the Commonwealth Star under the canton, the Southern Cross on the fly
+      star(g, W, 0.25 * w, 0.75 * h, 0.17 * h, -Math.PI / 2, 7, 0.45);
+      for (const [x, y, r] of [[0.75, 0.14, 0.085], [0.62, 0.43, 0.085], [0.88, 0.36, 0.085], [0.75, 0.84, 0.095]] as const) star(g, W, x * w, y * h, r * h, -Math.PI / 2, 7, 0.45);
+      star(g, W, 0.835 * w, 0.62 * h, 0.05 * h);
+    },
+  ), // Australia
+  // Sri Lanka: the gold lion with a sword on a maroon field edged in gold; green and orange stripes at the hoist
+  LK: (g, w, h) => {
+    const Y = '#FFBE29';
+    const M = '#8D153A';
+    const b = 0.05 * h;
+    const sw = 0.07 * w;
+    rect(g, Y, 0, 0, w, h);
+    rect(g, M, b, b, w - 2 * b, h - 2 * b);
+    rect(g, '#00534E', b, b, sw, h - 2 * b);
+    rect(g, '#EB7400', b + sw, b, sw, h - 2 * b);
+    const px = b + 2 * sw + 0.55 * b;
+    rect(g, Y, b + 2 * sw, b, 0.55 * b, h - 2 * b);
+    rect(g, M, px, b, w - b - px, h - 2 * b);
+    const s = 0.84 * (h - 2 * b);
+    const cx = (px + w - b) / 2;
+    const X = (u: number) => cx + (u - 0.5) * s * 1.05;
+    const V = (v: number) => h / 2 + (v - 0.5) * s;
+    const P = (...q: number[]) => poly(g, Y, q.map((n, i) => (i % 2 ? V(n) : X(n))));
+    g.lineCap = 'round';
+    g.strokeStyle = Y;
+    g.fillStyle = Y;
+    // the sword, raised in the right fore paw
+    rect(g, Y, X(0.1), V(0.0), 0.06 * s, 0.5 * s);
+    rect(g, Y, X(0.03), V(0.4), 0.2 * s, 0.05 * s);
+    // a rampant lion: torso slanting down to the haunches, two hind legs, a tail ending in a tuft
+    P(0.36, 0.4, 0.54, 0.34, 0.76, 0.5, 0.74, 0.74, 0.5, 0.7, 0.4, 0.56);
+    P(0.66, 0.62, 0.82, 0.66, 0.88, 0.97, 0.72, 0.97);
+    P(0.46, 0.66, 0.6, 0.72, 0.58, 0.97, 0.42, 0.97);
+    g.lineWidth = 0.06 * s;
+    g.beginPath();
+    g.moveTo(X(0.74), V(0.56));
+    g.quadraticCurveTo(X(1.04), V(0.58), X(0.94), V(0.2));
+    g.stroke();
+    disc(g, Y, X(0.94), V(0.16), 0.065 * s);
+    // mane, head with a snout, and the fore legs
+    disc(g, Y, X(0.4), V(0.28), 0.17 * s);
+    disc(g, Y, X(0.4), V(0.46), 0.1 * s);
+    P(0.32, 0.22, 0.18, 0.3, 0.2, 0.4, 0.32, 0.38);
+    g.lineWidth = 0.08 * s;
+    g.beginPath();
+    g.moveTo(X(0.42), V(0.46));
+    g.lineTo(X(0.15), V(0.42));
+    g.moveTo(X(0.44), V(0.56));
+    g.lineTo(X(0.3), V(0.8));
+    g.stroke();
+    // four bo leaves in the corners of the panel
+    for (const [u, v] of [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]) disc(g, Y, X(u) + (u ? 0.02 : -0.02) * s, V(v) + (v ? 0.02 : -0.02) * s, 0.045 * s);
+  },
+  // Malaysia: fourteen red and white stripes, a blue canton with a yellow crescent and a fourteen-point star
+  MY: seq(hz(Array.from({ length: 14 }, (_, i) => (i % 2 ? W : '#CC0001'))), (g, w, h) => {
+    const ch = (8 / 14) * h;
+    rect(g, '#010066', 0, 0, w / 2, ch);
+    const y = ch / 2;
+    crescent(g, '#FFCC00', 0.2 * h, y, 0.19 * h, 0.2 * h + 0.055 * h, y, 0.15 * h);
+    star(g, '#FFCC00', 0.52 * h, y, 0.17 * h, -Math.PI / 2, 14, 0.5);
+  }),
+  // Thailand: red, white, a double-width blue, white, red
+  TH: hz(['#A51931', W, '#2D2A4A', W, '#A51931'], [1, 1, 2, 1, 1]),
+  // Vietnam: a gold star on red
+  VN: seq(hz(['#DA251D']), (g, w, h) => star(g, '#FFFF00', w / 2, h / 2 + 0.015 * h, 0.31 * h)),
+  // Hong Kong: a white bauhinia of five petals, each with a small red star, on red
+  HK: seq(hz(['#DE2910']), (g, w, h) => {
+    const R = 0.3 * h;
+    for (let i = 0; i < 5; i++) {
+      const a = (i * TAU) / 5;
+      g.save();
+      g.translate(w / 2, h / 2);
+      g.rotate(a);
+      g.fillStyle = W;
+      g.beginPath();
+      g.ellipse(0.04 * R, -0.58 * R, 0.36 * R, 0.5 * R, 0.0, 0, TAU);
+      g.fill();
+      star(g, '#DE2910', 0.04 * R, -0.58 * R, 0.17 * R);
+      g.restore();
+    }
+    disc(g, '#DE2910', w / 2, h / 2, 0.07 * R);
+  }),
+  // Peru: red, white, red upright; the arms are a shield in three fields inside a green wreath
+  PE: seq(vt(['#D91023', W, '#D91023']), (g, w, h) => {
+    const x = w / 2;
+    const y = h / 2;
+    g.strokeStyle = '#3B8A3E';
+    g.lineWidth = 0.055 * h;
+    g.beginPath();
+    g.arc(x, y - 0.01 * h, 0.21 * h, -0.45, Math.PI + 0.45);
+    g.stroke();
+    shield(g, '#8A6A3A', x - 0.15 * h, y - 0.19 * h, 0.3 * h, 0.36 * h);
+    shield(g, '#D91023', x - 0.13 * h, y - 0.17 * h, 0.26 * h, 0.32 * h);
+    rect(g, '#8CC5EA', x - 0.13 * h, y - 0.17 * h, 0.13 * h, 0.15 * h);
+    rect(g, '#F1ECD8', x, y - 0.17 * h, 0.13 * h, 0.15 * h);
+    poly(g, '#2F8F3A', [x + 0.065 * h, y - 0.155 * h, x + 0.11 * h, y - 0.04 * h, x + 0.02 * h, y - 0.04 * h]);
+    disc(g, '#E8B923', x, y + 0.08 * h, 0.04 * h);
+  }),
+  // Ecuador: yellow (double), blue, red; the arms are an oval with the snow peak and a condor on top
+  EC: seq(hz(['#FFDD00', '#034EA2', '#ED1C24'], [2, 1, 1]), (g, w, h) => {
+    const x = w / 2;
+    const y = h * 0.52;
+    const r = 0.17 * h;
+    // condor, wings spread
+    poly(g, '#4A3A2A', [x - 0.3 * h, y - 0.27 * h, x - 0.08 * h, y - 0.3 * h, x, y - 0.2 * h, x + 0.08 * h, y - 0.3 * h, x + 0.3 * h, y - 0.27 * h, x + 0.12 * h, y - 0.15 * h, x - 0.12 * h, y - 0.15 * h]);
+    disc(g, '#C9A227', x, y, r + 0.025 * h);
+    g.save();
+    g.beginPath();
+    g.arc(x, y, r, 0, TAU);
+    g.clip();
+    rect(g, '#8CC5EA', x - r, y - r, 2 * r, 2 * r);
+    rect(g, '#3F9B4A', x - r, y + 0.03 * h, 2 * r, r);
+    poly(g, W, [x - 0.1 * h, y + 0.04 * h, x + 0.01 * h, y - 0.12 * h, x + 0.12 * h, y + 0.04 * h]);
+    rect(g, '#2C6EB5', x - r, y + 0.1 * h, 2 * r, 0.04 * h);
+    g.restore();
+    disc(g, '#FFDD00', x + 0.07 * h, y - 0.09 * h, 0.03 * h);
+  }),
+  CR: hz(['#002B7F', W, '#CE1126', W, '#002B7F'], [1, 1, 2, 1, 1]),
+  CO: hz(['#FCD116', '#003893', '#CE1126'], [2, 1, 1]),
+  // Jamaica: a gold saltire; green above and below, black at the hoist and the fly
+  JM: (g, w, h) => {
+    rect(g, '#009B3A', 0, 0, w, h);
+    poly(g, K, [0, 0, w / 2, h / 2, 0, h]);
+    poly(g, K, [w, 0, w / 2, h / 2, w, h]);
+    g.strokeStyle = '#FED100';
+    g.lineWidth = 0.2 * h;
+    g.beginPath();
+    g.moveTo(0, 0);
+    g.lineTo(w, h);
+    g.moveTo(w, 0);
+    g.lineTo(0, h);
+    g.stroke();
+  },
+  // Guatemala: light blue, white, light blue upright; the arms are a laurel wreath round crossed rifles and a bird
+  GT: seq(vt(['#4997D0', W, '#4997D0']), (g, w, h) => {
+    const x = w / 2;
+    const y = h / 2;
+    g.strokeStyle = '#3B8A3E';
+    g.lineWidth = 0.06 * h;
+    g.beginPath();
+    g.arc(x, y, 0.2 * h, 0, TAU);
+    g.stroke();
+    g.strokeStyle = '#6B5A3A';
+    g.lineWidth = 0.035 * h;
+    g.beginPath();
+    g.moveTo(x - 0.15 * h, y - 0.15 * h);
+    g.lineTo(x + 0.15 * h, y + 0.15 * h);
+    g.moveTo(x + 0.15 * h, y - 0.15 * h);
+    g.lineTo(x - 0.15 * h, y + 0.15 * h);
+    g.stroke();
+    // the quetzal
+    disc(g, '#2FA84F', x, y - 0.02 * h, 0.08 * h);
+    poly(g, '#C8302A', [x - 0.04 * h, y + 0.03 * h, x + 0.04 * h, y + 0.03 * h, x, y + 0.12 * h]);
+  }),
+  // Mexico: green, white, red upright; the arms are an eagle on a nopal cactus above a green wreath
+  MX: seq(vt(['#006847', W, '#CE1126']), (g, w, h) => {
+    const x = w / 2;
+    const y = h / 2;
+    g.strokeStyle = '#3B8A3E';
+    g.lineWidth = 0.05 * h;
+    g.beginPath();
+    g.arc(x, y - 0.02 * h, 0.2 * h, 0.35, Math.PI - 0.35);
+    g.stroke();
+    // wings, body and head of the eagle, facing the hoist
+    poly(g, '#7A4A22', [x - 0.02 * h, y - 0.06 * h, x + 0.14 * h, y - 0.2 * h, x + 0.2 * h, y - 0.1 * h, x + 0.1 * h, y + 0.02 * h]);
+    poly(g, '#7A4A22', [x - 0.02 * h, y - 0.06 * h, x - 0.1 * h, y - 0.18 * h, x - 0.04 * h, y + 0.04 * h]);
+    disc(g, '#8A5A2C', x + 0.04 * h, y - 0.01 * h, 0.1 * h);
+    disc(g, '#8A5A2C', x - 0.06 * h, y - 0.12 * h, 0.05 * h);
+    poly(g, '#E8B923', [x - 0.1 * h, y - 0.13 * h, x - 0.17 * h, y - 0.1 * h, x - 0.1 * h, y - 0.09 * h]);
+    // the nopal and the water
+    rect(g, '#3F8F3F', x - 0.1 * h, y + 0.07 * h, 0.22 * h, 0.06 * h);
+    rect(g, '#3E8FD0', x - 0.14 * h, y + 0.13 * h, 0.3 * h, 0.03 * h);
+  }),
 };
 
 /** Draw the national flag into the rectangle on a 2D canvas (true proportions are approximated to the given box). */

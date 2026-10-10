@@ -36,6 +36,8 @@ export interface Port {
   code: string;
   /** International Code of Signals letter (never B, P, Q or V: those mean things) */
   flag: string;
+  /** ISO 3166 country (the UN/LOCODE prefix): the national flag. Absent = looked up by name. */
+  country?: string;
   /** bunker price per tonne; null = no bunkers here */
   price: number | null;
   /** bunkers are sold in lots of this many tonnes (minimum stem); default 1 */

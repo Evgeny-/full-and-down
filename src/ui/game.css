@@ -203,6 +203,7 @@ html.night .load .zones span { color: #15181e; text-shadow: none; }
 /* the voyage banner */
 .banner { position: absolute; left: 50%; top: calc(var(--top-block, 226px) + 8px); z-index: 20; transform: translateX(-50%); padding: 8px 16px; border-radius: 6px; background: var(--navy); color: #f8f7f2; font: 600 18px/1 var(--num); letter-spacing: 0.12em; text-transform: uppercase; box-shadow: var(--shadow); white-space: nowrap; animation: banner-in 0.3s ease; pointer-events: none; }
 .banner small { display: block; margin-top: 4px; font: 700 10px/1 var(--font); letter-spacing: 0.14em; opacity: 0.75; }
+.banner em { display: block; max-width: min(300px, 80vw); margin-top: 7px; padding-top: 6px; border-top: 1px solid rgba(248, 247, 242, 0.2); font: italic 500 13px/1.3 var(--font); letter-spacing: 0; text-transform: none; white-space: normal; color: #f5d78a; animation: banner-in 0.4s ease 0.3s both; }
 @keyframes banner-in { from { opacity: 0; transform: translate(-50%, -8px); } }
 .skip { position: absolute; right: 12px; bottom: calc(16px + var(--safe-bottom)); z-index: 20; }
 

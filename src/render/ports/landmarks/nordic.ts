@@ -6,6 +6,7 @@ import type { RegionId } from '../regions';
 import { buildTown, tint, type HouseStyle } from '../town';
 import { tower, tallShip, oilRig } from '../structures';
 import { church, turbine } from '../props';
+import { windowOpening } from '../facades';
 
 /**
  * Denmark, southern Norway and Sweden: Oslo (Opera House), Bergen (Bryggen), Esbjerg (Man meets the Sea),
@@ -61,11 +62,17 @@ function gable(k: PortKit, x: number, z: number, w: number, d: number, wallH: nu
   const fh = wallH / floors;
   const cols = Math.max(1, Math.round(w / 0.3));
   const sp = w / cols;
+  const trim = o.trim ?? tint(wall, 0.14);
+  if (!o.lite) {
+    p.boxV(x, y, z, w + 0.016, 0.04, d + 0.016, tint(wall, -0.22));
+    p.boxV(x, y + wallH - 0.028, z, w + 0.035, 0.028, d + 0.035, trim);
+  }
   for (let f = 0; f < floors; f++) {
     const y0 = y + f * fh + fh * 0.28;
     for (let i = 0; i < cols; i++) {
       const cx = x - w / 2 + sp * (i + 0.5);
-      fq(p, cx - 0.045, cx + 0.045, y0, y0 + fh * 0.5, zf + 0.004, win);
+      if (o.lite) fq(p, cx - 0.045, cx + 0.045, y0, y0 + fh * 0.5, zf + 0.004, win);
+      else windowOpening(k, p, 'front', [cx, y0, zf + 0.004], 0.09, fh * 0.5, win, trim);
       if (o.shutter) {
         fq(p, cx - 0.075, cx - 0.05, y0, y0 + fh * 0.5, zf + 0.005, o.shutter);
         fq(p, cx + 0.05, cx + 0.075, y0, y0 + fh * 0.5, zf + 0.005, o.shutter);
@@ -76,7 +83,7 @@ function gable(k: PortKit, x: number, z: number, w: number, d: number, wallH: nu
     const sc = Math.max(1, Math.round(d / 0.32));
     for (let i = 0; i < sc; i++) {
       const cz = zf - (d / sc) * (i + 0.5);
-      rq(p, x + w / 2 + 0.004, y0, y0 + fh * 0.5, cz + 0.04, cz - 0.04, win);
+      windowOpening(k, p, 'right', [x + w / 2 + 0.004, y0, cz], 0.08, fh * 0.5, win, trim);
     }
   }
   // gable window or hoist

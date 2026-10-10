@@ -25,13 +25,13 @@ export interface Area {
 
 export const AREAS: Area[] = [
   { name: 'North Sea', blurb: 'Short-sea coasters out of Rotterdam. Fuel weighs, and one tonne over the stripe doubles the burn.', flags: ['R', 'F', 'E', 'K', 'A', 'O', 'G', 'D'], colors: { sea: '#2d6f8a', sky: '#c9dde6', land: '#7d8b74' } },
-  { name: 'The Coast', blurb: 'Channel ports, tide and timetable. The valve is yours now, and not every berth has a bunker barge.', flags: ['H', 'A', 'L', 'Z', 'S', 'C', 'D', 'W'], colors: { sea: '#2f7f95', sky: '#d4e6ec', land: '#8c9a7c' } },
-  { name: 'Up the Rivers', blurb: 'Rouen, Duisburg, Bremen: shallow bars at the river mouths. Deliver first, bunker after the bar.', flags: ['R', 'D', 'H', 'E', 'N', 'O', 'C', 'M'], colors: { sea: '#4b7a6e', sky: '#dfe8e1', land: '#6f8a5c' } },
-  { name: 'Bunker Calls', blurb: 'Down the African coast, where every pump has its own price and the barges sell in lots.', flags: ['G', 'L', 'D', 'T', 'A', 'C', 'S', 'F'], colors: { sea: '#1f78a4', sky: '#f3e7cf', land: '#c9a46a' } },
-  { name: 'Liner Loop', blurb: 'A Mediterranean feeder rotation. Heavy boxes go low, and the rotation decides what stands on what.', flags: ['A', 'E', 'G', 'R', 'M', 'C', 'S', 'T'], colors: { sea: '#1c6fa8', sky: '#e8eef4', land: '#c7b48c' } },
-  { name: 'Reefer Run', blurb: 'Fruit and fish out of Morocco and Madeira. Reefers need a plug and burn their own fuel; the charter boxes must sail.', flags: ['E', 'A', 'C', 'F', 'T', 'H', 'S', 'L'], colors: { sea: '#2588a8', sky: '#f1eadc', land: '#b9945e' } },
-  { name: 'Winter Passage', blurb: 'Halifax to Tromsø. The winter load line sits mid-ocean, and a low bridge wants her down to her marks.', flags: ['H', 'J', 'R', 'T', 'G', 'N', 'O', 'K'], colors: { sea: '#2b5d78', sky: '#d9e3ea', land: '#9aa7ad' } },
-  { name: 'Grand Voyage', blurb: 'Every rule you have learned, on the longest rotations. Load her to the marks. Not a tonne more.', flags: ['R', 'H', 'A', 'G', 'S', 'E', 'X', 'C'], colors: { sea: '#1d5f8f', sky: '#e4e9ee', land: '#8e8a7a' } },
+  { name: 'The Baltic', blurb: 'Kiel to Klaipėda, Gdańsk to Kotka. The valve is yours now, and not every berth has a bunker barge.', flags: ['H', 'A', 'L', 'Z', 'S', 'C', 'D', 'W'], colors: { sea: '#2f7f95', sky: '#d4e6ec', land: '#8c9a7c' } },
+  { name: 'Black Sea', blurb: 'Odessa, the Danube by Sulina, the Bug to Mykolaiv: shallow bars at the river mouths. Deliver first, bunker after the bar.', flags: ['R', 'D', 'H', 'E', 'N', 'O', 'C', 'M'], colors: { sea: '#4b7a6e', sky: '#dfe8e1', land: '#6f8a5c' } },
+  { name: 'Bunker Calls', blurb: 'Las Palmas, Gibraltar, Suez, Fujairah: every pump has its own price and the barges sell in lots.', flags: ['G', 'L', 'D', 'T', 'A', 'C', 'S', 'F'], colors: { sea: '#1f78a4', sky: '#f3e7cf', land: '#c9a46a' } },
+  { name: 'Straits & China Seas', blurb: 'An Asian feeder rotation through Malacca. Heavy boxes go low, and the rotation decides what stands on what.', flags: ['A', 'E', 'G', 'R', 'M', 'C', 'S', 'T'], colors: { sea: '#1c6fa8', sky: '#e8eef4', land: '#c7b48c' } },
+  { name: 'Banana Coast', blurb: 'Bananas out of Guayaquil, Turbo and Puerto Limón. Reefers need a plug and burn their own fuel; the charter boxes must sail.', flags: ['E', 'A', 'C', 'F', 'T', 'H', 'S', 'L'], colors: { sea: '#2588a8', sky: '#f1eadc', land: '#b9945e' } },
+  { name: 'North Pacific', blurb: 'Hokkaido to the Salish Sea. The winter load line sits mid-ocean, and a low bridge wants her down to her marks.', flags: ['H', 'J', 'R', 'T', 'G', 'N', 'O', 'K'], colors: { sea: '#2b5d78', sky: '#d9e3ea', land: '#9aa7ad' } },
+  { name: 'Round the World', blurb: 'Every rule you have learned, on the longest rotations. Load her to the marks. Not a tonne more.', flags: ['R', 'H', 'A', 'G', 'S', 'E', 'X', 'C'], colors: { sea: '#1d5f8f', sky: '#e4e9ee', land: '#8e8a7a' } },
 ];
 
 export interface LadderRow {
@@ -146,83 +146,83 @@ const SPECS: RowSpec[][] = [
     { title: 'Round the Skaw', lesson: 'Two pickups compete for the same tonnes.', ports: 4, bands: 3, pickup: true },
     { title: 'The Feeder Charter', lesson: 'Every World 1 rule at once: bands on every leg, pickups, the marks.', ports: 4, bands: 3, pickup: true, boxes: [9, 10] },
   ],
-  // 2 The Coast: the valve unlocks; dry ports; stacks two high from x.6
+  // 2 The Baltic: the valve unlocks; dry ports; stacks two high from x.6
   [
     { title: 'Dry Port', lesson: 'No bunkers at the middle call: the second leg\'s fuel comes from home and weighs on the first.', adv: ['noPump'], intro: 'noPump', ports: 3, bands: 2 },
     { title: 'Carry It', lesson: 'How much to carry past a dry berth, and what it costs in cargo.', adv: ['noPump'], ports: 3, bands: 2, pickup: true },
     { title: 'Short Stem', lesson: 'The gas-station habit tips the first leg over a stripe.', adv: ['noPump'], ports: 4, bands: 3, pickup: true },
-    { title: 'Channel Gale', lesson: 'Two legs on one stem, and a pickup you need room for.', adv: ['noPump'], ports: 4, bands: 3, pickup: true },
+    { title: 'Baltic Gale', lesson: 'Two legs on one stem, and a pickup you need room for.', adv: ['noPump'], ports: 4, bands: 3, pickup: true },
     { title: 'To the Tonne', lesson: 'One load meets the marks and the reserve together.', ports: 3, bands: 2, format: 'exact' },
     { title: 'Never Bury', lesson: 'Stacks two high: nothing may stand on a box that leaves earlier.', intro: 'tiers', ports: 4, bays: 2, tiers: 2, bands: 2, pickup: true, authored: true },
     { title: 'Last On, First Off', lesson: 'Where a box stands decides whether the pickup has a home.', adv: ['noPump'], ports: 3, bays: 3, tiers: 2, bands: 3, pickup: true },
-    { title: 'Ushant', lesson: 'Stowage order and a dry berth on the same voyage.', adv: ['noPump'], ports: 4, bays: 3, tiers: 2, bands: 3, pickup: true },
-    { title: 'The Channel Charter', lesson: 'A long rotation: dry berths, stacks and stripes.', adv: ['noPump'], ports: 5, bays: 3, tiers: 2, bands: 3, pickup: true, boxes: [9, 10] },
+    { title: 'The Sound', lesson: 'Stowage order and a dry berth on the same voyage.', adv: ['noPump'], ports: 4, bays: 3, tiers: 2, bands: 3, pickup: true },
+    { title: 'The Baltic Charter', lesson: 'A long rotation: dry berths, stacks and stripes.', adv: ['noPump'], ports: 5, bays: 3, tiers: 2, bands: 3, pickup: true, boxes: [9, 10] },
   ],
-  // 3 Up the Rivers: harbour bars; three high from x.6
+  // 3 Black Sea: harbour bars; three high from x.6
   [
     { title: 'Over the Bar', lesson: 'The bar is checked on arrival: deliver first, bunker after the bar.', adv: ['bar'], intro: 'bar', ports: 3, bands: 2, pickup: true },
-    { title: 'Seine Pilot', lesson: 'A bar upriver and a dry berth below it.', adv: ['bar', 'noPump'], ports: 3, bands: 3, pickup: true },
+    { title: 'Sulina Pilot', lesson: 'A bar upriver and a dry berth below it.', adv: ['bar', 'noPump'], ports: 3, bands: 3, pickup: true },
     { title: 'Deliver First', lesson: 'Rotation order decides who lightens her for the bar.', adv: ['bar'], ports: 4, bands: 3, pickup: true },
     { title: 'Low Water', lesson: 'The bar wants her light, the stem wants her heavy.', adv: ['bar', 'noPump'], ports: 4, bands: 3, pickup: true },
     { title: 'Down to Her Marks', lesson: 'One load: the marks, the reserve, every tonne used.', ports: 3, bands: 2, format: 'exact' },
     { title: 'Three High', lesson: 'Stacks three high: the bottom box sails longest.', twist: 'three high', ports: 4, bays: 2, tiers: 3, bands: 3, pickup: true },
-    { title: 'Rhine Barge', lesson: 'A bar at the river mouth and a pump upstream.', adv: ['bar', 'noPump'], ports: 3, bands: 3, pickup: true },
-    { title: 'Ebb Tide', lesson: 'Stacks three high under a harbour bar.', adv: ['bar'], ports: 4, bays: 3, tiers: 3, bands: 3, pickup: true },
-    { title: 'The River Charter', lesson: 'Bars, dry berths and stacks on a five-port rotation.', adv: ['bar', 'noPump'], ports: 5, bands: 3, pickup: true, boxes: [10, 11] },
+    { title: 'Danube Barge', lesson: 'A bar at the river mouth and a pump upstream.', adv: ['bar', 'noPump'], ports: 3, bands: 3, pickup: true },
+    { title: 'Bosphorus Current', lesson: 'Stacks three high under a harbour bar.', adv: ['bar'], ports: 4, bays: 3, tiers: 3, bands: 3, pickup: true },
+    { title: 'The Black Sea Charter', lesson: 'Bars, dry berths and stacks on a five-port rotation.', adv: ['bar', 'noPump'], ports: 5, bands: 3, pickup: true, boxes: [10, 11] },
   ],
   // 4 Bunker Calls: price spreads; barge lots from x.6
   [
     { title: 'Price Board', lesson: 'Cheap bunkers here, dear there: carry the cheap fuel, but it weighs.', adv: ['prices'], intro: 'prices', ports: 3, bands: 2, pickup: true },
     { title: 'Cheap Here', lesson: 'Cheap fuel past a dry berth costs cargo on the first leg.', adv: ['prices', 'noPump'], ports: 4, bands: 3, pickup: true },
-    { title: 'Las Palmas Stem', lesson: 'A shallow bar at the cheap pump.', adv: ['prices', 'bar'], ports: 4, bands: 3, pickup: true },
-    { title: 'Harmattan', lesson: 'Where to stem on a long dry stretch with three prices.', adv: ['prices', 'noPump'], ports: 4, bands: 3, pickup: true },
+    { title: 'Shallow Stem', lesson: 'A shallow bar at the cheap pump.', adv: ['prices', 'bar'], ports: 4, bands: 3, pickup: true },
+    { title: 'Shamal', lesson: 'Where to stem on a long dry stretch with three prices.', adv: ['prices', 'noPump'], ports: 4, bands: 3, pickup: true },
     { title: 'On the Mark', lesson: 'Exactly one load fills her to the marks and lands her on the reserve.', ports: 3, bands: 2, format: 'exact' },
     { title: 'Barge Lots', lesson: 'Bunkers come in lots: four tonnes or seven?', adv: ['lot'], intro: 'lot', ports: 3, bands: 2, pickup: true },
     { title: 'Four or Seven', lesson: 'A lot at the cheap pump, tonnes at the dear one.', adv: ['lot', 'prices'], ports: 3, bands: 3, pickup: true },
-    { title: 'Gulf of Guinea', lesson: 'Lots and a dry berth: round up, or carry it?', adv: ['lot', 'noPump'], ports: 4, bands: 3, pickup: true },
+    { title: 'Bab-el-Mandeb', lesson: 'Lots and a dry berth: round up, or carry it?', adv: ['lot', 'noPump'], ports: 4, bands: 3, pickup: true },
     { title: 'The Bunker Charter', lesson: 'Prices, lots and a dry berth on the long run south.', adv: ['prices', 'lot', 'noPump'], ports: 5, bands: 3, pickup: true },
   ],
-  // 5 Liner Loop: heavy below light; reefers from x.6
+  // 5 Straits & China Seas: heavy below light; reefers from x.6
   [
     { title: 'Heavy Below', lesson: 'No box may stand on a lighter one: rotation order and weight order collide.', adv: ['heavy'], intro: 'heavy', ports: 3, bands: 2, pickup: true },
     { title: 'Bottom Weight', lesson: 'The heavy box wants the bottom, the price board wants you to stem here.', adv: ['heavy', 'prices'], ports: 3, bands: 3, pickup: true },
     { title: 'Transhipment', lesson: 'Heavy below light, and a berth with no barge.', adv: ['heavy', 'noPump'], ports: 4, bands: 3, pickup: true },
-    { title: 'Strait of Messina', lesson: 'Three rules bind at once: stack order, the bar and the price spread.', adv: ['heavy', 'prices', 'bar'], ports: 4, bands: 3, pickup: true, tiers: 3, bays: 3 },
+    { title: 'Malacca Strait', lesson: 'Three rules bind at once: stack order, the bar and the price spread.', adv: ['heavy', 'prices', 'bar'], ports: 4, bands: 3, pickup: true, tiers: 3, bays: 3 },
     { title: 'Full and Square', lesson: 'One load: the marks to the tonne, the reserve at the last berth.', ports: 3, bands: 2, format: 'exact' },
     { title: 'Plugged In', lesson: 'Reefers need a plugged stack and burn a tonne per leg each.', adv: ['reefer'], intro: 'reefer', ports: 3, bands: 2, pickup: true },
     { title: 'Cold Chain', lesson: 'Where a reefer stands costs fuel, and fuel has a price.', adv: ['reefer', 'prices'], ports: 3, bands: 3, pickup: true },
-    { title: 'Piraeus Loop', lesson: 'Reefers, stack order and heavy boxes in one hold.', adv: ['reefer', 'heavy'], ports: 4, bands: 3, pickup: true, tiers: 3, bays: 3 },
+    { title: 'Pearl River Loop', lesson: 'Reefers, stack order and heavy boxes in one hold.', adv: ['reefer', 'heavy'], ports: 4, bands: 3, pickup: true, tiers: 3, bays: 3 },
     { title: 'The Liner Charter', lesson: 'The whole loop: heavy, reefers and prices.', adv: ['heavy', 'reefer', 'prices'], ports: 5, bands: 3, pickup: true },
   ],
-  // 6 Reefer Run: contract cargo; a cold charter twist at x.6
+  // 6 Banana Coast: contract cargo; a cold charter twist at x.6
   [
     { title: 'Sealed', lesson: 'Contract boxes must sail; everything else is a top-off.', adv: ['contract'], intro: 'contract', ports: 3, bands: 2, pickup: true, format: 'contract' },
-    { title: 'Madeira Fruit', lesson: 'Reefers and two prices on the island run.', adv: ['reefer', 'prices'], ports: 3, bands: 3, pickup: true },
+    { title: 'Banana Boat', lesson: 'Reefers and two prices on the island run.', adv: ['reefer', 'prices'], ports: 3, bands: 3, pickup: true },
     { title: 'Charter Party', lesson: 'Sealed reefers past a dry berth.', adv: ['reefer', 'contract', 'noPump'], ports: 4, bands: 3, pickup: true, format: 'contract' },
-    { title: 'Agadir Night', lesson: 'Reefers, lots and price spreads: every tonne of bunkers has a cost.', adv: ['reefer', 'prices', 'lot'], ports: 4, bands: 3, pickup: true },
+    { title: 'Gatun Night', lesson: 'Reefers, lots and price spreads: every tonne of bunkers has a cost.', adv: ['reefer', 'prices', 'lot'], ports: 4, bands: 3, pickup: true },
     { title: 'Fruit to the Marks', lesson: 'One load fills her to the marks and the reserve.', ports: 3, bands: 2, format: 'exact', tiers: 1, bays: 5 },
     { title: 'Cold Charter', lesson: 'The sealed boxes are reefers: plugs first, then the top-offs, and the reefers\' burn decides the band.', adv: ['reefer', 'contract'], twist: 'reefer charter', ports: 3, bands: 2, pickup: true, format: 'contract', fuelMatters: true },
-    { title: 'Casablanca Bar', lesson: 'A charter over a harbour bar.', adv: ['contract', 'bar'], ports: 3, bands: 3, pickup: true, format: 'contract' },
-    { title: 'Funchal Loop', lesson: 'Reefers below heavy boxes, two prices.', adv: ['reefer', 'heavy', 'prices'], ports: 4, bands: 3, pickup: true, tiers: 3, bays: 3 },
+    { title: 'Guayas Bar', lesson: 'A charter over a harbour bar.', adv: ['contract', 'bar'], ports: 3, bands: 3, pickup: true, format: 'contract' },
+    { title: 'Caribbean Loop', lesson: 'Reefers below heavy boxes, two prices.', adv: ['reefer', 'heavy', 'prices'], ports: 4, bands: 3, pickup: true, tiers: 3, bays: 3 },
     { title: 'The Reefer Charter', lesson: 'Sealed reefers, price spreads and the marks.', adv: ['reefer', 'contract', 'prices'], ports: 5, bands: 3, pickup: true, format: 'contract' },
   ],
-  // 7 Winter Passage: the winter zone line; the low bridge from x.6
+  // 7 North Pacific: the winter zone line; the low bridge from x.6
   [
     { title: 'Winter Mark', lesson: 'A bar at sea: load past it, because she burns down to it.', adv: ['zone'], intro: 'zone', ports: 3, bands: 2, pickup: true },
     { title: 'The Zone Line', lesson: 'Cheap bunkers weigh across the winter line.', adv: ['zone', 'prices'], ports: 3, bands: 3, pickup: true },
-    { title: 'Denmark Strait', lesson: 'A dry berth before the winter zone.', adv: ['zone', 'noPump'], ports: 4, bands: 3, pickup: true },
+    { title: 'Unimak Pass', lesson: 'A dry berth before the winter zone.', adv: ['zone', 'noPump'], ports: 4, bands: 3, pickup: true },
     { title: 'Ice Edge', lesson: 'Heavy boxes low, and the winter mark mid-ocean.', adv: ['zone', 'heavy'], ports: 4, bands: 3, pickup: true },
     { title: 'Plimsoll', lesson: 'Exactly one load: her marks, her reserve.', ports: 3, bands: 2, format: 'exact' },
     { title: 'Low Bridge', lesson: 'Air draft: too light won\'t pass under the bridge.', adv: ['bridge'], intro: 'bridge', ports: 3, bands: 2, pickup: true },
     { title: 'Air Draft', lesson: 'Sink for the bridge, rise for the winter line.', adv: ['bridge', 'zone'], ports: 3, bands: 3, pickup: true },
-    { title: 'Tromsø Sound', lesson: 'The bridge wants weight, and the dear pump sells it.', adv: ['bridge', 'prices'], ports: 4, bands: 3, pickup: true },
+    { title: 'Inside Passage', lesson: 'The bridge wants weight, and the dear pump sells it.', adv: ['bridge', 'prices'], ports: 4, bands: 3, pickup: true },
     { title: 'The Winter Charter', lesson: 'Sealed boxes under a bridge and over the winter line.', adv: ['zone', 'bridge', 'contract'], ports: 5, bands: 3, pickup: true, format: 'contract' },
   ],
-  // 8 Grand Voyage: remixes
+  // 8 Round the World: remixes
   [
     { title: 'Outward Bound', lesson: 'Bars and prices on the first leg of the long voyage.', adv: ['bar', 'prices'], ports: 3, bands: 3, pickup: true },
-    { title: 'Biscay', lesson: 'Heavy below light, lots, and a dry berth.', adv: ['heavy', 'noPump', 'lot'], ports: 3, bands: 3, pickup: true },
-    { title: 'Cape Farewell', lesson: 'Reefers across the winter line.', adv: ['reefer', 'zone'], ports: 4, bands: 3, pickup: true },
+    { title: 'Doldrums', lesson: 'Heavy below light, lots, and a dry berth.', adv: ['heavy', 'noPump', 'lot'], ports: 3, bands: 3, pickup: true },
+    { title: 'Great Circle', lesson: 'Reefers across the winter line.', adv: ['reefer', 'zone'], ports: 4, bands: 3, pickup: true },
     { title: 'The Narrows', lesson: 'Down for the bridge, up for the bar, and two prices to pay for it.', adv: ['bridge', 'bar', 'prices'], ports: 4, bands: 3, pickup: true },
     { title: 'Long Stem', lesson: 'No bunkers at the middle berth: one load and the fuel for both legs fill her to the marks, and she berths on the reserve.', adv: ['noPump'], ports: 3, bands: 3, format: 'exact' },
     { title: 'Long Charter', lesson: 'Sealed boxes, bunkers in lots.', adv: ['contract', 'lot'], ports: 3, bands: 3, pickup: true, format: 'contract' },

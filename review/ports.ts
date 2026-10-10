@@ -14,6 +14,9 @@ import { Quay } from '../src/render/harbour';
 import { AREA_PORTS } from '../src/core/ports';
 import { GROUPS } from '../src/render/ports/landmarks';
 
+/** The game's country for a port name (Cartagena is Colombian in the game). */
+const countryOf = (name: string): string | undefined => AREA_PORTS.flat().find((p) => p.name === name)?.country;
+
 const q = new URLSearchParams(location.search);
 const YAW = (19 * Math.PI) / 180;
 const PITCH = (30 * Math.PI) / 180;
@@ -128,7 +131,7 @@ function gameCamera(w: number, h: number, ship: ShipModel): THREE.PerspectiveCam
 function build(name: string, w: number, h: number, mode: string): View {
   const scene = makeScene();
   const t0 = performance.now();
-  const group = buildPortScene(name, 48);
+  const group = buildPortScene(name, 48, countryOf(name));
   const buildMs = performance.now() - t0;
   scene.add(group);
   let cam: THREE.PerspectiveCamera;
@@ -149,7 +152,7 @@ if (q.get('audit') === '1') {
   const names = [...new Set([...all, ...GROUPS.flatMap((g) => g.PORTS.map((r) => r[0]))])];
   const rows = names.map((name) => {
     const t0 = performance.now();
-    const g = buildPortScene(name, 48);
+    const g = buildPortScene(name, 48, countryOf(name));
     const ms = performance.now() - t0;
     g.updateMatrixWorld(true);
     let calls = 0;

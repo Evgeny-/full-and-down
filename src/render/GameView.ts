@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import { addHarbourLights, createRenderer, LOW_END, type HarbourLights } from './stage';
 import { Tweens, arc, ease, squash } from './anim';
 import { Water } from './water';
-import { ShipModel, LIGHT_Y, MARK_Y, BOX_H, BOX_W, BOX_LEN, SLOT, type ShipKind } from './ship';
+import { ShipModel, LIGHT_Y, MARK_Y, BOX_H, BOX_W, BOX_LEN, SLOT } from './ship';
+import { shipKind } from '../core/rules';
 import { Quay, QUAY_Y } from './harbour';
 import { buildScenery } from './scenery';
 import { disposePortScene, setPortNight } from './ports';
@@ -20,8 +21,11 @@ import { PAL } from './palette';
 import { audio } from '../audio/audio';
 import type { BoxId, Level } from '../core/types';
 
-/** Camera elevation (radians): broadside, low enough that the box faces get the pixels. */
-const PITCH = (30 * Math.PI) / 180;
+/**
+ * Camera elevation (radians): broadside, low enough that the box faces get the pixels and the far
+ * shore's spires and bridges stand clear below the top panel on a phone.
+ */
+const PITCH = (25 * Math.PI) / 180;
 /** Camera azimuth toward the bow: a three-quarter view. */
 const YAW = (19 * Math.PI) / 180;
 
@@ -214,7 +218,7 @@ export class GameView {
     const width = this.quayWidth;
     let g = this.sceneryCache.get(i);
     if (!g) {
-      g = buildScenery(this.level.ports[i].name, width);
+      g = buildScenery(this.level.ports[i].name, width, this.level.ports[i].country);
       this.sceneryCache.set(i, g);
     }
     if (this.scenery === g) return;
@@ -300,7 +304,7 @@ export class GameView {
     g.add(side);
     const deck = new THREE.Mesh(hull.deck, new THREE.MeshStandardMaterial({ color: '#6f3427', roughness: 0.8 }));
     g.add(deck);
-    const yellow = new THREE.MeshStandardMaterial({ color: PAL.funnel, roughness: 0.45 });
+    const yellow = new THREE.MeshStandardMaterial({ color: PAL.crane, roughness: 0.45 });
     for (const z of [-0.12, 0.12]) {
       const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 1.9, 8), yellow);
       pipe.rotation.z = Math.PI / 2;
@@ -412,28 +416,45 @@ export class GameView {
     const span = portrait ? Math.max(8.2, this.ship.length - 0.7) : this.ship.length + 1.0;
     let unit = col / span;
     unit = Math.min(unit, freeH / 5.0 + 8);
-    this.unitPx = unit;
-    const spanPx = span * unit;
     // a fixed horizontal field of view across the ship: the same depth everywhere
     const hfov = (30 * Math.PI) / 180;
-    const vfov = 2 * Math.atan((Math.tan(hfov / 2) * h) / spanPx);
     const cam = this.camera;
-    cam.fov = (vfov * 180) / Math.PI;
-    cam.aspect = w / h;
-    cam.near = 0.5;
-    cam.far = 200;
     const dist = span / 2 / Math.tan(hfov / 2);
     const mid = (this.ship.bowX + this.ship.sternX) / 2;
+    const aim = () => {
+      const vfov = 2 * Math.atan((Math.tan(hfov / 2) * h) / (span * unit));
+      cam.fov = (vfov * 180) / Math.PI;
+      cam.aspect = w / h;
+      cam.near = 0.5;
+      cam.far = 200;
+      cam.clearViewOffset();
+      cam.updateProjectionMatrix();
+    };
+    aim();
     const roomW = (w - right) / unit;
-    const cx = this.ship.length + 0.4 > roomW ? this.ship.sternX - 0.2 + roomW / 2 : mid;
+    const cx = !portrait && this.ship.length + 0.4 > roomW ? this.ship.sternX - 0.2 + roomW / 2 : mid;
     const target = new THREE.Vector3(cx, 0.35, 0.4);
     const off = new THREE.Vector3(Math.sin(YAW) * Math.cos(PITCH), Math.sin(PITCH), Math.cos(YAW) * Math.cos(PITCH)).multiplyScalar(dist);
     cam.position.copy(target).add(off);
     cam.up.set(0, 1, 0);
-    cam.clearViewOffset();
-    cam.updateProjectionMatrix();
     cam.lookAt(target);
     cam.updateMatrixWorld();
+    // on a phone she fits whole, stem to stern: the bow quarter swells in perspective, so measure her
+    let shipX: [number, number] | null = null;
+    if (portrait) {
+      const xs: number[] = [];
+      for (const x of [this.ship.sternX, this.ship.bowX]) for (const y of [0, this.ship.deckY + 1.6]) for (const z of [-0.78, 0.78]) xs.push(this.toScreen(new THREE.Vector3(x, y, z)).x);
+      const room = w - right - 16;
+      const wide = Math.max(...xs) - Math.min(...xs);
+      if (wide > room) {
+        unit *= room / wide;
+        aim();
+      }
+      xs.length = 0;
+      for (const x of [this.ship.sternX, this.ship.bowX]) for (const y of [0, this.ship.deckY + 1.6]) for (const z of [-0.78, 0.78]) xs.push(this.toScreen(new THREE.Vector3(x, y, z)).x);
+      shipX = [Math.min(...xs), Math.max(...xs)];
+    }
+    this.unitPx = unit;
     // put her waterline amidships in the free area: shift the image, not the camera
     const barPx = 18;
     const faceH = BOX_H * Math.cos(PITCH) * unit;
@@ -456,7 +477,8 @@ export class GameView {
       cam.clearViewOffset();
       cam.updateProjectionMatrix();
       const water = this.toScreen(new THREE.Vector3(mid, 0, 0.78));
-      cam.setViewOffset(w, h, water.x - wantX + (cx - mid) * unit, water.y - waterPx, w, h);
+      const dx = shipX ? (shipX[0] + shipX[1]) / 2 - wantX : water.x - wantX + (cx - mid) * unit;
+      cam.setViewOffset(w, h, dx, water.y - waterPx, w, h);
       cam.updateProjectionMatrix();
       // the quay row: find the z where its box tops sit just under the waterline
       const yAt = (z: number) => this.toScreen(new THREE.Vector3(mid, QUAY_Y + BOX_H, z + BOX_W / 2)).y;
@@ -1099,11 +1121,4 @@ export class GameView {
   }
 }
 
-/**
- * Which ship sails a level: a single-tier hold is sometimes a small bulk carrier (open holds, a grab,
- * parcels of grain, coal, steel…), else a container feeder. Stacking levels always sail the feeder.
- */
-export function shipKind(level: Level): ShipKind {
-  const bulky = level.ship.tiers === 1 && !level.mechanics.some((m) => m === 'reefer' || m === 'contract' || m === 'tiers');
-  return bulky && level.n % 2 === 0 ? 'bulker' : 'feeder';
-}
+export { shipKind };

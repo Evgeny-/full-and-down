@@ -17,50 +17,146 @@
     <meta property="og:description" content="Plan a short voyage: which boxes, which stacks, how much fuel. Fuel weighs too." />
     <meta property="og:image" content="og.jpg" />
     <meta name="twitter:card" content="summary_large_image" />
-    <!-- the loading moment, inline so it plays before any script or font: boxes drop on a hull, she sinks to her mark -->
+    <!-- Inline artwork keeps the first paint complete before scripts and fonts arrive. -->
     <style>
-      .boot { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; align-content: center; gap: 4px; padding-bottom: min(18vh, 120px); background: linear-gradient(#bfe3f5 0 58%, #2d8daf 58% 100%); transition: opacity .45s; font-family: 'Oswald Variable', Oswald, 'Arial Narrow', sans-serif; color: #1f2e4d; overflow: hidden; }
+      .boot { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; box-sizing: border-box; padding: max(24px, env(safe-area-inset-top)) 16px max(32px, env(safe-area-inset-bottom)); background: #f8f7f2; color: #1f2e4d; transition: opacity .45s ease; }
       .boot.out { opacity: 0; pointer-events: none; }
-      .boot svg { width: 280px; height: 170px; overflow: visible; }
-      .boot h1 { margin: 6px 0 0; font-size: 40px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
-      .boot p { margin: 0; font: 700 11px/1 system-ui, sans-serif; letter-spacing: .22em; text-transform: uppercase; color: #eaf6fb; }
-      .boot .ship { animation: sink 3.2s cubic-bezier(.4, 0, .2, 1) infinite; }
-      @keyframes sink { 0%, 8% { transform: translateY(0); } 22% { transform: translateY(6px); } 40% { transform: translateY(12px); } 58%, 86% { transform: translateY(18px); } 100% { transform: translateY(0); } }
-      .boot .b1 { animation: d1 3.2s cubic-bezier(.4, 0, .2, 1) infinite; }
-      .boot .b2 { animation: d2 3.2s cubic-bezier(.4, 0, .2, 1) infinite; }
-      .boot .b3 { animation: d3 3.2s cubic-bezier(.4, 0, .2, 1) infinite; }
-      @keyframes d1 { 0% { transform: translateY(-120px); opacity: 0; } 6% { opacity: 1; } 18%, 88% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-120px); opacity: 0; } }
-      @keyframes d2 { 0%, 18% { transform: translateY(-120px); opacity: 0; } 24% { opacity: 1; } 36%, 88% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-120px); opacity: 0; } }
-      @keyframes d3 { 0%, 36% { transform: translateY(-120px); opacity: 0; } 42% { opacity: 1; } 54%, 88% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-120px); opacity: 0; } }
-      .boot .glint { opacity: 0; animation: glint 3.2s ease infinite; }
-      @keyframes glint { 0%, 56% { opacity: 0; } 62% { opacity: 1; } 80% { opacity: 0; } }
-      @media (prefers-reduced-motion: reduce) { .boot * { animation: none !important; } }
+      .boot-content { width: min(760px, 100%); text-align: center; transform: translateY(-3vh); }
+      .boot-scene { display: block; width: 100%; height: auto; }
+      .boot-title { margin: 8px 0 0; line-height: 0; }
+      .boot-title .boot-lettering { display: block; width: clamp(236px, 48vw, 390px); max-width: 100%; height: auto; margin: 0 auto; }
+      .boot-status, .boot-noscript { margin: 18px 0 0; font-family: 'Sofia Sans Variable', 'Sofia Sans', system-ui, sans-serif; font-size: 13px; line-height: 1.5; color: #4d626c; }
+      .boot-status { display: inline-flex; align-items: center; gap: 9px; }
+      .boot-status::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: #ee8b1e; animation: boot-pulse 2.4s ease-in-out infinite; }
+      .boot-ship { animation: boot-float 5.4s ease-in-out infinite; }
+      .boot-wake { animation: boot-wake 5.4s ease-in-out infinite; }
+      @keyframes boot-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(1.5px); } }
+      @keyframes boot-wake { 0%, 100% { opacity: .5; } 50% { opacity: .85; } }
+      @keyframes boot-pulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+      @media (max-width: 480px) { .boot { padding-inline: 8px; } .boot-content { transform: translateY(-4vh); } .boot-title { margin-top: 24px; } }
+      @media (max-height: 460px) and (min-width: 600px) { .boot-content { width: min(520px, 100%); transform: none; } .boot-title { margin-top: 0; } .boot-title .boot-lettering { width: 260px; } .boot-status, .boot-noscript { margin-top: 9px; } }
+      @media (prefers-reduced-motion: reduce) { .boot, .boot * { animation: none !important; transition: none !important; } }
     </style>
   </head>
   <body>
     <div id="app">
       <div id="stage"></div>
       <div id="ui"></div>
-      <div id="boot" class="boot" role="status" aria-label="Loading">
-        <svg viewBox="0 0 280 170" aria-hidden="true">
-          <g class="ship">
-            <rect class="b1" x="78" y="62" width="40" height="26" rx="2" fill="#2c5da8"/>
-            <rect class="b2" x="122" y="62" width="40" height="26" rx="2" fill="#2f8a72"/>
-            <rect class="b3" x="166" y="62" width="40" height="26" rx="2" fill="#7b3f6e"/>
-            <rect x="32" y="40" width="34" height="48" fill="#f2f1ea"/>
-            <rect x="38" y="30" width="14" height="14" fill="#f5c518"/>
-            <rect x="38" y="34" width="14" height="4" fill="#1e4fa3"/>
-            <path d="M20 88h232l-22 46H40z" fill="#1f2e4d"/>
-            <path d="M28 112h216l-14 22H40z" fill="#b8432f"/>
-            <circle cx="150" cy="112" r="9" fill="none" stroke="#f8f7f2" stroke-width="2.5"/>
-            <rect x="136" y="111" width="28" height="2.5" fill="#f8f7f2"/>
-            <rect class="glint" x="120" y="109" width="60" height="6" rx="3" fill="#f5c518"/>
+      <div id="boot" class="boot" role="status" aria-live="polite" aria-atomic="true">
+        <div class="boot-content">
+        <svg class="boot-scene" viewBox="0 0 760 360" aria-hidden="true">
+          <defs>
+            <linearGradient id="boot-water" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#c6dddd"/>
+              <stop offset="1" stop-color="#f8f7f2"/>
+            </linearGradient>
+            <linearGradient id="boot-water-edge">
+              <stop offset="0" stop-color="white" stop-opacity="0"/>
+              <stop offset=".1" stop-color="white"/>
+              <stop offset=".9" stop-color="white"/>
+              <stop offset="1" stop-color="white" stop-opacity="0"/>
+            </linearGradient>
+            <mask id="boot-water-mask"><rect x="28" y="250" width="704" height="110" fill="url(#boot-water-edge)"/></mask>
+          </defs>
+          <!-- A distant breakwater gives the little feeder a working harbour. -->
+          <g fill="none" stroke="#d8dfdc" stroke-width="2" stroke-linecap="round">
+            <path d="M74 105h40m15 0h27M560 59h35m12 0h15"/>
+            <path d="M51 225h76m-18-5h38"/>
           </g>
-          <rect x="-40" y="128" width="360" height="60" fill="#2d8daf"/>
-          <path d="M-40 128h360" stroke="#eaf9fb" stroke-width="3"/>
+          <g fill="#b5c5c3">
+            <path d="M92 217h10l-2-35h-6z"/>
+            <rect x="92" y="178" width="10" height="8" rx="1"/>
+            <path d="m90 178 7-5 7 5z"/>
+          </g>
+          <path d="M594 227h128v18H574z" fill="#a8bdbb"/>
+          <path d="M591 227h131" stroke="#f8f7f2" stroke-width="3"/>
+          <g stroke="#9fb5b2" stroke-width="1.5">
+            <rect x="661" y="205" width="46" height="21" rx="1" fill="#ced9d3"/>
+            <path d="M668 209v13m7-13v13m7-13v13m7-13v13m7-13v13"/>
+            <rect x="638" y="188" width="46" height="17" rx="1" fill="#e0d8c4" stroke="#c6c4b5"/>
+            <path d="M645 191v11m7-11v11m7-11v11m7-11v11m7-11v11" stroke="#c6c4b5"/>
+          </g>
+          <g fill="none" stroke="#c4b29a" stroke-width="5" stroke-linejoin="round">
+            <path d="M633 226V79h34v147M633 80 491 113h196"/>
+            <path d="m635 84 29 28m-29 0 29 31m-29 0 29 31m-29 0 29 31" stroke-width="2"/>
+          </g>
+          <path d="M515 113v33m-5 0h10l-5 6z" fill="none" stroke="#9da9a5" stroke-width="1.5"/>
+          <rect x="634" y="104" width="16" height="15" rx="1" fill="#e9e3d7"/>
+          <rect x="636" y="106" width="12" height="8" fill="#8ba5ac"/>
+          <g class="boot-ship">
+            <!-- Bridge, funnel and mast. -->
+            <path d="M164 201h85v26h-85z" fill="#dddcd1"/>
+            <path d="M174 151h65v53h-65z" fill="#efede3"/>
+            <path d="m239 151 13 9v44h-13z" fill="#c5d0ca"/>
+            <path d="M168 153h77v7h-77z" fill="#f8f7f2"/>
+            <path d="M174 153v-7h65v7" fill="#1f2e4d"/>
+            <path d="M183 164h11v11h-11zm17 0h11v11h-11zm17 0h13v11h-13z" fill="#597d91"/>
+            <path d="m243 165 5 3v9l-5-2z" fill="#597d91"/>
+            <rect x="198" y="182" width="11" height="20" rx="1" fill="#c2ccc6"/>
+            <circle cx="222" cy="187" r="3.5" fill="#718b96"/>
+            <path d="M173 204h78" stroke="#fffdf8" stroke-width="3"/>
+            <path d="M190 145v-27h23v27" fill="#1f2e4d"/>
+            <path d="M190 126h23v6h-23" fill="#ee8b1e"/>
+            <path d="M191 119h23" stroke="#f8f7f2" stroke-width="3"/>
+            <g stroke="#6f8489" stroke-width="2" fill="none" stroke-linecap="round">
+              <path d="M226 146V95m-11 12h22m-17-8h12m-6 9 9 33"/>
+              <path d="M169 209v13m11-13v13m11-13v13m11-13v13m11-13v13m11-13v13m11-13v13m-66-13h66" stroke-width="1.2"/>
+            </g>
+            <!-- The ribbed containers stay aboard while the vessel gently moves. -->
+            <rect x="270" y="187" width="82" height="37" rx="1.5" fill="#d68436"/>
+            <path d="M276 191v28m9-28v28m9-28v28m9-28v28m9-28v28m9-28v28m9-28v28m9-28v28" stroke="#b96e2d" stroke-width="2"/>
+            <rect x="355" y="187" width="82" height="37" rx="1.5" fill="#608e8a"/>
+            <path d="M361 191v28m9-28v28m9-28v28m9-28v28m9-28v28m9-28v28m9-28v28m9-28v28" stroke="#4d7977" stroke-width="2"/>
+            <rect x="440" y="187" width="82" height="37" rx="1.5" fill="#a9b6aa"/>
+            <path d="M446 191v28m9-28v28m9-28v28m9-28v28m9-28v28m9-28v28m9-28v28m9-28v28" stroke="#8e9e93" stroke-width="2"/>
+            <rect x="312" y="148" width="82" height="36" rx="1.5" fill="#b7c1b2"/>
+            <path d="M318 152v27m9-27v27m9-27v27m9-27v27m9-27v27m9-27v27m9-27v27m9-27v27" stroke="#9aa994" stroke-width="2"/>
+            <rect x="397" y="148" width="82" height="36" rx="1.5" fill="#769ca3"/>
+            <path d="M403 152v27m9-27v27m9-27v27m9-27v27m9-27v27m9-27v27m9-27v27m9-27v27" stroke="#5b838c" stroke-width="2"/>
+            <path d="M270 187h82m3 0h82m3 0h82M312 148h82m3 0h82" stroke="#fffdf8" stroke-width="1.5" opacity=".6"/>
+            <path d="M245 210h19v7c-9 8-17 5-21-2z" fill="#ee8b1e"/>
+            <!-- A broadside hull with the load-line mark just above the water. -->
+            <path d="M137 224h408l57-15-18 42-23 23H179l-24-16z" fill="#1f2e4d"/>
+            <path d="M151 249h434l-24 25H179l-24-16z" fill="#b96646"/>
+            <path d="M137 224h408l57-15" fill="none" stroke="#f8f7f2" stroke-width="3"/>
+            <path d="M538 220v-10m13 7v-11m13 7v-10m13 6v-11m-39 12 47-13" fill="none" stroke="#879a9e" stroke-width="1.3"/>
+            <path d="M550 233h14m-11-3 5 6" stroke="#f8f7f2" stroke-width="1.5"/>
+            <g fill="#f8f7f2" opacity=".65"><circle cx="179" cy="237" r="2.5"/><circle cx="191" cy="237" r="2.5"/><circle cx="203" cy="237" r="2.5"/></g>
+            <!-- boot-hull-brand-start -->
+            <g transform="translate(346 222) scale(.35)"><g transform="translate(0 4)">
+    <path d="M14 18h33l-4 12H26v10h15l-4 11H26v23H14zM51 18h18l19 18v19L69 74H51zM63 30v32h2l11-11V40L65 30z" fill="#f8f7f2" fill-rule="evenodd"/>
+    <path d="M8 54h37l8 8h38" fill="none" stroke="#ee8b1e" stroke-width="5.5" stroke-linejoin="miter"/>
+  </g></g>
+            <!-- boot-hull-brand-end -->
+          </g>
+          <path d="M28 258c59-6 103-2 149 0h379c65-3 123-4 176 0v102H28z" fill="url(#boot-water)" mask="url(#boot-water-mask)"/>
+          <g fill="none" stroke-linecap="round">
+            <path d="M154 258h405" stroke="#f8f7f2" stroke-width="2.5"/>
+            <path class="boot-wake" d="M116 273h79m318 1h83m-368 11h113m48 4h78m-348 3h40m452-4h24" stroke="#7eabad" stroke-width="2"/>
+            <path d="M212 305h63m218 9h46m-382-3h17m390-13h24" stroke="#b4ceca" stroke-width="1.5"/>
+          </g>
+          <g transform="translate(87 253)">
+            <path d="m0 0-4 17h8z" fill="#c48059"/>
+            <path d="M-7 17H7l-3 5h-8z" fill="#1f2e4d"/>
+            <path d="M0 0v-9m-3 3h6" stroke="#1f2e4d" stroke-width="1.5"/>
+          </g>
         </svg>
-        <h1>Full &amp; Down</h1>
-        <p>Load her to the marks</p>
+        <!-- boot-brand-start -->
+        <h1 class="boot-title" aria-label="Full &amp; Down"><svg xmlns="http://www.w3.org/2000/svg" class="brand-lettering boot-lettering" viewBox="0 0 297 40" aria-hidden="true" focusable="false" fill="currentColor" fill-rule="evenodd">
+    <path d="M0 0h22l-2 7H7v9h12l-2 7H7v17H0z"/>
+    <path transform="translate(28)" d="M0 0h7v30l3 3h4l3-3V0h7v33l-7 7H7l-7-7z"/>
+    <path transform="translate(58)" d="M0 0h7v33h14l-2 7H0z"/>
+    <path transform="translate(85)" d="M0 0h7v33h14l-2 7H0z"/>
+    <path class="brand-amp" fill="#c96d0e" transform="translate(119)" d="M25 40l-5-6c-4 4-8 6-12 6-6 0-8-4-8-10 0-5 3-8 8-12C4 14 2 12 2 8c0-5 4-8 10-8s10 3 10 8c0 5-4 8-8 11l7 8 3-6h7l-6 12 6 7zM12 6c-2 0-3 1-3 3s1 4 3 6c3-2 4-4 4-6s-2-3-4-3zM11 23c-3 2-4 4-4 6 0 3 1 5 4 5 2 0 4-2 5-4z"/>
+    <path transform="translate(164)" d="M0 0h14l13 13v14L14 40H0zM7 7v26h4l9-9v-8l-9-9z"/>
+    <path transform="translate(197)" d="M8 0h10l8 8v24l-8 8H8l-8-8V8zM9 7l-2 3v20l2 3h8l2-3V10l-2-3z"/>
+    <path transform="translate(229)" d="M0 0h7l3 28 5-19h5l5 19 3-28h7l-6 40h-7l-4.5-17L13 40H6z"/>
+    <path transform="translate(270)" d="M0 40V0h7l13 26V0h7v40h-7L7 14v26z"/>
+  </svg></h1>
+        <!-- boot-brand-end -->
+        <p class="boot-status">Loading the harbour</p>
+        <noscript><style>.boot-status { display: none; }</style><p class="boot-noscript">Enable JavaScript to play.</p></noscript>
+        </div>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>

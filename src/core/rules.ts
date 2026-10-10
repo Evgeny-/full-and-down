@@ -11,6 +11,17 @@ export function burnOf(ship: Ship, leg: Leg, w: number, reefers: number): number
   return leg.days * ship.bands[bandOf(ship, w)].rate + reefers;
 }
 
+export type ShipKind = 'feeder' | 'bulker';
+
+/**
+ * Which ship sails a level: a single-tier hold is sometimes a small bulk carrier (open holds, a grab,
+ * parcels of grain, coal, steel…), else a container feeder. Stacking levels always sail the feeder.
+ */
+export function shipKind(level: Level): ShipKind {
+  const bulky = level.ship.tiers === 1 && !level.mechanics.some((m) => m === 'reefer' || m === 'contract' || m === 'tiers');
+  return bulky && level.n % 2 === 0 ? 'bulker' : 'feeder';
+}
+
 export function emptyPlan(level: Level): Call[] {
   return level.ports.slice(0, -1).map(() => ({ loads: [], bunker: 0 }));
 }

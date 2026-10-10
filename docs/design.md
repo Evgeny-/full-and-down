@@ -130,8 +130,11 @@ seafarer), sludge, lightering.
 - Every peak is followed by a breather.
 - Bands slide harder across areas.
 
-Areas: North Sea, the Coast, Up the Rivers, Bunker Calls, Liner Loop, Reefer Run, Winter Passage,
-Grand Voyage.
+Areas, round the world: North Sea, the Baltic, Black Sea, Bunker Calls, Straits & China Seas, Banana
+Coast, North Pacific, Round the World. The puzzles are generated first; then `src/core/naming.ts`
+gives each voyage a run of real neighbouring ports suited to its roles (a bar on a river port, a dry
+call on a small one, the cheap pump at a bunker hub, a low bridge under a real one). Bulk carriers
+sail under the names of Unimor's Supramaxes, and the funnels wear OAL's colours.
 
 ## Difficulty is measured, not guessed
 

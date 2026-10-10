@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { hashString, Rng } from '../../core/rng';
-import { nationOfPort, type Nation } from '../nations';
+import { nationOfPort, NATIONS, type Nation } from '../nations';
 import { PortKit, MOLE_Z, SHORE_Z } from './kit';
 import { buildTown, quayWall } from './town';
 import { harbourBoats } from './props';
@@ -25,11 +25,12 @@ export { disposePortScene, setPortNight } from './kit';
  * frees its geometry and flag texture. `setPortNight(on)` lights the town windows warm for every scene at
  * once (they are dark by day).
  */
-export function buildPortScene(portName: string, width: number): THREE.Group {
+export function buildPortScene(portName: string, width: number, country?: string): THREE.Group {
   const w = Math.max(40, width);
   const key = norm(portName);
   const entry = PORT_TABLE[key];
-  const nation: Nation | null = nationOfPort(portName);
+  // the level's UN/LOCODE country wins (Cartagena, Colombia is not Cartagena, Spain)
+  const nation: Nation | null = country && (NATIONS as readonly string[]).includes(country) ? (country as Nation) : nationOfPort(portName);
   const seed = hashString(key || 'port');
   const k = new PortKit(portName, w, seed);
   const lm = entry?.landmark ? LANDMARKS[entry.landmark] : undefined;

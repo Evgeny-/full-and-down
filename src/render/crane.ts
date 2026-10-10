@@ -34,7 +34,7 @@ export class Crane {
   constructor(base: THREE.Vector3, parkAz = 0, grab = false) {
     this.grab = grab;
     this.group.position.copy(base);
-    const yellow = new THREE.MeshStandardMaterial({ color: PAL.funnel, roughness: 0.45 });
+    const yellow = new THREE.MeshStandardMaterial({ color: PAL.crane, roughness: 0.45 });
     const dark = new THREE.MeshStandardMaterial({ color: '#3a3f47', roughness: 0.6 });
     const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.21, 0.75, 14), yellow);
     pedestal.position.y = 0.375;
@@ -44,7 +44,7 @@ export class Crane {
     this.group.add(this.slew);
     // the cab with a window strip
     const [c, g] = canvas(64, 32);
-    g.fillStyle = PAL.funnel;
+    g.fillStyle = PAL.crane;
     g.fillRect(0, 0, 64, 32);
     g.fillStyle = '#2b3a4f';
     g.fillRect(6, 8, 52, 12);
@@ -60,7 +60,7 @@ export class Crane {
     this.boom.position.set(0.1, 0.12, 0);
     this.slew.add(this.boom);
     const [bc, bg] = canvas(256, 32);
-    bg.fillStyle = PAL.funnel;
+    bg.fillStyle = PAL.crane;
     bg.fillRect(0, 0, 256, 32);
     bg.strokeStyle = 'rgba(80,60,0,0.45)';
     bg.lineWidth = 3;
@@ -159,7 +159,7 @@ function hazardTexture(): THREE.CanvasTexture {
   const [c, g] = canvas(64, 64);
   g.fillStyle = '#15181e';
   g.fillRect(0, 0, 64, 64);
-  g.fillStyle = PAL.funnel;
+  g.fillStyle = PAL.crane;
   for (const o of [-64, 0, 64]) {
     g.beginPath();
     g.moveTo(o, 64);

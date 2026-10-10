@@ -1,0 +1,11 @@
+<svg width="594" height="80" style="color:#1f2e4d" xmlns="http://www.w3.org/2000/svg" class="brand-lettering " viewBox="0 0 297 40" aria-hidden="true" focusable="false" fill="currentColor" fill-rule="evenodd">
+    <path d="M0 0h22l-2 7H7v9h12l-2 7H7v17H0z"/>
+    <path transform="translate(28)" d="M0 0h7v30l3 3h4l3-3V0h7v33l-7 7H7l-7-7z"/>
+    <path transform="translate(58)" d="M0 0h7v33h14l-2 7H0z"/>
+    <path transform="translate(85)" d="M0 0h7v33h14l-2 7H0z"/>
+    <path class="brand-amp" fill="#c96d0e" transform="translate(119)" d="M25 40l-5-6c-4 4-8 6-12 6-6 0-8-4-8-10 0-5 3-8 8-12C4 14 2 12 2 8c0-5 4-8 10-8s10 3 10 8c0 5-4 8-8 11l7 8 3-6h7l-6 12 6 7zM12 6c-2 0-3 1-3 3s1 4 3 6c3-2 4-4 4-6s-2-3-4-3zM11 23c-3 2-4 4-4 6 0 3 1 5 4 5 2 0 4-2 5-4z"/>
+    <path transform="translate(164)" d="M0 0h14l13 13v14L14 40H0zM7 7v26h4l9-9v-8l-9-9z"/>
+    <path transform="translate(197)" d="M8 0h10l8 8v24l-8 8H8l-8-8V8zM9 7l-2 3v20l2 3h8l2-3V10l-2-3z"/>
+    <path transform="translate(229)" d="M0 0h7l3 28 5-19h5l5 19 3-28h7l-6 40h-7l-4.5-17L13 40H6z"/>
+    <path transform="translate(270)" d="M0 40V0h7l13 26V0h7v40h-7L7 14v26z"/>
+  </svg>

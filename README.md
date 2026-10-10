@@ -14,12 +14,16 @@ Free in any browser, on phone or desktop. No install, no ads.
   <img src="docs/screens/plan.jpg" width="200" alt="A call in Rotterdam: the route with the fuel she carries, the ship at her berth, the quay, and the load bar with the fuel she still needs">
   <img src="docs/screens/sail.jpg" width="200" alt="A bulk carrier at her berth: open holds, a grab, and parcels of coal, grain and steel">
   <img src="docs/screens/report.jpg" width="200" alt="The arrival report with its three rubber stamps">
-  <img src="docs/screens/chart.jpg" width="200" alt="The pilot chart: eight sea areas">
+  <img src="docs/screens/chart.jpg" width="200" alt="The pilot chart: eight sea areas round the world">
 </p>
 
-- 🧭 **72 voyages** in eight sea areas, from the North Sea to a grand voyage, with up to five calls each
-- 🌍 Real ports with their own flags and skylines: Rotterdam's bridge, Ålesund's painted houses…
-- 🚢 Container feeders that stack, and small bulk carriers with open holds and a grab
+- 🧭 **72 voyages** round the world in eight sea areas: the North Sea, the Baltic, the Black Sea,
+  the bunker calls from Gibraltar to Fujairah, the China Seas, the Banana Coast, the North Pacific
+  and a voyage round the world, with up to five calls each
+- 🌍 Real ports with their own flags and skylines, and a word from the pilot as she comes alongside:
+  Odessa's Potemkin Stairs, the Bridge of the Americas, Table Mountain with her tablecloth on…
+- 🚢 Container feeders that stack, and small bulk carriers with open holds and a grab, in OAL's
+  royal blue funnel colours, the bulkers named after Unimor's Supramaxes
 - ⛽ Fuel weighs, heavier ships burn more, and some ports sell no bunkers
 - 📦 Stacks that must come off in order, harbour bars, price spreads, barge lots, heavy-below-light,
   reefers, contract cargo, winter load lines and low bridges, each one introduced on its own

@@ -19,6 +19,7 @@
  */
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { nameLevel } from '../src/core/naming';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { cpus } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -177,7 +178,10 @@ const fromCache = (n: number): Built | null => (process.env.FRESH === '1' ? null
 
 function save(): void {
   mkdirSync(dirname(OUT), { recursive: true });
+  // real ports, countries and ships for every voyage (the puzzle is untouched)
   const all = [...levels.values()].sort((a, b) => a.n - b.n);
+  const used = new Map<string, number>();
+  for (let i = 0; i < all.length; i++) all[i] = nameLevel(all[i], used);
   writeFileSync(OUT + '.tmp', '[\n' + all.map((l) => JSON.stringify(l)).join(',\n') + '\n]\n');
   renameSync(OUT + '.tmp', OUT);
 }

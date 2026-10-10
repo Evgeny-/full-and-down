@@ -39,6 +39,8 @@ html.night {
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: var(--sky); font-family: var(--font); color: var(--ink); overscroll-behavior: none; touch-action: none; user-select: none; -webkit-user-select: none; }
+/* Native dialog scrolling needs its ancestors to allow the same touch gesture. */
+html.dialog-open, html.dialog-open body { touch-action: pan-y; }
 html.night, html.night body { background: #16233a; }
 #app { position: fixed; inset: 0; }
 #stage { position: absolute; inset: 0; }
@@ -109,13 +111,14 @@ html.night .btn { color: var(--ink); }
 .caps { font: 700 11px/1 var(--font); letter-spacing: 0.14em; text-transform: uppercase; }
 
 /* ── dialogs ── */
-.overlay { position: absolute; inset: 0; z-index: 50; display: grid; place-items: center; padding: calc(16px + var(--safe-top)) 16px calc(16px + var(--safe-bottom)); background: var(--dim); animation: fade-in 0.2s ease; }
+.overlay { position: absolute; inset: 0; z-index: 50; display: grid; grid-template-rows: minmax(0, 1fr); place-items: center; padding: calc(16px + var(--safe-top)) 16px calc(16px + var(--safe-bottom)); background: var(--dim); touch-action: pan-y; animation: fade-in 0.2s ease; }
 .overlay.out { animation: fade-out 0.18s ease forwards; }
 @keyframes fade-in { from { opacity: 0; } }
 @keyframes fade-out { to { opacity: 0; } }
 .dialog {
   position: relative;
   width: min(380px, 100%);
+  min-height: 0;
   max-height: 100%;
   display: flex;
   flex-direction: column;
@@ -127,7 +130,7 @@ html.night .btn { color: var(--ink); }
   animation: pop-in 0.32s cubic-bezier(0.2, 1.4, 0.4, 1);
 }
 @keyframes pop-in { from { transform: translateY(18px) scale(0.94); opacity: 0; } }
-.dlg-body { flex: 1 1 auto; min-height: 0; overflow: hidden auto; overscroll-behavior: contain; touch-action: pan-y; margin: 0 -6px; padding: 0 6px; }
+.dlg-body { flex: 1 1 auto; min-height: 0; overflow: hidden auto; overscroll-behavior: contain; touch-action: pan-y; -webkit-overflow-scrolling: touch; margin: 0 -6px; padding: 4px 6px; }
 .dialog-head {
   flex: none;
   margin: 0 -18px 16px;

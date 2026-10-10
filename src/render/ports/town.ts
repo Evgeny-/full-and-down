@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Rng } from '../../core/rng';
 import { PortKit, noise2, smooth, lerp, clamp, SHORE_Z, LAND_Y, type Col, type V3 } from './kit';
+import { windowOpening } from './facades';
 
 export type RoofKind = 'gable' | 'front' | 'hip' | 'flat' | 'step' | 'mono' | 'dome';
 
@@ -54,10 +55,11 @@ function windows(k: PortKit, x: number, y0: number, z: number, w: number, d: num
     for (let i = 0; i < cols; i++) {
       const cx = x - w / 2 + sp * (i + 0.5);
       if (f === 0 && hs.door && i === Math.floor(cols / 2) && rng.chance(0.7)) {
-        p.quad([cx - 0.03, y0 + 0.01, zf], [cx + 0.03, y0 + 0.01, zf], [cx + 0.03, y0 + 0.12, zf], [cx - 0.03, y0 + 0.12, zf], hs.door);
+        windowOpening(k, p, 'front', [cx, y0 + 0.01, zf], 0.06, 0.11, hs.door, hs.trim, false);
+        p.boxV(cx, y0 - 0.002, zf + 0.025, 0.085, 0.017, 0.058, tint(hs.trim, -0.15));
         continue;
       }
-      (rng.chance(0.4) ? k.lit : p).quad([cx - ww / 2, yy, zf], [cx + ww / 2, yy, zf], [cx + ww / 2, yy + wh, zf], [cx - ww / 2, yy + wh, zf], hs.win);
+      windowOpening(k, rng.chance(0.4) ? k.lit : p, 'front', [cx, yy, zf], ww, wh, hs.win, hs.trim);
     }
   }
   if (!sides || hs.gap[1] < 0.04) return;
@@ -68,7 +70,7 @@ function windows(k: PortKit, x: number, y0: number, z: number, w: number, d: num
     const yy = y0 + f * fh + (fh - wh) / 2 + 0.01;
     for (let i = 0; i < sc; i++) {
       const cz = z + d / 2 - ss * (i + 0.5);
-      (rng.chance(0.4) ? k.lit : p).quad([xf, yy, cz + ww / 2], [xf, yy, cz - ww / 2], [xf, yy + wh, cz - ww / 2], [xf, yy + wh, cz + ww / 2], hs.win);
+      windowOpening(k, rng.chance(0.4) ? k.lit : p, 'right', [xf, yy, cz], ww, wh, hs.win, hs.trim);
     }
   }
 }
@@ -98,6 +100,11 @@ export function house(
   p.boxV(x, gTop - sink, z, w, h + sink, d, wall);
   if (detail) windows(k, x, gTop, z, w, d, floors, hs, rng, detail === true);
   const top = gTop + h;
+  if (detail) {
+    // Narrow courses anchor the building to the street and separate the roof from its walls.
+    p.boxV(x, gTop, z, w + 0.012, 0.035, d + 0.012, tint(wall, -0.24));
+    p.boxV(x, top - 0.027, z, w + 0.022, 0.024, d + 0.022, hs.trim);
+  }
   const rh = Math.max(0.05, hd * hs.pitch);
   switch (kind) {
     case 'gable': {

@@ -1,0 +1,25 @@
+/* Keep the name legible beside the map's progress and settings controls. */
+.wordmark.brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34em;
+  font: 600 24px/1 var(--num);
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+  color: var(--navy);
+  white-space: nowrap;
+}
+
+.brand-lockup .brand-emblem { display: block; width: 1.35em; height: 1.35em; flex: none; }
+.brand-lockup .brand-lettering { display: block; width: 6.31125em; height: 0.85em; overflow: visible; flex: none; }
+html.night .wordmark.brand-lockup { color: var(--ink); }
+html.night .brand-lockup .brand-amp { fill: #ee8b1e; }
+.og-title .wordmark.brand-lockup { font-size: 64px; }
+
+@media (max-width: 520px) {
+  .wordmark.brand-lockup { font-size: 22px; gap: 0.3em; }
+}
+
+@media (max-width: 350px) {
+  .wordmark.brand-lockup { font-size: 20px; }
+}

@@ -6,6 +6,6 @@ import { buildPortScene } from './ports';
  * ports and the national flag on a pole (see ./ports). `userData.update(t)` of the returned group waves the
  * flag and spins the wind-turbine rotors: GameView calls it every frame. Free it with `disposePortScene`.
  */
-export function buildScenery(portName: string, width: number): THREE.Group {
-  return buildPortScene(portName, width);
+export function buildScenery(portName: string, width: number, country?: string): THREE.Group {
+  return buildPortScene(portName, width, country);
 }

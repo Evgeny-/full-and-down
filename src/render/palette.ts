@@ -22,8 +22,12 @@ export const PAL = {
   magenta: '#c2257e',
   skyTop: '#bfe3f5',
   horizon: '#f4f1e6',
-  funnel: '#f5c518',
-  funnelBand: '#1e4fa3',
+  /** OAL colours (Ocean Agencies, London and Odessa): a royal blue funnel, a broad white band */
+  funnel: '#1d4ea6',
+  funnelBand: '#f8f7f2',
+  funnelMark: '#15295a',
+  mast: '#f5c518',
+  crane: '#f5c518',
   rubber: '#2a2d33',
 };
 

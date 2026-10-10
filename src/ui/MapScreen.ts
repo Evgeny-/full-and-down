@@ -1,9 +1,12 @@
 import { h } from './dom';
 import { glyph, starSvg } from './glyphs';
+import { wordmark } from './logo';
 import { AREAS } from '../app/areas';
 import { unlockedUpTo, type SaveData } from '../app/save';
 import type { Level } from '../core/types';
 import { audio } from '../audio/audio';
+import { coastMarkup } from './mapCoasts';
+import './map.css';
 
 export interface MapHandlers {
   onPlay(n: number): void;
@@ -34,7 +37,7 @@ export class MapScreen {
     this.el.classList.remove('hidden');
     const total = levels.reduce((s, l) => s + (save.levels[l.n]?.stars ?? 0), 0);
     this.header.innerHTML = '';
-    const logo = h('div', { class: 'logo', html: `<span class="mark"></span><span><b>Full &amp; Down</b><small class="caps">Load her to the marks</small></span>` });
+    const logo = h('div', { class: 'logo', html: wordmark() });
     const stars = h('div', { class: 'plate tot', html: `${starSvg(true, 16)}<span class="num">${total}</span><span class="of">/${levels.length * 3}</span>` });
     const gear = h('button', { class: 'btn token', html: glyph('gear', 20), attrs: { 'aria-label': 'Settings' } });
     gear.addEventListener('click', () => {
@@ -61,14 +64,13 @@ export class MapScreen {
         h('div', { class: 'area-head plate rivets', html: `<span class="an num">${a + 1}</span><span class="at"><b>${area.name}</b><small>${area.blurb}</small></span><span class="as">${starSvg(true, 13)}<span class="num">${got}/${list.length * 3}</span></span>` }),
       );
       const W = 340;
-      const step = 74;
-      const pts = list.map((_, k) => ({ x: W / 2 + Math.sin(k * 1.05 + a * 1.7) * W * 0.3, y: 46 + k * step }));
-      const H = 46 + list.length * step;
-      const path = pts.map((p, k) => (k ? `S${(pts[k - 1].x + p.x) / 2 + (k % 2 ? 30 : -30)} ${p.y - step / 2} ${p.x} ${p.y}` : `M${p.x} ${p.y}`)).join(' ');
-      const coast = `<path d="M0 0 C 40 ${H * 0.2} 10 ${H * 0.5} 34 ${H * 0.75} S 8 ${H} 0 ${H} Z" fill="var(--land)"/><path d="M${W} 0 C ${W - 30} ${H * 0.3} ${W - 6} ${H * 0.55} ${W - 26} ${H * 0.8} S ${W} ${H} ${W} ${H} Z" fill="var(--land)"/>`;
+      const step = 68;
+      const pts = list.map((_, k) => ({ x: W / 2 + Math.sin(k * 1.05 + a * 1.7) * W * 0.3, y: 44 + k * step }));
+      const H = 44 + list.length * step;
+      const path = pts.map((p, k) => k ? `C${pts[k - 1].x} ${pts[k - 1].y + step * 0.48} ${p.x} ${p.y - step * 0.48} ${p.x} ${p.y}` : `M${p.x} ${p.y}`).join(' ');
       const svgEl = h('div', {
         class: 'track',
-        html: `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="xMidYMin meet" aria-hidden="true">${coast}<path d="${path}" fill="none" stroke="#c2257e" stroke-width="2.4" stroke-dasharray="7 6" opacity=".75"/></svg>`,
+        html: `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" aria-hidden="true">${coastMarkup(a, H)}<path class="voyage-track" d="${path}" fill="none" vector-effect="non-scaling-stroke"/></svg>`,
       });
       svgEl.style.height = `${H}px`;
       list.forEach((lv, k) => {
@@ -80,9 +82,10 @@ export class MapScreen {
         const breather = (lv.n - 1) % per === 4;
         const btn = h('button', {
           class: `node${isOpen ? '' : ' locked'}${isCur ? ' cur' : ''}${boss ? ' boss' : ''}${breather ? ' fd' : ''}${rec?.stars === 3 ? ' full' : ''}`,
-          html: `<span class="disc num">${isOpen ? lv.n : glyph('lock', 16)}</span>${rec?.stars ? `<span class="ns">${[0, 1, 2].map((i) => starSvg(i < rec.stars, 12)).join('')}</span>` : ''}${isCur ? `<span class="you">${glyph('ship', 18)}</span>` : ''}<span class="nt">${lv.title}</span>`,
-          attrs: { 'aria-label': `Voyage ${lv.n}: ${lv.title}` },
+          html: `<span class="disc num">${lv.n}${isOpen ? '' : `<span class="node-lock">${glyph('lock', 10)}</span>`}</span>${rec?.stars ? `<span class="ns">${[0, 1, 2].map((i) => starSvg(i < rec.stars, 12)).join('')}</span>` : ''}${isCur ? `<span class="you">${glyph('ship', 18)}</span>` : ''}<span class="nt">${lv.title}</span>`,
+          attrs: { 'aria-label': `Voyage ${lv.n}: ${lv.title}${isOpen ? '' : ', locked'}` },
         });
+        btn.disabled = !isOpen;
         btn.style.left = `${(p.x / W) * 100}%`;
         btn.style.top = `${p.y}px`;
         btn.classList.add(p.x > W / 2 ? 'right' : 'left');

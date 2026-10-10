@@ -10,7 +10,10 @@ import type { MoleOpts } from './harbour';
  * a port picks one (and may add a landmark on top).
  */
 
-export type RegionId = 'nl' | 'de' | 'scan' | 'uk' | 'fr' | 'med' | 'isle' | 'afN' | 'afW' | 'arctic' | 'na' | 'generic';
+/** The world beyond Europe: each is defined by its own module in ./landmarks. */
+export type WorldRegionId = 'baltic' | 'blacksea' | 'gulf' | 'austral' | 'southasia' | 'seasia' | 'eastasia' | 'japan' | 'latam' | 'caribbean' | 'pacnw';
+
+export type RegionId = 'nl' | 'de' | 'scan' | 'uk' | 'fr' | 'med' | 'isle' | 'afN' | 'afW' | 'arctic' | 'na' | 'generic' | WorldRegionId;
 
 export interface TreeSpec {
   kinds: TreeKind[];
@@ -216,7 +219,7 @@ const pal = (p: Partial<TerrainPalette>): TerrainPalette => ({ land: '#a9b97a', 
 
 const flatShape: TerrainShape = { relief: 0.25, range: 0.5, rise: 10, rough: 0.2, freq: 0.06 };
 
-export const REGIONS: Record<RegionId, Region> = {
+const BASE: Record<Exclude<RegionId, WorldRegionId>, Region> = {
   nl: {
     id: 'nl',
     boats: { kinds: ['sail', 'fishing'], n: 3, colors: ['#c8302a', '#2c5da8', '#f6f3ea'] },
@@ -432,6 +435,13 @@ export const REGIONS: Record<RegionId, Region> = {
     armour: 'mixed',
   },
 };
+
+export const REGIONS = BASE as Record<RegionId, Region>;
+
+/** World regions start as the generic look; their modules in ./landmarks replace them (see landmarks.ts). */
+for (const id of ['baltic', 'blacksea', 'gulf', 'austral', 'southasia', 'seasia', 'eastasia', 'japan', 'latam', 'caribbean', 'pacnw'] as WorldRegionId[]) {
+  REGIONS[id] = { ...REGIONS.generic, id };
+}
 
 // ───────────────────────────── the unknown port: seeded variety ─────────────────────────────
 

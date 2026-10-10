@@ -5,7 +5,7 @@ const MAX_RIPPLES = 8;
 
 /**
  * Harbour water: one plane, one shader. Depth bands from deep (far) to shallow (near the quay),
- * gentle animated swell, sun glints, foam around the hull (an ellipse), and landing ripples.
+ * slow swell, broken wave strokes, a narrow hull fringe, and landing ripples.
  */
 export class Water {
   readonly mesh: THREE.Mesh;
@@ -71,27 +71,36 @@ export class Water {
           float d = mix(clamp((uQuayZ - p.y) / 9.0, 0.0, 1.0), 0.75 + 0.25 * clamp((10.0 - p.y) / 20.0, 0.0, 1.0), uSea);
           vec3 col = mix(uShallow, uMid, smoothstep(0.0, 0.35, d));
           col = mix(col, uDeep, smoothstep(0.35, 1.0, d));
-          // swell: soft moving bands
+          // Long, low swells keep the surface calm between the small wave strokes.
           float t = uTime;
-          float n = noise(p * 1.3 + vec2(t * 0.25, t * 0.11)) * 0.6 + noise(p * 3.1 - vec2(t * 0.35, -t * 0.2)) * 0.4;
-          col *= 0.95 + n * 0.08;
-          // crest lines
-          float crest = smoothstep(0.80, 0.9, noise(p * vec2(1.4, 3.0) + vec2(t * 0.3, 0.0)));
-          col = mix(col, uFoam, crest * 0.08);
-          // sun glints
-          float g = noise(p * 9.0 + vec2(t * 0.9, t * 0.5));
-          col += vec3(1.0, 0.97, 0.9) * smoothstep(0.93, 0.99, g) * 0.22 * (1.0 - uNight);
+          float swell = noise(p * vec2(0.32, 0.55) + vec2(t * 0.035, -t * 0.045));
+          float flow = noise(p * vec2(1.3, 0.7) + vec2(t * 0.045, t * 0.02));
+          col *= 0.97 + swell * 0.045;
+          // Stretched, interrupted crests read as waves instead of bright round patches.
+          float phase = p.y * 6.5 + p.x * 0.38 + flow * 3.0 - t * 0.45;
+          float aa = max(fwidth(phase) * 0.65, 0.035);
+          float crest = 1.0 - smoothstep(0.055, 0.055 + aa, abs(sin(phase)));
+          float strokes = noise(p * vec2(2.6, 1.8) + vec2(t * 0.07, -t * 0.025));
+          float broken = smoothstep(0.64, 0.82, strokes);
+          col = mix(col, uFoam, crest * broken * 0.13);
+          // A few crests catch the sun; their shape follows the same moving surface.
+          float glint = crest * smoothstep(0.76, 0.91, strokes);
+          col += vec3(1.0, 0.97, 0.9) * glint * 0.07 * (1.0 - uNight);
           // foam at the quay wall
           float q = smoothstep(0.35, 0.0, uQuayZ - q0.y + noise(vec2(q0.x * 2.0, t)) * 0.12) * step(uQuayX.x, q0.x) * step(q0.x, uQuayX.y);
           col = mix(col, uFoam, q * 0.75);
-          // hull foam ring (an ellipse around the ship)
+          // Measure the hull fringe in world units so the ends do not grow wide white pads.
           if (uHullOn > 0.5) {
-            vec2 h = (q0 - uHull.xy) / vec2(uHull.z, uHull.w);
+            vec2 radius = vec2(uHull.z, uHull.w);
+            vec2 local = q0 - uHull.xy;
+            vec2 h = local / radius;
             float e = length(h);
-            float edge = 1.0 - smoothstep(0.0, 0.12 + uSpeed * 0.1, abs(e - 1.0) - 0.01 - noise(p * 6.0 + t) * 0.05);
-            col = mix(col, uFoam, edge * (0.55 + uSpeed * 0.3));
+            float hullDistance = e * (e - 1.0) / max(length(local / (radius * radius)), 0.001);
+            float fringe = abs(hullDistance) - noise(p * vec2(3.5, 5.0) + t * 0.3) * 0.025;
+            float edge = 1.0 - smoothstep(0.01, 0.045 + uSpeed * 0.06, fringe);
+            col = mix(col, uFoam, edge * (0.24 + uSpeed * 0.38));
             // shadowed water close under the hull
-            col *= mix(0.86, 1.0, smoothstep(0.85, 1.25, e));
+            col *= mix(0.87, 1.0, smoothstep(-0.04, 0.24, hullDistance));
             // wake behind a moving ship
             if (uSpeed > 0.01) {
               float behind = (uHull.x - q0.x) / uHull.z;

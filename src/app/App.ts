@@ -12,6 +12,8 @@ import { campaign } from './levels';
 import { loadSave, writeSave, resetSave, unlockedUpTo, type SaveData } from './save';
 import { NOTICES, COACH, type CoachStep } from './notices';
 import { areaOf } from './areas';
+import { PILOT_NOTES } from './pilotNotes';
+import { wordmark } from '../ui/logo';
 import { starsFor } from '../core/rules';
 import { maskOf, solve } from '../core/solver';
 import type { BoxId, Call, Level } from '../core/types';
@@ -62,6 +64,7 @@ export class App {
     if (params.has('reset')) {
       resetSave();
       this.save = loadSave();
+      this.applyNight();
     }
     if (params.has('progress')) {
       const n = Number(params.get('progress'));
@@ -78,7 +81,7 @@ export class App {
       this.view.insets = { top: 150, bottom: 6 };
       this.view.resize(window.innerWidth, window.innerHeight);
       this.anchors = this.view.layout();
-      this.ui.append(h('div', { class: 'og-title', html: '<span class="mark"></span><span><b>Full &amp; Down</b><small>Load her to the marks. Not a tonne more.</small></span>' }));
+      this.ui.append(h('div', { class: 'og-title', html: wordmark() }));
       requestAnimationFrame((t) => this.frame(t));
       document.getElementById('boot')?.remove();
       return;
@@ -821,6 +824,8 @@ export class App {
     audio.engine(false);
     audio.play('toot');
     say(`${lv.ports[next].name}`, `arrived · ${leg.fuelIn} t of fuel left`);
+    const note = PILOT_NOTES[lv.ports[next].name];
+    if (note) banner.insertAdjacentHTML('beforeend', `<em>${escapeHtml(note)}</em>`);
     const delivered = pr.calls[next].delivered;
     const dur = this.view.discharge(delivered, (id, at) => {
       this.pop(`+$${lv.boxes[id].freight}`, at.x, at.y);
@@ -911,7 +916,7 @@ export class App {
       buttons: stars
         ? [
             { label: 'Improve', onClick: () => this.backToPlan() },
-            { label: isLast ? 'Chart' : 'Next voyage', cls: 'blue', onClick: () => (isLast ? this.showMap() : this.play(lv.n + 1)) },
+            { label: isLast ? 'Main menu' : 'Next voyage', cls: 'blue', onClick: () => (isLast ? this.showMap() : this.play(lv.n + 1)) },
           ]
         : [{ label: 'Try again', cls: 'blue', onClick: () => this.backToPlan() }],
     });
@@ -954,7 +959,7 @@ export class App {
         { label: 'Resume', cls: 'blue', onClick: () => undefined },
         { label: 'How to play', onClick: () => (this.showHowTo(), true) },
         { label: 'Clear the plan', onClick: () => this.clearPlan() },
-        { label: 'Chart', onClick: () => this.showMap() },
+        { label: 'Main menu', onClick: () => this.showMap() },
         { label: 'Settings', onClick: () => (this.openSettings(), true) },
         ...(DEBUG ? [{ label: 'Auto-solve', onClick: () => this.autoSolve() }] : []),
       ],
@@ -1029,6 +1034,7 @@ export class App {
                 closeAllDialogs();
                 resetSave();
                 this.save = loadSave();
+                this.applyNight();
                 this.showMap();
               } },
             ],
