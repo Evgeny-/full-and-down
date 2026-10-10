@@ -168,3 +168,7 @@ html.night .dwt { background: rgba(38, 53, 82, 0.93); }
 
 /* transient overlays never take a tap (they sit above the 3D view) */
 #ui > .pop, #ui > .toast, #ui > .banner, #ui > .coach { pointer-events: none; }
+
+.title .fmt { margin-left: 6px; padding: 1px 5px; border-radius: 3px; font-style: normal; color: #fff; letter-spacing: 0.1em; }
+.title .fmt.fd { background: #0f7a5c; }
+.title .fmt.ct { background: #b3201c; }

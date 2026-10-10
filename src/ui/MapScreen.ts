@@ -14,7 +14,7 @@ const ROSE = `<svg class="rose" viewBox="0 0 120 120" aria-hidden="true"><circle
   const a = (i / 32) * Math.PI * 2;
   const r1 = i % 4 === 0 ? 40 : 48;
   return `<line x1="${60 + Math.cos(a) * r1}" y1="${60 + Math.sin(a) * r1}" x2="${60 + Math.cos(a) * 54}" y2="${60 + Math.sin(a) * 54}" stroke="#c2257e" stroke-width=".8" opacity=".5"/>`;
-}).join('')}<path d="M60 8 L67 60 L60 112 L53 60Z" fill="#c2257e" opacity=".5"/><path d="M8 60 L60 53 L112 60 L60 67Z" fill="#c2257e" opacity=".35"/><text x="60" y="6" font-family="Oswald" font-size="9" text-anchor="middle" fill="#c2257e">N</text></svg>`;
+}).join('')}<path d="M60 8 L67 60 L60 112 L53 60Z" fill="#c2257e" opacity=".5"/><path d="M8 60 L60 53 L112 60 L60 67Z" fill="#c2257e" opacity=".35"/><text x="60" y="6" font-family="Oswald Variable, Oswald, sans-serif" font-size="9" text-anchor="middle" fill="#c2257e">N</text></svg>`;
 
 /** The pilot chart: eight sea areas, nine ports each, on a dashed magenta track. */
 export class MapScreen {

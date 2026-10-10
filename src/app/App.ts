@@ -195,6 +195,8 @@ export class App {
 
   private startCoach(level: Level): void {
     this.clearCoach();
+    if (level.format === 'exact') toast(this.ui, 'OFFICE: one load puts her exactly on the mark and lands her on the reserve. Find it.', 4200);
+    else if (level.format === 'contract' && level.n !== 46) toast(this.ui, 'OFFICE: the sealed boxes are under contract and must sail.', 3600);
     const steps = COACH[level.n];
     if (!steps || (this.save.levels[level.n]?.stars ?? 0) > 0) return;
     const el = h('div', { class: 'coach' });

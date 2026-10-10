@@ -87,7 +87,8 @@ export class Hud {
   setLevel(level: Level, area: string, best: number): void {
     this.level = level;
     this.bestStars = best;
-    this.title.innerHTML = `<span class="lv num">${level.n}</span><span class="tt"><b>${level.title}</b><small class="caps">${area}</small></span><span class="best">${[0, 1, 2].map((i) => starSvg(i < best, 15)).join('')}</span>`;
+    const fmt = level.format === 'exact' ? '<i class="fmt fd">Full &amp; Down</i>' : level.format === 'contract' ? '<i class="fmt ct">Contract</i>' : '';
+    this.title.innerHTML = `<span class="lv num">${level.n}</span><span class="tt"><b>${level.title}</b><small class="caps">${area}${fmt}</small></span><span class="best">${[0, 1, 2].map((i) => starSvg(i < best, 15)).join('')}</span>`;
     this.lastProfit = 0;
     this.tagEls.forEach((t) => t.remove());
     this.tagEls.clear();
