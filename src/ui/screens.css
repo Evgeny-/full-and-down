@@ -102,10 +102,31 @@ html.night .report { filter: brightness(0.92); }
 
 /* wide screens: the HUD stays a phone-width column */
 @media (min-width: 640px) {
-  .dwt { left: 50% !important; right: auto !important; width: 560px; transform: translateX(-50%); }
-  .hud-top, .rule, .strip, .bunker, .voice, .dock, .coach { left: 50% !important; right: auto !important; width: 560px; transform: translateX(-50%); }
-  .voice.show { display: flex; }
+  #ui:not(.landscape) .dwt { left: 50% !important; right: auto !important; width: 560px; transform: translateX(-50%); }
+  #ui:not(.landscape) :is(.hud-top, .rule, .strip, .bunker, .voice, .dock, .coach) { left: 50% !important; right: auto !important; width: 560px; transform: translateX(-50%); }
 }
+
+/* landscape phones: the harbour on the left, the HUD in a column on the right */
+.landscape .hud-top { top: calc(6px + var(--safe-top)); left: auto; right: calc(8px + env(safe-area-inset-right, 0px)); width: 360px; }
+.landscape .hud-top .btn.token, .landscape .title { height: 36px; min-height: 36px; }
+.landscape .title .lv { height: 26px; min-width: 28px; font-size: 15px; }
+.landscape .title .tt b { font-size: 14px; }
+.landscape .title .tt small { display: none; }
+.landscape .rule { top: calc(46px + var(--safe-top)); left: auto; right: calc(8px + env(safe-area-inset-right, 0px)); width: 360px; height: 38px; }
+.landscape .rule .money { font-size: 20px; min-width: 46px; }
+.landscape .rule .rcol { gap: 3px; }
+.landscape .strip { top: calc(88px + var(--safe-top)); left: auto; right: calc(8px + env(safe-area-inset-right, 0px)); width: 360px; min-height: 78px; padding: 3px; }
+.landscape .strip .port { padding: 2px 3px; gap: 1px; }
+.landscape .bunker { left: auto; right: calc(8px + env(safe-area-inset-right, 0px)); width: 360px; bottom: calc(96px + var(--safe-bottom)); min-height: 44px; padding: 3px 6px 3px 10px; }
+.landscape .bunker .stepper .btn.token { width: 34px; min-width: 34px; min-height: 34px; }
+.landscape .bunker .need { min-height: 34px; }
+.landscape .voice { left: auto; right: calc(8px + env(safe-area-inset-right, 0px)); width: 360px; bottom: calc(54px + var(--safe-bottom)); min-height: 36px; padding: 5px 10px; font-size: 12.5px; }
+.landscape .dock { left: auto; right: calc(8px + env(safe-area-inset-right, 0px)); width: 360px; bottom: calc(6px + var(--safe-bottom)); }
+.landscape .dock .btn { min-height: 42px; }
+.landscape .dock .btn.token { width: 42px; min-width: 42px; }
+.landscape .coach { top: 8px; left: calc(8px + env(safe-area-inset-left, 0px)); right: 380px; padding: 6px 10px; font-size: 13px; }
+.landscape .banner { left: calc((100% - 372px) / 2); top: 10px; }
+
 
 /* ── new waters ── */
 .area-card { position: absolute; inset: 0; z-index: 60; display: grid; place-items: center; background: radial-gradient(circle at 50% 45%, rgba(31, 46, 77, 0.55), rgba(14, 22, 38, 0.82)); animation: fade-in 0.3s ease; cursor: pointer; }

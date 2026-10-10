@@ -21,6 +21,8 @@ const PITCH = (27 * Math.PI) / 180;
 export interface Insets {
   top: number;
   bottom: number;
+  /** a HUD column on the right (landscape phones) */
+  right?: number;
 }
 
 /** Screen anchors the DOM layer needs (CSS px). */
@@ -69,7 +71,7 @@ export class GameView {
   readonly fx = new FxView();
   ship!: ShipModel;
   level!: Level;
-  insets: Insets = { top: 200, bottom: 230 };
+  insets: Insets = { top: 200, bottom: 230, right: 0 };
   /** where the waterline sits within the free area (0 top … 1 bottom) */
   waterFrac = 0.62;
   clock = 0;
@@ -312,7 +314,8 @@ export class GameView {
     const freeH = Math.max(200, h - this.insets.top - this.insets.bottom);
     // portrait: let the bow and stern run a little off the edges so the boxes get the pixels
     // the ship fills a phone-width column; wider screens see more harbour around it
-    const col = Math.min(w, 640);
+    const right = this.insets.right ?? 0;
+    const col = Math.min(w - right - (right ? 16 : 0), 640);
     const span = portrait ? Math.max(8.4, this.ship.length - 0.5) : this.ship.length + 1.2;
     let unit = col / span;
     // keep her (and the quay below) inside the free height
@@ -339,7 +342,7 @@ export class GameView {
     // never let the ship's mast run under the top block
     const shipAbove = (this.ship.deckY + this.level.ship.tiers * BOX_H + 0.9) * c * u;
     waterPx = Math.max(waterPx, this.insets.top + shipAbove * 0.8);
-    const waterPoint = new THREE.Vector3(0, 0, sideZ);
+    const waterPoint = new THREE.Vector3(right / 2 / u, 0, sideZ);
     this.look.copy(waterPoint).addScaledVector(up, (waterPx - h / 2) / u);
     this.camera.position.copy(this.look).addScaledVector(dir, -40);
     this.camera.up.set(0, 1, 0);

@@ -522,9 +522,15 @@ export class App {
   private onResize(): void {
     const w = window.innerWidth;
     const hgt = window.innerHeight;
-    const compact = hgt < 760;
+    const landscape = w > hgt * 1.25 && hgt < 600;
+    const compact = hgt < 760 && !landscape;
     this.ui.classList.toggle('compact', compact);
-    if (this.hud) {
+    this.ui.classList.toggle('landscape', landscape);
+    this.view.insets.right = landscape ? 376 : 0;
+    if (this.hud && landscape) {
+      this.view.insets.top = 8;
+      this.view.insets.bottom = 42;
+    } else if (this.hud) {
       this.view.insets.top = this.hud.topHeight() + 6;
       // dock 66, voice 48, bunker 58, quay tags 32, quay boxes ~30, deadweight bar 58
       // dock 66 + voice 50 + bunker 62 + freight tags 34 (from the bottom of the screen)

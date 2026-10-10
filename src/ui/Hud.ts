@@ -251,8 +251,9 @@ export class Hud {
       <div class="zones">${zones}</div>`;
     if (a) {
       this.dwt.style.top = `${Math.round(a.waterY + 6)}px`;
+      const land = this.root.parentElement?.classList.contains('landscape');
       this.dwt.style.left = '12px';
-      this.dwt.style.right = '12px';
+      this.dwt.style.right = land ? '388px' : '12px';
     }
   }
 
