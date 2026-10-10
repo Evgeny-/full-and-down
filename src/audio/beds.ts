@@ -33,9 +33,8 @@ function setRms(L: Float32Array, R: Float32Array, to: number): void {
   scale(R, g);
 }
 
-/** The deep swell: brown noise below 500 Hz, two decorrelated sides. */
-export function bakeSwell(seed: number): Loop2 {
-  const sr = BED_RATE;
+/** The deep swell: brown noise below 500 Hz, two decorrelated sides (`sr` can be low: nothing above 1 kHz). */
+export function bakeSwell(seed: number, sr = BED_RATE): Loop2 {
   const r = new Rng(seed);
   const side = () => {
     const x = brown(sr, 11.3 + 1.2, r, 18);
@@ -173,9 +172,10 @@ export class BedBuffers {
   private sw: AudioBuffer | null = null;
   private lp: AudioBuffer | null = null;
   private dz: { clean: AudioBuffer; grit: AudioBuffer } | null = null;
-  constructor(private ctx: BaseAudioContext) {}
+  /** `swellRate`: the lowest buffer rate the context takes, down to 11025 Hz (the swell is all below 1 kHz). */
+  constructor(private ctx: BaseAudioContext, private swellRate = BED_RATE) {}
   get swell(): AudioBuffer {
-    return (this.sw ??= stereoBuffer(this.ctx, bakeSwell(11)));
+    return (this.sw ??= stereoBuffer(this.ctx, bakeSwell(11, this.swellRate)));
   }
   get lap(): AudioBuffer {
     return (this.lp ??= stereoBuffer(this.ctx, bakeLap(23)));
@@ -193,8 +193,8 @@ export class BedBuffers {
 export type Shot = (name: BedSound, t: number, volume: number, pan: number) => void;
 
 /** Bed layer levels (calibrated: the bed sits about 6 LU under the music, see docs/audio.md). */
-const SWELL_LEVEL = 0.13;
-const LAP_LEVEL = 0.12;
+const SWELL_LEVEL = 0.11;
+const LAP_LEVEL = 0.1;
 
 /** How often each one-shot comes round (seconds between, min..max) and how loud. */
 const EVENTS: Record<BedSound, { gap: [number, number]; vol: [number, number]; first: [number, number] }> = {
@@ -292,9 +292,11 @@ export class DieselRun {
   private lp: BiquadFilterNode;
   private out: GainNode;
   private stopped = false;
+  private load: number;
 
   constructor(ctx: BaseAudioContext, dest: AudioNode, bufs: BedBuffers, t: number, load: number) {
     const l = clamp(load, 0, 1);
+    this.load = l;
     const { clean, grit } = bufs.diesel;
     this.out = ctx.createGain();
     this.lp = ctx.createBiquadFilter();
@@ -325,9 +327,12 @@ export class DieselRun {
     this.out.connect(dest);
   }
 
+  /** Glide to a new load. Safe to call every frame: tiny changes are ignored, and each call replaces the last glide. */
   setLoad(load: number, t: number): void {
-    if (this.stopped) return;
     const l = clamp(load, 0, 1);
+    if (this.stopped || Math.abs(l - this.load) < 0.01) return;
+    this.load = l;
+    for (const p of [...this.srcs.map((s) => s.playbackRate), this.grit.gain, this.lp.frequency]) p.cancelScheduledValues(t);
     for (const s of this.srcs) s.playbackRate.setTargetAtTime(rateOf(l), t, 0.6);
     this.grit.gain.setTargetAtTime(gritOf(l), t, 0.5);
     this.lp.frequency.setTargetAtTime(toneOf(l), t, 0.5);

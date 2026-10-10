@@ -29,7 +29,7 @@ const has = (row: LadderRow, m: Mechanic) => row.mechanics.includes(m);
 
 /** Freight for a box: about weight × legs carried × 1–1.5, with ±1 noise. */
 function freightFor(rng: Rng, weight: number, legs: number): number {
-  const f = Math.round(weight * legs * rng.range(0.95, 1.5) + rng.int(-1, 1));
+  const f = Math.round(weight * legs * rng.range(1, 1.6) + rng.int(-1, 1));
   return Math.max(PALETTE.freight[0], Math.min(PALETTE.freight[1], f));
 }
 
@@ -71,7 +71,7 @@ function setBands(level: Level, count: number, rng: Rng): void {
 export function draft(row: LadderRow, rng: Rng): Level {
   const P = row.ports;
   const names = flagsFor(rng.shuffle(AREA_PORTS[row.area].slice()).slice(0, P));
-  const flat = rng.pick([1, 1, 2, 2, 3]);
+  const flat = rng.pick(row.area <= 1 ? [1, 1, 2] : [1, 1, 2, 2, 3]);
   const ports: Port[] = names.map((p, i) => ({ name: p.name, code: p.code, flag: p.flag, price: i === P - 1 ? null : flat }));
   if (has(row, 'prices')) {
     for (let i = 0; i < P - 1; i++) ports[i].price = rng.int(1, 3);
@@ -143,7 +143,8 @@ export function draft(row: LadderRow, rng: Rng): Level {
   const slots = row.bays * row.tiers;
   const heaviest = Math.max(...legW.map((w, l) => (legN[l] > slots ? (w * slots) / legN[l] : w)));
   const fuelEst = 2 * Math.max(...legs.map((l) => l.days)) + 1;
-  const C = Math.round(heaviest * rng.range(0.5, 0.8) + fuelEst);
+  // with stacks, let the slots bind as often as the marks
+  const C = Math.round(heaviest * (row.tiers >= 2 ? rng.range(0.6, 1) : rng.range(0.5, 0.8)) + fuelEst);
   level.ship.capacity = Math.max(row.capacity[0], Math.min(row.capacity[1], C));
   setBands(level, row.bands, rng);
   level.ship.tank = Math.max(4, Math.min(PALETTE.maxTank, stretchNeed(level) + rng.int(0, 3)));
@@ -319,6 +320,22 @@ const MUTATIONS: { name: string; w: number; when?: (row: LadderRow) => boolean; 
       if (s.bands.length >= 2 && v <= s.bands[s.bands.length - 2].upTo) return false;
       s.capacity = v;
       s.bands[s.bands.length - 1].upTo = v;
+      return true;
+    },
+  },
+  {
+    // one bay more or less than the ladder's nominal hold
+    name: 'bays',
+    w: 1,
+    when: (r) => r.tiers >= 2,
+    fn: (L, row, rng) => {
+      const v = L.ship.bays + (rng.chance(0.5) ? 1 : -1);
+      if (v < Math.max(2, row.bays - 1) || v > Math.min(PALETTE.maxBays(row.n), row.bays + 1)) return false;
+      L.ship.bays = v;
+      if (L.ship.plugs) {
+        L.ship.plugs = L.ship.plugs.filter((p) => p < v);
+        if (!L.ship.plugs.length) L.ship.plugs = [0];
+      }
       return true;
     },
   },

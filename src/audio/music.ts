@@ -25,7 +25,8 @@ const REED = new Set<string>(['organ', 'drone', 'flute', 'concertina', 'harmoniu
 
 /** One note of a tune: reeds hold it under the bellows, strings pluck it. */
 function voice(band: Band, inst: Lead, m: number, t: number, dur: number, v: number): void {
-  if (REED.has(inst)) band.reed(inst as ReedKind, [m], t, Math.max(0.12, dur * 0.94), v);
+  // a pad voice carrying the tune speaks a little quicker than it does under chords
+  if (REED.has(inst)) band.reed(inst as ReedKind, [m], t, Math.max(0.12, dur * 0.94), v, inst === 'organ' ? { attack: 0.06 } : undefined);
   else band.note(inst as PluckInst, m, t, Math.max(dur * 1.05, 0.25), v);
 }
 
@@ -118,7 +119,8 @@ const northSea: SongDef = {
   steps: 6,
   key: 2,
   scale: DORIAN,
-  trim: 0,
+  trim: 0.6,
+  mix: { brushTap: 1.25 },
   sections: {
     intro: { chords: 'Dm | Dm' },
     A: {
@@ -186,8 +188,8 @@ const mediterranean: SongDef = {
   steps: 6,
   key: 7,
   scale: MAJOR,
-  trim: 0,
-  mix: { organ: 0.8 },
+  trim: -1.5,
+  mix: { organ: 1.1, bass: 1.26, brush: 1.4, brushTap: 1.4 },
   sections: {
     intro: { chords: 'G | D' },
     A: {
@@ -257,7 +259,8 @@ const suez: SongDef = {
   steps: 6,
   key: 4,
   scale: HIJAZ,
-  trim: 0,
+  trim: 1.2,
+  mix: { drone: 0.8, tanpura: 0.8 },
   sections: {
     intro: { chords: 'E | E' },
     A: {
@@ -315,7 +318,8 @@ const pacific: SongDef = {
   steps: 6,
   key: 0,
   scale: PENTA,
-  trim: 0,
+  trim: -0.9,
+  mix: { bass: 1.4 },
   sections: {
     intro: { chords: 'Cadd9 | Cadd9' },
     A: {
@@ -340,7 +344,7 @@ const pacific: SongDef = {
       const tones = tonesUp(b.chordAt(st), 55, 6);
       band.note('harp', tones[pat[st]], b.at(st, 0.007), b.step * 2.5, b.vel(st === 0 ? 0.42 : 0.3, 0.1));
     }
-    pad(band, b, 'flute', 64, 3, s === 'intro' ? 0.45 : 0.55, 0.3);
+    pad(band, b, 'flute', 64, 3, s === 'intro' ? 0.4 : 0.45, 0.3);
     const root = bassOf(b.chord, 36);
     band.note('bass', root, b.at(0, 0.004), b.beat * 2.5, b.vel(0.62));
     if (b.chords.length > 1) band.note('bass', bassOf(b.chords[1].chord, 36), b.at(3, 0.004), b.beat * 1.4, b.vel(0.55));
@@ -369,7 +373,8 @@ const atlantic: SongDef = {
   steps: 6,
   key: 4,
   scale: AEOLIAN,
-  trim: 0,
+  trim: 1,
+  mix: { bass: 1.4, drone: 0.9 },
   sections: {
     intro: { chords: 'Em | Em' },
     A: {

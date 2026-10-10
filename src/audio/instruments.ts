@@ -64,12 +64,12 @@ function shipBell(sr: number, f: number, r: Rng): Float32Array {
 }
 
 export const PLUCKS: Record<PluckInst, PluckDef> = {
-  bass: { sr: 22050, sec: 1.8, gain: 0.17, pan: 0, wet: 0.08, rel: 0.06, make: P(1.8, { t60: 1.6, damp: 0.42, pick: 0.24, hard: 0.3, noise: 0.08, lp: 1300, body: [{ f: 95, q: 1, db: 3 }] }) },
+  bass: { sr: 22050, sec: 1.8, gain: 0.107, pan: 0, wet: 0.08, rel: 0.06, make: P(1.8, { t60: 1.6, damp: 0.42, pick: 0.24, hard: 0.3, noise: 0.08, lp: 1300, body: [{ f: 95, q: 1, db: 3 }] }) },
   guitar: { sr: 24000, sec: 1.8, gain: 0.26, pan: 0.22, wet: 0.24, rel: 0.05, make: P(1.8, { t60: 2.2, damp: 0.3, pick: 0.2, hard: 0.45, noise: 0.2, body: [{ f: 110, q: 1.4, db: 3 }, { f: 240, q: 2, db: 2 }] }) },
-  harp: { sr: 32000, sec: 2.4, gain: 0.24, pan: 0.22, wet: 0.36, rel: 0.08, make: P(2.4, { t60: 2.8, damp: 0.22, pick: 0.32, hard: 0.42, noise: 0.12 }) },
+  harp: { sr: 24000, sec: 2.4, gain: 0.24, pan: 0.22, wet: 0.36, rel: 0.08, make: P(2.4, { t60: 2.8, damp: 0.22, pick: 0.32, hard: 0.42, noise: 0.12 }) },
   tanpura: { sr: 24000, sec: 3.4, gain: 0.12, pan: -0.2, wet: 0.34, rel: 0.3, make: tanpura },
   tabla: { sr: 32000, sec: 0.7, gain: 0.16, pan: 0.18, wet: 0.16, rel: 0.05, make: tabla },
-  bell: { sr: 32000, sec: 3.2, gain: 0.1, pan: 0.3, wet: 0.5, rel: 0.4, make: shipBell },
+  bell: { sr: 24000, sec: 3.2, gain: 0.2, pan: 0.3, wet: 0.5, rel: 0.4, make: shipBell },
 };
 
 interface PercDef {
@@ -87,14 +87,14 @@ function band(x: Float32Array, sr: number, ...f: [type: 'lp' | 'hp' | 'bp', f: n
 
 export const PERC: Record<PercName, PercDef> = {
   brush: {
-    sr: 32000, gain: 0.07, pan: -0.15, wet: 0.12,
+    sr: 32000, gain: 0.14, pan: -0.15, wet: 0.12,
     make(sr, r) {
       const x = noiseShaped(sr, 0.24, r, (u) => (u < 0.3 ? u / 0.3 : Math.exp(-(u - 0.3) * 5)));
       return band(x, sr, ['bp', 3600 * r.range(0.9, 1.1), 0.6], ['lp', 7500, 0.7]);
     },
   },
   brushTap: {
-    sr: 32000, gain: 0.06, pan: -0.15, wet: 0.12,
+    sr: 32000, gain: 0.15, pan: -0.15, wet: 0.12,
     make(sr, r) {
       const x = band(noiseBurst(sr, 0.07, r, 0.001, 0.05), sr, ['bp', 3000, 0.7]);
       mix(x, normalize(chirp(sr, 0.08, 230, 195, 0.02, 0.06), 1), 0, sr, 0.2);
@@ -114,7 +114,7 @@ export const PERC: Record<PercName, PercDef> = {
   },
   knock: {
     // a knuckle on a wooden hull: low and hollow
-    sr: 24000, gain: 0.16, pan: -0.1, wet: 0.14,
+    sr: 24000, gain: 0.22, pan: -0.1, wet: 0.14,
     make(sr, r) {
       const ex = noiseBurst(sr, 0.12, r, 0.0004, 0.006);
       biquad(ex, 'lp', 2500, 0.7, sr);
@@ -130,7 +130,7 @@ export const PERC: Record<PercName, PercDef> = {
   },
   oceanDrum: {
     // beads rolling across a frame drum: a wave in the hands
-    sr: 32000, gain: 0.06, pan: 0.1, wet: 0.22,
+    sr: 32000, gain: 0.095, pan: 0.1, wet: 0.22,
     make(sr, r) {
       const dur = 1.6;
       const env = (u: number) => (u < 0.42 ? Math.pow(u / 0.42, 1.6) : Math.pow(1 - (u - 0.42) / 0.58, 1.8));
@@ -154,7 +154,7 @@ export const PERC: Record<PercName, PercDef> = {
   },
   ge: {
     // the bayan's "ge": a low stroke whose pitch the wrist bends upward
-    sr: 22050, gain: 0.16, pan: -0.15, wet: 0.14,
+    sr: 22050, gain: 0.13, pan: -0.15, wet: 0.14,
     make(sr, r) {
       const x = samples(sr, 0.6);
       const f0 = 82 * r.range(0.97, 1.03);
@@ -209,7 +209,7 @@ export const REEDS: Record<ReedKind, ReedDef> = {
   organ: {
     sr: 22050, loop: 2, attack: 0.3, celeste: 0.5, celesteAmp: 0.8, trem: [0.5, 0.03], air: 0.004, scoop: 6,
     spectrum: (n, fn) => Math.pow(n, -0.9) * (n % 2 ? 1 : 0.75) * (1 + 1.2 * bump(fn, 650)) * lpw(fn, 1900),
-    gain: 0.075, pan: -0.12, wet: 0.36, attackLive: 0.2, release: 0.5,
+    gain: 0.12, pan: -0.12, wet: 0.36, attackLive: 0.2, release: 0.5,
   },
   // a low drone (Suez, the winter sea): darker still, very slow to speak
   drone: {
@@ -221,19 +221,19 @@ export const REEDS: Record<ReedKind, ReedDef> = {
   flute: {
     sr: 22050, loop: 1, attack: 0.2, trem: [5, 0.035], air: 0.008, scoop: 5,
     spectrum: (n, fn) => (n === 1 ? 1 : n === 2 ? 0.22 : n === 3 ? 0.12 : 0.04 / n) * lpw(fn, 3500, 1),
-    gain: 0.1, pan: 0.15, wet: 0.42, attackLive: 0.06, release: 0.22,
+    gain: 0.16, pan: 0.15, wet: 0.42, attackLive: 0.06, release: 0.22,
   },
   // the English concertina: one bright, slightly nasal reed per button, a hand's tremor on the bellows
   concertina: {
     sr: 22050, loop: 1, attack: 0.2, trem: [5, 0.035], air: 0.003, scoop: 10,
     spectrum: (n, fn) => Math.pow(n, -0.7) * (1 + 1.5 * bump(fn, 1150, 0.5) + 0.7 * bump(fn, 2700, 0.5)) * lpw(fn, 4200),
-    gain: 0.085, pan: 0.12, wet: 0.26, attackLive: 0.015, release: 0.08,
+    gain: 0.17, pan: 0.12, wet: 0.26, attackLive: 0.015, release: 0.08,
   },
   // the Indian hand-pumped harmonium: a bright reed with a bass reed an octave below
   harmonium: {
     sr: 22050, loop: 1, attack: 0.2, celeste: 1, celesteAmp: 0.45, sub: 0.45, trem: [5, 0.02], air: 0.004, scoop: 8,
     spectrum: (n, fn) => Math.pow(n, -0.75) * (1 + bump(fn, 900)) * lpw(fn, 3000),
-    gain: 0.08, pan: -0.1, wet: 0.3, attackLive: 0.025, release: 0.12,
+    gain: 0.16, pan: -0.1, wet: 0.3, attackLive: 0.025, release: 0.12,
   },
 };
 
@@ -365,7 +365,7 @@ export class Resources {
     const def = PLUCKS[inst];
     b = this.toBuffer(def.make(def.sr, mtof(midi), new Rng(midi * 7919 + inst.length * 131)), def.sr);
     this.notes.set(key, b);
-    if (this.notes.size > 90) this.notes.delete(this.notes.keys().next().value!);
+    if (this.notes.size > 64) this.notes.delete(this.notes.keys().next().value!);
     return b;
   }
 
@@ -376,7 +376,7 @@ export class Resources {
     const n = bakeReed(kind, midi, new Rng(midi * 104729 + kind.length * 31));
     b = { buf: this.toBuffer(n.data, n.sr), loopStart: n.loopStart, loopEnd: n.loopEnd, fr: n.fr };
     this.reeds.set(key, b);
-    if (this.reeds.size > 60) this.reeds.delete(this.reeds.keys().next().value!);
+    if (this.reeds.size > 44) this.reeds.delete(this.reeds.keys().next().value!);
     return b;
   }
 

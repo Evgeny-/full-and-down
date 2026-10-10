@@ -5,7 +5,7 @@
  * DI = 40(1−S★) + 30(1−S★★★) + 30(1−C★★★).
  */
 import { simulate } from './rules';
-import { toPlan } from './solver';
+import { fuelDP, ManifestTable, toPlan } from './solver';
 import { Rng } from './rng';
 import type { Call, Level, Mechanic } from './types';
 import {
@@ -17,6 +17,7 @@ import {
   NATURAL_KINDS,
   NEG,
   playNatural,
+  quickStow,
   strongPlayer,
   tinkerer,
   type NaturalKind,
@@ -53,7 +54,10 @@ export interface Metrics {
   /** random tinkerer: share reaching ★ / ★★★ */
   t1: number;
   t3: number;
-  /** V*(rule relaxed) − V* per mechanic present (|Δ| for calls; V* − V*(no pickups) for pickup) */
+  /**
+   * V*(rule relaxed) − V* per mechanic present (|Δ| for calls; V* − V*(no pickups) for pickup;
+   * tiers relaxes the whole hold: no never-bury and no slot limit)
+   */
   ablation: Partial<Record<Mechanic, number>>;
   /** remarks of the optimum: on the mark at some departure; ROB on the reserve at the last berth */
   onMark: boolean;
@@ -78,7 +82,7 @@ export interface MeasureOptions {
 }
 
 export const FULL: Omit<MeasureOptions, 'seed'> = { strongRuns: 64, carefulRandom: 6, tinkerRuns: 200 };
-export const QUICK: Omit<MeasureOptions, 'seed'> = { strongRuns: 40, carefulRandom: 4, tinkerRuns: 40 };
+export const QUICK: Omit<MeasureOptions, 'seed'> = { strongRuns: 40, carefulRandom: 4, tinkerRuns: 30 };
 
 /**
  * Star thresholds (doc 13 §3.2, critic 20's separation rule): T3 = V*; T1 = the best natural start
@@ -153,6 +157,8 @@ export function relax(level: Level, m: Mechanic): { level: Level; ignoreStow?: b
       for (const p of L.ports) delete p.lot;
       return { level: L };
     case 'tiers':
+      // the hold no longer limits anything: stacks as high as the quay offers, in any order
+      L.ship.tiers = Math.max(L.ship.tiers, L.boxes.length);
       return { level: L, ignoreStow: true };
     case 'bar':
       for (const p of L.ports) delete p.bar;
@@ -175,10 +181,88 @@ export function vstarOf(level: Level, ignoreStow = false): number {
   return b ? b.value : NEG;
 }
 
+/** A lower bound on any voyage's bunker bill: every leg burns at least days × the lowest rate, bought at the cheapest pump. */
+function fuelLowerBound(L: Level): number {
+  const pumps = L.ports.slice(0, -1).filter((p) => p.price !== null);
+  if (!pumps.length) return 0;
+  const minPrice = Math.min(...pumps.map((p) => p.price!));
+  const minRate = Math.min(...L.ship.bands.map((b) => b.rate));
+  const burn = L.legs.reduce((s, l) => s + l.days * minRate, 0);
+  return Math.max(0, burn - (L.startFuel - L.reserve)) * minPrice;
+}
+
+/**
+ * V* of a relaxed level with the same boxes as `base` (a relaxation only removes constraints, so
+ * V*(relaxed) ≥ `floor` = V*). Masks are walked richest first and pruned by a bunker lower bound;
+ * the per-mask weight profiles are the base landscape's.
+ */
+function relaxedVstar(base: Landscape, L: Level, floor: number, ignoreStow: boolean): number {
+  const { ship } = L;
+  const legs = base.legs;
+  const reeferRule = L.mechanics.includes('reefer');
+  const slots = ship.bays * ship.tiers;
+  const plugSlots = (ship.plugs?.length ?? 0) * ship.tiers;
+  let mand = 0;
+  for (const b of L.boxes) if (b.contract) mand |= 1 << b.id;
+  const lb = fuelLowerBound(L);
+  const memo = new Map<number, number>();
+  const table = ignoreStow ? null : new ManifestTable(L);
+  const W = new Array(legs).fill(0);
+  const R = new Array(legs).fill(0);
+  const counts = (m: number, l: number) => {
+    let c = 0;
+    for (const b of L.boxes) if (m & (1 << b.id) && b.from <= l && l < b.to) c++;
+    return c;
+  };
+  let best = floor;
+  for (const m of base.byFreight()) {
+    const f = base.freight[m];
+    if (f - lb <= best) break;
+    if ((m & mand) !== mand) continue;
+    const o = m * legs;
+    let ok = true;
+    let key = 0;
+    for (let l = 0; l < legs; l++) {
+      W[l] = base.legW[o + l];
+      R[l] = reeferRule ? base.legR[o + l] : 0;
+      if (W[l] > ship.capacity || (reeferRule && R[l] > plugSlots)) {
+        ok = false;
+        break;
+      }
+      key = key * 32 + W[l];
+    }
+    if (!ok) continue;
+    for (let l = 0; l < legs; l++) key = key * 16 + R[l];
+    let cost = memo.get(key);
+    if (cost === undefined) {
+      const fp = fuelDP(L, W, R);
+      cost = fp ? fp.cost : Infinity;
+      memo.set(key, cost);
+    }
+    const v = f - cost;
+    if (v <= best) continue;
+    let slotsOk = true;
+    for (let l = 0; l < legs && slotsOk; l++) if (counts(m, l) > slots) slotsOk = false;
+    if (!slotsOk) continue;
+    if (table && !(ship.tiers === 1 && !reeferRule) && !quickStow(L, m) && !table.stow(m)) continue;
+    best = v;
+  }
+  return best;
+}
+
 /** ΔV* when the rule is switched off (see `Metrics.ablation`). */
-export function ablation(level: Level, vstar: number, m: Mechanic): number | null {
+export function ablation(level: Level, vstar: number, m: Mechanic, base?: Landscape): number | null {
   const r = relax(level, m);
   if (!r) return null;
+  if (base && m !== 'calls' && m !== 'pickup') {
+    return relaxedVstar(base, r.level, vstar, !!r.ignoreStow) - vstar;
+  }
+  if (base && m === 'pickup' && !level.boxes.some((b) => b.from > 0 && b.contract)) {
+    let pick = 0;
+    for (const b of level.boxes) if (b.from > 0) pick |= 1 << b.id;
+    for (const mask of base.sorted()) if (!(mask & pick) && base.stowable(mask)) return vstar - base.ub[mask];
+    return vstar;
+  }
   const v = vstarOf(r.level, r.ignoreStow);
   if (v <= NEG) return 0;
   if (m === 'calls') return Math.abs(v - vstar);
@@ -213,9 +297,16 @@ const hamming = (a: number, b: number) => {
   return n;
 };
 
-/** The natural starts that make sense on a level (myopic needs more than one leg). */
+/**
+ * The natural starts that make sense on a level. The myopic player searches each call on its own:
+ * where every decision is taken at one call (no pickups, one pump) that search is the optimum
+ * itself, not an instinct, so it only plays voyages with pickups or a second pump.
+ */
 export function naturalKinds(level: Level): NaturalKind[] {
-  return level.ports.length > 2 ? NATURAL_KINDS : NATURAL_KINDS.filter((k) => k !== 'myopic');
+  const last = level.ports.length - 1;
+  const pumps = level.ports.slice(0, last).filter((p) => p.price !== null).length;
+  const pickups = level.boxes.some((b) => b.from > 0);
+  return last >= 2 && (pickups || pumps >= 2) ? NATURAL_KINDS : NATURAL_KINDS.filter((k) => k !== 'myopic');
 }
 
 /** Everything the generator, the build and the audit read about a level. Null if nothing can sail. */
@@ -278,7 +369,7 @@ export function measure(level: Level, o: MeasureOptions): Metrics | null {
 
   const abl: Partial<Record<Mechanic, number>> = {};
   for (const m of o.ablate ?? level.mechanics) {
-    const d = ablation(level, vstar, m);
+    const d = ablation(level, vstar, m, land);
     if (d !== null) abl[m] = d;
   }
 

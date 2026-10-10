@@ -54,14 +54,16 @@ export const DEFAULT_SFX_VOLUME = 0.8;
 export const DEFAULT_MUSIC_VOLUME = 0.5;
 
 /** Bus gains at volume 1, calibrated against each other (see docs/audio.md). */
-const MUSIC_GAIN = 1.0;
+const MUSIC_GAIN = 1.41;
 const AMBIENCE_GAIN = 0.7;
-const ENGINE_GAIN = 0.22;
+const ENGINE_GAIN = 0.185;
 const MASTER_GAIN = 0.9;
 /** Undoes the compressor's automatic makeup gain (+3.55 dB, measured in Chrome), so levels below its knee pass unchanged. */
 const COMPRESSOR_TRIM = 0.665;
 /** Baked SFX kept at most (bytes); the least recently played sounds are dropped and rebaked on demand. */
-const SFX_BUDGET = 14 * 1024 * 1024;
+const SFX_BUDGET = 12 * 1024 * 1024;
+/** At most this many SFX voices at once (mobile): a sound asked for beyond it is skipped. */
+const MAX_VOICES = 16;
 /** Seconds of music scheduled ahead of the clock (bars are scheduled whole). */
 const LOOKAHEAD = 0.5;
 
@@ -105,6 +107,7 @@ export class AudioEngine implements Audio {
   private sfxCache = new Map<string, AudioBuffer[]>();
   private sfxBytes = 0;
   private minRate = 16000;
+  private voiceEnds: number[] = [];
   private pending = new Set<string>();
   private lastVariant = new Map<string, number>();
   private last = new Map<SfxName, number>();
@@ -178,14 +181,17 @@ export class AudioEngine implements Audio {
   attach(ctx: BaseAudioContext, out: AudioNode = ctx.destination): void {
     this.ctx = ctx;
     this.res = new Resources(ctx);
-    // a few old engines only take buffers at 22.05 kHz and up
-    try {
-      ctx.createBuffer(1, 1, 16000);
-      this.minRate = 16000;
-    } catch {
-      this.minRate = 22050;
-    }
-    this.beds = new BedBuffers(ctx);
+    // the lowest buffer rate this engine takes (a few old ones only take 22.05 kHz and up)
+    const ok = (sr: number) => {
+      try {
+        ctx.createBuffer(1, 1, sr);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+    this.minRate = ok(16000) ? 16000 : 22050;
+    this.beds = new BedBuffers(ctx, ok(11025) ? 11025 : this.minRate);
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -16;
     comp.knee.value = 12;
@@ -455,8 +461,11 @@ export class AudioEngine implements Audio {
       const now = ctx.currentTime;
       const gap = RATE[name];
       if (gap && now - (this.last.get(name) ?? -1) < gap) return;
+      this.voiceEnds = this.voiceEnds.filter((e) => e > now);
+      if (this.voiceEnds.length >= MAX_VOICES) return;
       this.last.set(name, now);
-      this.playAt(name, now + 0.005, opts ?? {});
+      const dur = this.playAt(name, now + 0.005, opts ?? {});
+      this.voiceEnds.push(now + dur);
       const d = AUTO_DUCK[name];
       if (d) this.duck(d[0], d[1]);
     } catch {
@@ -464,10 +473,10 @@ export class AudioEngine implements Audio {
     }
   }
 
-  /** Play a sound at context time `t` (also used by offline renders). */
-  playAt(name: SfxName, t: number, opts: PlayOpts = {}): void {
+  /** Play a sound at context time `t` (also used by offline renders). Returns its length (s). */
+  playAt(name: SfxName, t: number, opts: PlayOpts = {}): number {
     const p: SfxParams = { pitch: finite(opts.pitch) ? opts.pitch : undefined, key: name === 'win' ? SONGS[mod(this.lastTheme, SONGS.length)].key : undefined };
-    this.out(name, p, t, finite(opts.volume) ? clamp(opts.volume, 0, 2) : 1, finite(opts.pan) ? clamp(opts.pan, -1, 1) : 0, this.sfxBus);
+    return this.out(name, p, t, finite(opts.volume) ? clamp(opts.volume, 0, 2) : 1, finite(opts.pan) ? clamp(opts.pan, -1, 1) : 0, this.sfxBus);
   }
 
   /** An ambience one-shot. */
@@ -479,11 +488,12 @@ export class AudioEngine implements Audio {
     }
   }
 
-  private out(name: BakeName, p: SfxParams, t: number, volume: number, pan: number, bus: GainNode | null): void {
+  private out(name: BakeName, p: SfxParams, t: number, volume: number, pan: number, bus: GainNode | null): number {
     const ctx = this.ctx;
-    if (!ctx || !bus) return;
+    if (!ctx || !bus) return 0;
     const src = ctx.createBufferSource();
-    src.buffer = this.buffer(name, p);
+    const buf = this.buffer(name, p);
+    src.buffer = buf;
     const w = WOBBLE[name] ?? 0.02;
     src.playbackRate.value = 1 + (this.rnd.next() - 0.5) * 2 * w;
     const g = ctx.createGain();
@@ -498,6 +508,7 @@ export class AudioEngine implements Audio {
     }
     node.connect(bus);
     src.start(t);
+    return buf.duration;
   }
 
   /** A baked take of the sound: a random one of its variants, never the same twice in a row. */

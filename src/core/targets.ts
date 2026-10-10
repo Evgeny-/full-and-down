@@ -34,6 +34,7 @@ export interface Target {
   /** the intro mechanic (must bind) and the advanced ones present (should bind) */
   intro?: Mechanic;
   mechanics: Mechanic[];
+  ports: number;
 }
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -41,7 +42,7 @@ const slide = (a: [number, number], b: [number, number], t: number): [number, nu
 
 export function targetFor(row: LadderRow): Target {
   const t = row.area / 7;
-  const base = { band: row.band, intro: row.intro, mechanics: row.mechanics, exact: false, minFill: 0.45 };
+  const base = { band: row.band, intro: row.intro, mechanics: row.mechanics, ports: row.ports, exact: false, minFill: 0.45 };
   switch (row.band) {
     case 'T0':
       return { ...base, s1: [0, 1], s3: [0, 1], c3: [0, 1], depth: [1, 4], minDecoys: 0, minGap: 0, minSpread: 0, separation: false, maxT1: 1, maxT3: 1, maxOmega: 9 };
@@ -59,6 +60,9 @@ export function targetFor(row: LadderRow): Target {
       return { ...base, s1: slide([0.15, 0.45], [0.1, 0.35], t), s3: [0, lerp(0.08, 0.05, t)], c3: [0.25, 0.6], depth: [3, 4], minDecoys: 4, minGap: 0.1, minSpread: 5, separation: true, maxT1: 0.35, maxT3: 0.05, maxOmega: 1 };
   }
 }
+
+/** Par worth sailing for: a soft floor on V* per band. */
+const MIN_VSTAR: Record<BandId, number> = { T0: 0, B1: 8, B2: 10, B3: 12, B4: 14, B5: 16, B6: 18 };
 
 const linBand = (v: number, b: [number, number]) => (v < b[0] ? b[0] - v : v > b[1] ? v - b[1] : 0);
 
@@ -95,9 +99,13 @@ export function shortfall(m: Metrics, t: Target): Shortfall {
     const d = m.ablation[mech];
     if (d === undefined || d > 0) continue;
     if (mech === t.intro) add(3, `intro ${mech} idle`);
-    else if (CORE.includes(mech) || mech === 'weight') add(0.3, `${mech} idle`);
+    else if (mech === 'tiers') add(1, `${mech} idle`);
+    else if (CORE.includes(mech)) add(0.5, `${mech} idle`);
     else add(1, `${mech} idle`);
   }
+  // par must be worth sailing for, and ★ must earn something
+  add(0.1 * Math.max(0, MIN_VSTAR[t.band] - m.vstar), `V* ${m.vstar}`);
+  if (t.band !== 'T0' && m.stars[0] < 3) add(2, `★ ${m.stars[0]}`);
   if (t.exact) {
     if (!m.onMark) add(2, 'not on the mark');
     if (!m.onReserve) add(2, 'not on the reserve');

@@ -156,6 +156,51 @@ export class Landscape {
     return ok;
   }
 
+  private gasTable: Float64Array | null = null;
+
+  /**
+   * Every manifest's value when the bunkers are set by NEED at every pump (the gas-station habit)
+   * instead of the cheapest plan: what a player who never thinks past NEED earns with those boxes.
+   * Equal to `ub` on AUTO levels.
+   */
+  gasUb(): Float64Array {
+    if (this.gasTable) return this.gasTable;
+    if (this.level.auto) return (this.gasTable = this.ub);
+    const L = this.legs;
+    const t = new Float64Array(this.size);
+    const memo = new Map<number, number | null>();
+    const W = new Array(L).fill(0);
+    const R = new Array(L).fill(0);
+    for (let m = 0; m < this.size; m++) {
+      if (this.ub[m] <= NEG) {
+        t[m] = NEG;
+        continue;
+      }
+      const o = m * L;
+      let key = 0;
+      for (let l = 0; l < L; l++) key = key * 32 + this.legW[o + l];
+      for (let l = 0; l < L; l++) key = key * 16 + this.legR[o + l];
+      let c = memo.get(key);
+      if (c === undefined) {
+        for (let l = 0; l < L; l++) {
+          W[l] = this.legW[o + l];
+          R[l] = this.legR[o + l];
+        }
+        c = gasCost(this.level, W, R);
+        memo.set(key, c);
+      }
+      t[m] = c === null ? NEG : this.freight[m] - c;
+    }
+    return (this.gasTable = t);
+  }
+
+  /** Value of a manifest under a table of upper bounds (`ub` or `gasUb()`), NEG if it can't sail. */
+  valueIn(ub: Float64Array, mask: number): number {
+    const u = ub[mask];
+    if (u <= NEG) return NEG;
+    return this.stowable(mask) ? u : NEG;
+  }
+
   /** Exact value of a manifest (NEG if it can't sail). */
   value(mask: number): number {
     const u = this.ub[mask];
@@ -171,6 +216,18 @@ export class Landscape {
     idx.sort((a, b) => this.ub[b] - this.ub[a] || popcount(a) - popcount(b) || a - b);
     this.order = Int32Array.from(idx);
     return this.order;
+  }
+
+  private byFreightOrder: Int32Array | null = null;
+
+  /** Every mask by freight, richest first. */
+  byFreight(): Int32Array {
+    if (this.byFreightOrder) return this.byFreightOrder;
+    const idx = Int32Array.from({ length: this.size }, (_, i) => i);
+    const F = this.freight;
+    idx.sort((a, b) => F[b] - F[a] || a - b);
+    this.byFreightOrder = idx;
+    return idx;
   }
 
   /** The optimum V* and its manifest (the same choice as `solve()`), null if nothing can sail. */
@@ -254,7 +311,8 @@ export type BunkerRule = 'auto' | 'need' | 'tank';
  * The NEED ("gas station") rule on a weight profile: at each pump, the least that reaches the next
  * pump (or the last port) on the reserve, with no bunkers at the dry ports in between. Where there
  * is no dry port this is exactly `needPlan` (rules.ts); past a dry port it is NEED plus the fix the
- * Chief's warning asks for. `firstBuy` fixes the first call's stem (fill the tank).
+ * Chief's warning asks for (and, under a low bridge, enough to sit down to the Harbour Master's
+ * mark). `firstBuy` fixes the first call's stem (fill the tank).
  */
 export function gasFuel(level: Level, legW: number[], legR: number[], firstBuy?: number): number[] {
   const { ports, legs, ship, reserve } = level;
@@ -262,6 +320,9 @@ export function gasFuel(level: Level, legW: number[], legR: number[], firstBuy?:
   const buy = new Array(P).fill(0);
   let fuel = level.startFuel;
   const burnAt = (l: number, w: number) => legs[l].days * ship.bands[bandOf(ship, w)].rate + legR[l];
+  // the Harbour Master's warning is part of the habit: bunkers as ballast for a low bridge
+  const bridgeOn = level.mechanics.includes('bridge');
+  const tooLight = (l: number, w: number) => bridgeOn && legs[l].bridge !== undefined && w < legs[l].bridge!.min;
   for (let i = 0; i < P - 1; i++) {
     const port = ports[i];
     if (port.price !== null) {
@@ -276,6 +337,10 @@ export function gasFuel(level: Level, legW: number[], legR: number[], firstBuy?:
           let f = fuel + b;
           let ok = true;
           for (let l = i; l < j; l++) {
+            if (tooLight(l, legW[l] + f)) {
+              ok = false;
+              break;
+            }
             f -= burnAt(l, legW[l] + f);
             if (f < reserve) {
               ok = false;
@@ -296,6 +361,37 @@ export function gasFuel(level: Level, legW: number[], legR: number[], firstBuy?:
     fuel -= burnAt(i, legW[i] + fuel);
   }
   return buy;
+}
+
+/**
+ * The bunker bill of the NEED plan for a weight profile, or null if that plan can't sail (the same
+ * checks as `simulate()`: marks, bars, bridge, zone, reserve).
+ */
+export function gasCost(level: Level, legW: number[], legR: number[]): number | null {
+  const buy = gasFuel(level, legW, legR);
+  const { ports, legs, ship, reserve } = level;
+  const zoneOn = level.mechanics.includes('zone');
+  const bridgeOn = level.mechanics.includes('bridge');
+  let fuel = level.startFuel;
+  let cost = 0;
+  for (let i = 0; i < ports.length - 1; i++) {
+    const port = ports[i];
+    fuel += buy[i];
+    cost += buy[i] * (port.price ?? 0);
+    const w = legW[i] + fuel;
+    if (w > ship.capacity) return null;
+    if (port.bar !== undefined && w > port.bar) return null;
+    const leg = legs[i];
+    const rate = ship.bands[bandOf(ship, w)].rate;
+    if (bridgeOn && leg.bridge && w < leg.bridge.min) return null;
+    if (zoneOn && leg.zone && w - leg.zone.at * rate > leg.zone.limit) return null;
+    const burn = leg.days * rate + legR[i];
+    if (fuel - burn < reserve) return null;
+    const nextBar = ports[i + 1].bar;
+    if (nextBar !== undefined && w - burn > nextBar) return null;
+    fuel -= burn;
+  }
+  return cost;
 }
 
 /** Per-leg cargo weight and reefers aboard for the boxes a plan loads. */
@@ -546,7 +642,7 @@ function combos(items: number[], k: number): number[] {
 }
 
 /** Neighbours of `mask` whose upper bound beats `v` (only those can improve on it). */
-export function improvingNeighbours(land: Landscape, mask: number, v: number, moves: Move[]): number[] {
+export function improvingNeighbours(land: Landscape, mask: number, v: number, moves: Move[], ub: Float64Array = land.ub): number[] {
   const inS: number[] = [];
   const outS: number[] = [];
   for (let i = 0; i < land.n; i++) (mask & (1 << i) ? inS : outS).push(i);
@@ -557,7 +653,6 @@ export function improvingNeighbours(land: Landscape, mask: number, v: number, mo
   for (let d = 0; d <= maxD; d++) drops.push(combos(inS, d));
   for (let a = 0; a <= maxA; a++) adds.push(combos(outS, a));
   const out: number[] = [];
-  const ub = land.ub;
   for (const [d, a] of moves) {
     for (const D of drops[d]) {
       const base = mask & ~D;
@@ -571,31 +666,37 @@ export function improvingNeighbours(land: Landscape, mask: number, v: number, mo
 }
 
 /** One best-improvement step (or a random improving step when `slip`); null at a local optimum. */
-export function step(land: Landscape, mask: number, v: number, moves: Move[], rng?: Rng, slip = false): number | null {
-  const cand = improvingNeighbours(land, mask, v, moves);
+export function step(land: Landscape, mask: number, v: number, moves: Move[], rng?: Rng, slip = false, ub: Float64Array = land.ub): number | null {
+  const cand = improvingNeighbours(land, mask, v, moves, ub);
   if (!cand.length) return null;
   if (slip && rng) {
     rng.shuffle(cand);
     for (const nb of cand) if (land.stowable(nb)) return nb;
     return null;
   }
-  cand.sort((a, b) => land.ub[b] - land.ub[a] || popcount(a) - popcount(b) || a - b);
+  cand.sort((a, b) => ub[b] - ub[a] || popcount(a) - popcount(b) || a - b);
   for (const nb of cand) if (land.stowable(nb)) return nb;
   return null;
 }
 
-/** Hill climb from `start`; returns the final manifest and its value. */
-export function climbManifest(land: Landscape, start: number, moves: Move[], o: { maxEdits?: number; slip?: number; rng?: Rng } = {}): { mask: number; value: number; edits: number } {
+/** Hill climb from `start` (values from `o.ub`, default the exact ones); returns the final manifest and its value. */
+export function climbManifest(
+  land: Landscape,
+  start: number,
+  moves: Move[],
+  o: { maxEdits?: number; slip?: number; rng?: Rng; ub?: Float64Array } = {},
+): { mask: number; value: number; edits: number } {
+  const ub = o.ub ?? land.ub;
   let mask = start;
-  let v = land.value(mask);
+  let v = land.valueIn(ub, mask);
   let edits = 0;
   const max = o.maxEdits ?? 1000;
   while (edits < max) {
     const slip = !!o.rng && o.slip !== undefined && o.rng.next() < o.slip;
-    const nb = step(land, mask, v, moves, o.rng, slip);
+    const nb = step(land, mask, v, moves, o.rng, slip, ub);
     if (nb === null) break;
     mask = nb;
-    v = land.value(nb);
+    v = land.valueIn(ub, nb);
     edits++;
   }
   return { mask, value: v, edits };
@@ -622,7 +723,9 @@ export interface StrongResult {
 
 /**
  * The strong editor: `runs` games, each from a natural start (pure, or with jittered preferences),
- * best improvement over add / drop / 1↔1 / 2↔1 / 1↔2 with 5% slips, at most 20 edits.
+ * best improvement over add / drop / 1↔1 / 2↔1 / 1↔2 with 5% slips, at most 20 edits. On levels
+ * with a manual valve half the runs bunker by NEED (critic 21's gas-station fuel: they never think
+ * of carrying fuel or skipping a dear pump) and half find the cheapest bunker plan.
  */
 export function strongPlayer(land: Landscape, starts: { kind: NaturalKind; mask: number; noisy: boolean }[], runs: number, rng: Rng): StrongResult {
   const values: number[] = [];
@@ -639,7 +742,8 @@ export function strongPlayer(land: Landscape, starts: { kind: NaturalKind; mask:
     const pool = byKind.get(kind)!;
     const useNoisy = pool.noisy.length > 0 && rng.chance(0.5);
     const start = useNoisy ? rng.pick(pool.noisy) : rng.pick(pool.pure.length ? pool.pure : pool.noisy);
-    const res = climbManifest(land, start, STRONG_MOVES, { maxEdits: 20, slip: 0.05, rng });
+    const savvy = land.level.auto || rng.chance(0.5);
+    const res = climbManifest(land, start, STRONG_MOVES, { maxEdits: 20, slip: 0.05, rng, ub: savvy ? land.ub : land.gasUb() });
     values.push(res.value);
     edits.push(res.edits);
   }

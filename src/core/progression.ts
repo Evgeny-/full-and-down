@@ -122,11 +122,11 @@ const HOLD: [number, number][] = [
   [4, 1],
   [4, 1],
   [3, 2],
+  [3, 2],
+  [3, 2],
+  [3, 2],
+  [3, 2],
   [4, 2],
-  [4, 2],
-  [4, 2],
-  [4, 2],
-  [5, 2],
 ];
 
 // prettier-ignore
@@ -134,7 +134,7 @@ const SPECS: RowSpec[][] = [
   // 1 North Sea: auto bunkers, one price, a pump everywhere, single-tier coaster
   [
     { title: 'Fuel Weighs', lesson: 'Cargo and bunkers share her deadweight: all four boxes fill her marks and leave no room for fuel.', intro: 'weight', ports: 2, bands: 1, band: 'T0', boxes: [4, 4], authored: true },
-    { title: 'The Stripe', lesson: 'One tonne over the stripe doubles the burn; the best-paying box stays ashore.', intro: 'bands', ports: 2, bands: 2, authored: true },
+    { title: 'The Stripe', lesson: 'One tonne over the stripe doubles the burn; the best-paying box stays ashore.', intro: 'bands', ports: 2, bands: 2, band: 'B2', authored: true },
     { title: 'Two Calls', lesson: 'Discharge midway: a lighter ship sails the second leg cheaper.', intro: 'calls', ports: 3, bands: 2, band: 'B2', authored: true },
     { title: 'Overload', lesson: 'Three bands: pick the band first, then fill it to its top.', twist: 'three bands', ports: 3, bands: 3 },
     { title: 'Full & Down', lesson: 'Exactly one load fills her to the marks and lands her on the reserve.', ports: 2, bands: 2, format: 'exact' },
@@ -150,7 +150,7 @@ const SPECS: RowSpec[][] = [
     { title: 'Short Stem', lesson: 'The gas-station habit tips the first leg over a stripe.', adv: ['noPump'], ports: 4, bands: 3, pickup: true },
     { title: 'Channel Gale', lesson: 'Two legs on one stem, and a pickup you need room for.', adv: ['noPump'], ports: 4, bands: 3, pickup: true },
     { title: 'To the Tonne', lesson: 'One load meets the marks and the reserve together.', ports: 3, bands: 2, format: 'exact' },
-    { title: 'Never Bury', lesson: 'Stacks two high: nothing may stand on a box that leaves earlier.', intro: 'tiers', ports: 3, bays: 3, tiers: 2, bands: 2, pickup: true },
+    { title: 'Never Bury', lesson: 'Stacks two high: nothing may stand on a box that leaves earlier.', intro: 'tiers', ports: 4, bays: 2, tiers: 2, bands: 2, pickup: true, authored: true },
     { title: 'Last On, First Off', lesson: 'Where a box stands decides whether the pickup has a home.', adv: ['noPump'], ports: 3, bays: 3, tiers: 2, bands: 3, pickup: true },
     { title: 'Ushant', lesson: 'Stowage order and a dry berth on the same voyage.', adv: ['noPump'], ports: 4, bays: 3, tiers: 2, bands: 3, pickup: true },
     { title: 'The Channel Charter', lesson: 'A long rotation: dry berths, stacks and stripes.', adv: ['noPump'], ports: 5, bays: 3, tiers: 2, bands: 3, pickup: true, boxes: [9, 10] },
@@ -162,7 +162,7 @@ const SPECS: RowSpec[][] = [
     { title: 'Deliver First', lesson: 'Rotation order decides who lightens her for the bar.', adv: ['bar'], ports: 4, bands: 3, pickup: true },
     { title: 'Low Water', lesson: 'The bar wants her light, the stem wants her heavy.', adv: ['bar', 'noPump'], ports: 4, bands: 3, pickup: true },
     { title: 'Down to Her Marks', lesson: 'One load: the marks, the reserve, every tonne used.', ports: 3, bands: 2, format: 'exact' },
-    { title: 'Three High', lesson: 'Stacks three high: the bottom box sails longest.', twist: 'three high', ports: 3, bays: 3, tiers: 3, bands: 3, pickup: true },
+    { title: 'Three High', lesson: 'Stacks three high: the bottom box sails longest.', twist: 'three high', ports: 4, bays: 2, tiers: 3, bands: 3, pickup: true },
     { title: 'Rhine Barge', lesson: 'A bar at the river mouth and a pump upstream.', adv: ['bar', 'noPump'], ports: 3, bands: 3, pickup: true },
     { title: 'Ebb Tide', lesson: 'Stacks three high under a harbour bar.', adv: ['bar'], ports: 4, bays: 3, tiers: 3, bands: 3, pickup: true },
     { title: 'The River Charter', lesson: 'Bars, dry berths and stacks on a five-port rotation.', adv: ['bar', 'noPump'], ports: 5, bands: 3, pickup: true, boxes: [10, 11] },
@@ -170,7 +170,7 @@ const SPECS: RowSpec[][] = [
   // 4 Bunker Calls: price spreads; barge lots from x.6
   [
     { title: 'Price Board', lesson: 'Cheap bunkers here, dear there: carry the cheap fuel, but it weighs.', adv: ['prices'], intro: 'prices', ports: 3, bands: 2, pickup: true },
-    { title: 'Cheap Here', lesson: 'Cheap fuel past a dry berth costs cargo on the first leg.', adv: ['prices', 'noPump'], ports: 3, bands: 3, pickup: true },
+    { title: 'Cheap Here', lesson: 'Cheap fuel past a dry berth costs cargo on the first leg.', adv: ['prices', 'noPump'], ports: 4, bands: 3, pickup: true },
     { title: 'Las Palmas Stem', lesson: 'A shallow bar at the cheap pump.', adv: ['prices', 'bar'], ports: 4, bands: 3, pickup: true },
     { title: 'Harmattan', lesson: 'Where to stem on a long dry stretch with three prices.', adv: ['prices', 'noPump'], ports: 4, bands: 3, pickup: true },
     { title: 'On the Mark', lesson: 'Exactly one load fills her to the marks and lands her on the reserve.', ports: 3, bands: 2, format: 'exact' },
@@ -244,6 +244,8 @@ function buildRow(area: number, local: number, s: RowSpec): LadderRow {
   for (const m of s.adv ?? []) mechanics.push(m);
   let boxes = s.boxes ?? BOXES[band];
   if (area <= 1 && band === 'B6') boxes = [Math.min(boxes[0], 9), Math.min(boxes[1], 10)];
+  // without pickups every box is offered at the first call: at most 5 offers
+  if (!s.pickup) boxes = [Math.min(boxes[0], 4), Math.min(boxes[1], 5)];
   return {
     n,
     area,
