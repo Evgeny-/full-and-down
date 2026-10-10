@@ -39,7 +39,7 @@ export function closeAllDialogs(): void {
 }
 
 export function openDialog(opts: DialogOptions): DialogHandle {
-  const overlay = h('div', { class: 'overlay' });
+  const overlay = h('div', { class: 'overlay' + (opts.cls?.includes('report-dlg') ? ' low' : '') });
   const dlg = h('div', { class: 'dialog' + (opts.cls ? ' ' + opts.cls : ''), attrs: { role: 'dialog', 'aria-modal': 'true', 'aria-label': opts.title } });
   dlg.append(h('div', { class: 'dialog-head ' + (opts.head ?? 'navy'), text: opts.title }));
   let closed = false;

@@ -451,7 +451,8 @@ export class Band implements Player {
   private r: Rng;
   private ctx: BaseAudioContext;
 
-  constructor(readonly res: Resources, readonly out: AudioNode, private reverb: AudioNode | null, private trims: Partial<Record<string, number>> = {}, seed = 1) {
+  /** `solo`: only these instrument channels are audible (stem analysis). */
+  constructor(readonly res: Resources, readonly out: AudioNode, private reverb: AudioNode | null, private trims: Partial<Record<string, number>> = {}, seed = 1, private solo?: string[]) {
     this.ctx = res.ctx;
     this.r = new Rng(seed);
   }
@@ -461,7 +462,8 @@ export class Band implements Player {
     if (c) return c;
     const ctx = this.ctx;
     const input = ctx.createGain();
-    input.gain.value = this.trims[name.split('@')[0]] ?? 1;
+    const base = name.split('@')[0];
+    input.gain.value = this.solo && !this.solo.includes(base) ? 0 : (this.trims[base] ?? 1);
     const nodes: AudioNode[] = [input];
     let node: AudioNode = input;
     if (pan !== 0 && typeof ctx.createStereoPanner === 'function') {

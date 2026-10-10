@@ -50,7 +50,7 @@ export const WOBBLE: Partial<Record<BakeName, number>> = {
 
 /** Bake rate per sound: low, dark sounds need fewer samples (and less memory on phones). */
 const LOW_RATE = new Set<BakeName>(['horn', 'toot', 'drop', 'glug', 'crane', 'sputter', 'fail', 'win', 'slap', 'creak', 'buoy']);
-export const bakeRate = (name: BakeName): number => (LOW_RATE.has(name) ? 22050 : 32000);
+export const bakeRate = (name: BakeName): number => (LOW_RATE.has(name) ? 22050 : 24000);
 
 export interface SfxParams {
   pitch?: number;
@@ -308,9 +308,9 @@ class Kit {
    * for short sounds); peaks are kept under -1 dBFS.
    */
   finish(levelDb: number, wet: number, o: { size?: number; damp?: number; tail?: number; echo?: Taps; echoLp?: number } = {}): Baked {
-    let [L, R] = room(this.m, this.sr, { wet, size: o.size ?? 0.42, damp: o.damp ?? 0.6, tail: o.tail ?? 0.8 });
+    let [L, R] = room(this.m, this.sr, { wet, size: o.size ?? 0.42, damp: o.damp ?? 0.6, tail: o.tail ?? 0.6 });
     if (o.echo) [L, R] = echoes(L, R, this.sr, o.echo, o.echoLp);
-    const end = Math.max(tailEnd(L, -64), tailEnd(R, -64));
+    const end = Math.max(tailEnd(L, -54), tailEnd(R, -54));
     const l = L.slice(0, end);
     const rr = R.slice(0, end);
     fadeOut(l, 0.012, this.sr);
@@ -341,7 +341,7 @@ export function bakeSfx(name: BakeName, p: SfxParams, sr: number, seed: number):
       };
       shutter(0, r.range(2900, 3300), 1);
       shutter(r.range(0.05, 0.065), r.range(2500, 2800), 0.75);
-      return k.finish(-27, 0.04);
+      return k.finish(-26, 0.04);
     }
     case 'pick': {
       // the hook takes the lifting eye (clank) and the chain sways
@@ -365,7 +365,7 @@ export function bakeSfx(name: BakeName, p: SfxParams, sr: number, seed: number):
       const tl = 0.03 + r.range(0, 0.012);
       k.steel(tl, r.range(850, 1000), 0.28, { ratios: [1, 2.07, 3.36], t60: 0.07, bright: 0.8 });
       k.clink(tl + r.range(0.012, 0.02), r.range(2000, 2500), 0.16, 0.025);
-      return k.finish(-20 + w * 0.7, 0.08, { echo: NEAR });
+      return k.finish(-22.5 + w * 0.7, 0.08, { echo: NEAR });
     }
     case 'crane': {
       // a slew/hoist motor spins up and down: a saw through a band-pass that follows its speed,
@@ -404,7 +404,7 @@ export function bakeSfx(name: BakeName, p: SfxParams, sr: number, seed: number):
       k.bubble(0.04 + r.range(0, 0.02), r.range(170, 230), 0.45, 0.09);
       k.bubble(0.1 + r.range(0, 0.04), r.range(260, 340), 0.2, 0.06);
       k.thump(0, 70, 50, 0.4, 0.1);
-      return k.finish(-23, 0.05);
+      return k.finish(-24, 0.05);
     }
     case 'cell': {
       // a fuel cell is full: a gauge tick and a soft steel "tink" one step up a major pentatonic
@@ -478,7 +478,7 @@ export function bakeSfx(name: BakeName, p: SfxParams, sr: number, seed: number):
       const br = noiseShaped(sr, T[3], r, (u) => amp(u * T[3]));
       biquad(br, 'bp', 2400, 2, sr);
       k.put(br, 0, 0.1);
-      return k.finish(-22, 0.12, { echo: MID });
+      return k.finish(-23, 0.12, { echo: MID });
     }
     case 'gull':
     case 'gullFar': {
@@ -630,7 +630,7 @@ export function bakeSfx(name: BakeName, p: SfxParams, sr: number, seed: number):
       blast(0, 0.16, 0.9);
       blast(0.24, 0.52, 1);
       biquad(k.m, 'lp', 7000, 0.7, sr);
-      return k.finish(-24, 0.08, { echo: MID });
+      return k.finish(-25, 0.08, { echo: MID });
     }
     case 'coin': {
       // freight paid: the register's lever, the drawer, its bright little bell, coins settling

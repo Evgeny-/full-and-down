@@ -53,6 +53,9 @@ export class Hud {
   private tagEls = new Map<number, HTMLElement>();
   private level!: Level;
   private lastProfit = 0;
+  private preview: { weight: number; to: number } | null = null;
+  private lastModel: PlanModel | null = null;
+  private lastAnchors: Anchors | null = null;
   private bestStars = 0;
 
   constructor(parent: HTMLElement, private on: HudHandlers) {
@@ -101,7 +104,15 @@ export class Hud {
     return window.innerHeight - r.top + 4;
   }
 
+  /** While a box is held, the deadweight bar shows the cells it would take. */
+  setPreview(p: { weight: number; to: number } | null): void {
+    this.preview = p;
+    if (this.lastModel) this.renderDwt(this.lastModel, this.lastModel.sim.projection, this.lastAnchors);
+  }
+
   update(m: PlanModel, anchors: Anchors | null): void {
+    this.lastModel = m;
+    this.lastAnchors = anchors;
     const lv = this.level;
     const pr = m.sim.projection;
     this.renderRule(pr.profit, pr.problems.length > 0);
@@ -212,6 +223,8 @@ export class Hud {
     const cells: string[] = [];
     const dests = [...byDest.keys()].sort((x, y) => x - y);
     for (const d of dests) for (let k = 0; k < byDest.get(d)!; k++) cells.push(`<i style="background:${portColor(d)}"></i>`);
+    const pv = this.preview;
+    if (pv) for (let k = 0; k < pv.weight; k++) cells.push(`<i class="ghost" style="--c:${portColor(pv.to)}"></i>`);
     const cargo = cells.length;
     const fuel = leg.fuelOut;
     for (let k = 0; k < fuel; k++) cells.push(`<i class="${k < lv.reserve ? 'res' : 'fuel'}"></i>`);
@@ -229,7 +242,7 @@ export class Hud {
       .join('');
     const band = bandOf(lv.ship, used);
     const nextUp = lv.ship.bands[band].upTo;
-    const hint = used > C ? `<b class="over">${over} t over</b>` : used === C ? `<b class="mark">ON THE MARK</b>` : band < lv.ship.bands.length - 1 ? `▲${nextUp - used + 1} t to ${bandName(lv, band + 1)}` : `▲${C - used} t to the mark`;
+    const hint = pv ? `<b class="pv">+${pv.weight} t</b> ${used > C ? `<b class="over">${over} t over</b>` : used === C ? '<b class="mark">on the mark</b>' : `${C - used} t to spare`}` : used > C ? `<b class="over">${over} t over</b>` : used === C ? `<b class="mark">ON THE MARK</b>` : band < lv.ship.bands.length - 1 ? `▲${nextUp - used + 1} t to ${bandName(lv, band + 1)}` : `▲${C - used} t to the mark`;
     this.dwt.innerHTML = `
       <div class="dwt-row"><span class="caps">Deadweight</span><span class="num tot ${over ? 'bad' : ''}">${used}<small>/${C} t</small></span><span class="hint caps">${hint}</span></div>
       <div class="cells ${over ? 'over' : ''}" style="--n:${Math.max(C, used)}">${cells.join('')}<b class="smark" style="left:${(C / Math.max(C, used)) * 100}%">S</b></div>

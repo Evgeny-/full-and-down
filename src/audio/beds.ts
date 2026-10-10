@@ -192,6 +192,10 @@ export class BedBuffers {
 /** A one-shot request: which sound, when, how loud, where. */
 export type Shot = (name: BedSound, t: number, volume: number, pan: number) => void;
 
+/** Bed layer levels (calibrated: the bed sits about 6 LU under the music, see docs/audio.md). */
+const SWELL_LEVEL = 0.13;
+const LAP_LEVEL = 0.12;
+
 /** How often each one-shot comes round (seconds between, min..max) and how loud. */
 const EVENTS: Record<BedSound, { gap: [number, number]; vol: [number, number]; first: [number, number] }> = {
   slap: { gap: [2.5, 8], vol: [0.45, 1], first: [1, 4] },
@@ -214,19 +218,25 @@ export class SeaBed {
     this.out.gain.linearRampToValueAtTime(1, t + 2.5);
     this.out.connect(dest);
     this.nodes.push(this.out);
-    this.layer(bufs.swell, 0.75, [[0.071, 0.2], [0.031, 0.12]], t);
-    this.layer(bufs.lap, 0.7, [[0.113, 0.18]], t);
+    this.layer(bufs.swell, SWELL_LEVEL, [[0.071, 0.27], [0.031, 0.16]], t);
+    this.layer(bufs.lap, LAP_LEVEL, [[0.113, 0.26]], t);
     this.next = { slap: 0, creak: 0, gullFar: 0, buoy: 0 };
     for (const k of Object.keys(EVENTS) as BedSound[]) this.next[k] = t + r.range(...EVENTS[k].first);
   }
 
+  /** A looping layer: its level, breathing by ±`depth` (relative) under each slow LFO. */
   private layer(buf: AudioBuffer, level: number, lfos: [number, number][], t: number): void {
     const ctx = this.ctx;
     const src = ctx.createBufferSource();
     src.buffer = buf;
     src.loop = true;
     const g = ctx.createGain();
-    g.gain.value = level;
+    g.gain.value = 1;
+    const lvl = ctx.createGain();
+    lvl.gain.value = level;
+    g.connect(lvl);
+    lvl.connect(this.out);
+    this.nodes.push(lvl);
     for (const [hz, depth] of lfos) {
       const o = ctx.createOscillator();
       o.frequency.value = hz * this.r.range(0.9, 1.1);
@@ -239,7 +249,6 @@ export class SeaBed {
       this.nodes.push(d);
     }
     src.connect(g);
-    g.connect(this.out);
     src.start(t, this.r.range(0, buf.duration));
     this.srcs.push(src);
     this.nodes.push(g);

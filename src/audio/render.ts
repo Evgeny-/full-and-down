@@ -7,6 +7,11 @@ import { AudioEngine, DEFAULT_MUSIC_VOLUME, DEFAULT_SFX_VOLUME, type PlayOpts } 
 import { bakeRate, bakeSfx, sfxKey, type SfxName } from './sfx';
 
 export const RENDER_RATE = 48000;
+/**
+ * Renders start their sound this late: a fresh DynamicsCompressor starts fully compressed and
+ * needs ~0.25 s to settle (in the game it has long settled before most sounds play).
+ */
+const SETTLE = 0.5;
 
 function engineOn(ctx: OfflineAudioContext, o: { sfxVolume?: number; musicVolume?: number } = {}): AudioEngine {
   const eng = new AudioEngine();
@@ -18,13 +23,13 @@ function engineOn(ctx: OfflineAudioContext, o: { sfxVolume?: number; musicVolume
 
 /** Render one sound effect through the full chain (SFX bus, master, compressor). */
 export async function renderSfx(name: SfxName, opts: PlayOpts = {}, o: { theme?: number; sfxVolume?: number } = {}): Promise<AudioBuffer> {
-  const ctx = new OfflineAudioContext(2, Math.ceil(RENDER_RATE * 6), RENDER_RATE);
+  const ctx = new OfflineAudioContext(2, Math.ceil(RENDER_RATE * (SETTLE + 6)), RENDER_RATE);
   const eng = engineOn(ctx, o);
   // the win flourish plays in the key of the region whose music was last asked for
   if (o.theme !== undefined) eng.startMusic(o.theme);
   eng.stopMusic(0);
-  eng.playAt(name, 0.03, opts);
-  return trim(await ctx.startRendering());
+  eng.playAt(name, SETTLE, opts);
+  return trim(await ctx.startRendering(), SETTLE);
 }
 
 /** The raw baked buffer of a sound (what the cache holds): length, peak, sample rate. */
@@ -37,33 +42,33 @@ export function bakedInfo(name: SfxName, opts: PlayOpts = {}): { seconds: number
 }
 
 /** Render `seconds` of a region's music (from the start) at the default (or given) music volume. */
-export async function renderMusic(theme: number, seconds: number, o: { seed?: number; musicVolume?: number } = {}): Promise<AudioBuffer> {
-  const ctx = new OfflineAudioContext(2, Math.ceil(RENDER_RATE * seconds), RENDER_RATE);
+export async function renderMusic(theme: number, seconds: number, o: { seed?: number; musicVolume?: number; solo?: string[] } = {}): Promise<AudioBuffer> {
+  const ctx = new OfflineAudioContext(2, Math.ceil(RENDER_RATE * (SETTLE + seconds)), RENDER_RATE);
   const eng = engineOn(ctx, o);
-  eng.startMusicAt(theme, 0.05, o.seed ?? 1234 + theme);
-  eng.pumpMusic(seconds);
-  return ctx.startRendering();
+  eng.startMusicAt(theme, SETTLE, o.seed ?? 1234 + theme, o.solo);
+  eng.pumpMusic(SETTLE + seconds);
+  return trim(await ctx.startRendering(), SETTLE);
 }
 
 /** Render `seconds` of the harbour bed (with its one-shots). */
 export async function renderAmbience(seconds: number): Promise<AudioBuffer> {
-  const ctx = new OfflineAudioContext(2, Math.ceil(RENDER_RATE * seconds), RENDER_RATE);
+  const ctx = new OfflineAudioContext(2, Math.ceil(RENDER_RATE * (SETTLE + seconds)), RENDER_RATE);
   const eng = engineOn(ctx);
-  eng.startAmbienceAt(0.02);
-  eng.pumpAmbience(seconds);
-  return ctx.startRendering();
+  eng.startAmbienceAt(SETTLE);
+  eng.pumpAmbience(SETTLE + seconds);
+  return trim(await ctx.startRendering(), SETTLE);
 }
 
 /** Render `seconds` of the diesel at a fixed load. */
 export async function renderEngine(seconds: number, load: number): Promise<AudioBuffer> {
-  const ctx = new OfflineAudioContext(2, Math.ceil(RENDER_RATE * seconds), RENDER_RATE);
+  const ctx = new OfflineAudioContext(2, Math.ceil(RENDER_RATE * (SETTLE + seconds)), RENDER_RATE);
   const eng = engineOn(ctx);
-  eng.startEngineAt(0.02, load);
-  return ctx.startRendering();
+  eng.startEngineAt(SETTLE, load);
+  return trim(await ctx.startRendering(), SETTLE);
 }
 
-/** Drop trailing silence (below -80 dBFS), keeping 50 ms. */
-function trim(b: AudioBuffer): AudioBuffer {
+/** Drop the first `from` seconds and trailing silence (below -80 dBFS), keeping 50 ms. */
+function trim(b: AudioBuffer, from = 0): AudioBuffer {
   let end = 0;
   for (let ch = 0; ch < b.numberOfChannels; ch++) {
     const d = b.getChannelData(ch);
@@ -72,9 +77,10 @@ function trim(b: AudioBuffer): AudioBuffer {
       break;
     }
   }
-  const len = Math.min(b.length, end + Math.round(0.05 * b.sampleRate));
-  const out = new AudioBuffer({ length: Math.max(1, len), numberOfChannels: b.numberOfChannels, sampleRate: b.sampleRate });
-  for (let ch = 0; ch < b.numberOfChannels; ch++) out.getChannelData(ch).set(b.getChannelData(ch).subarray(0, len));
+  const start = Math.round(from * b.sampleRate);
+  const len = Math.max(1, Math.min(b.length, end + Math.round(0.05 * b.sampleRate)) - start);
+  const out = new AudioBuffer({ length: len, numberOfChannels: b.numberOfChannels, sampleRate: b.sampleRate });
+  for (let ch = 0; ch < b.numberOfChannels; ch++) out.getChannelData(ch).set(b.getChannelData(ch).subarray(start, start + len));
   return out;
 }
 

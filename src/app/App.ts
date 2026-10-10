@@ -124,6 +124,7 @@ export class App {
     this.view.sync(0, this.model.baysAt(0), this.model.quayAt(0), 'instant');
     this.refresh(false);
     audio.ambience(true);
+    audio.startMusic(Math.min(4, Math.floor(((level.chapter || 1) - 1) * 5 / 8)));
     audio.play('pipe');
     if (DEBUG) (window as unknown as { game: unknown }).game = this;
     const intro = level.intro ? NOTICES[level.intro] : undefined;
@@ -203,6 +204,7 @@ export class App {
     this.lastWeight = leg.weight;
     this.view.setBunker(lv.ports[m.port].price !== null ? m.sim.plan[m.port].bunker : 0);
     this.hud.update(m, this.anchors);
+    this.view.setBluePeter(!m.sailRefusal());
     if (m.sim.projection.problems.some((p) => p.code === 'overMarks')) this.coachEvent('over');
   }
 
@@ -226,6 +228,8 @@ export class App {
     const bays = m.baysAt(m.port);
     const legal = bays.map((_, i) => i).filter((i) => m.canPlace(box, i).ok);
     this.view.setHeld(box, legal, bays);
+    const b = m.level.boxes[box];
+    this.hud?.setPreview({ weight: b.weight, to: b.to });
     audio.play('pick', { volume: 0.5 });
     this.coachEvent('pick');
   }
@@ -234,6 +238,7 @@ export class App {
     if (this.held === null) return;
     this.held = null;
     this.view.setHeld(null);
+    this.hud?.setPreview(null);
   }
 
   private place(box: BoxId, bay: number): void {
@@ -247,6 +252,7 @@ export class App {
     }
     this.held = null;
     this.view.setHeld(null);
+    this.hud?.setPreview(null);
     this.view.sync(m.port, m.baysAt(m.port), m.quayAt(m.port), 'edit');
     this.afterEdit();
     this.coachEvent('place');
@@ -597,6 +603,8 @@ export class App {
     writeSave(this.save);
     if (stars === 3) this.view.celebrate();
     audio.play('win');
+    // let the moment land before the paperwork
+    await new Promise<void>((r) => setTimeout(r, stars === 3 ? 1900 : 900));
     const last = lv.ports[lv.ports.length - 1];
     const onMark = pr.onMark.some(Boolean);
     const onReserve = pr.finalRob === lv.reserve;

@@ -10,6 +10,7 @@ import { makeBox } from './boxes';
 import { portColor } from './portStyle';
 import { canvas, toTexture, FONT_NUM, FONT_TEXT } from './paint';
 import { drawFlag, type FlagId } from './flags';
+import { ClothFlag, dressLine } from './flagMeshes';
 import { PAL } from './palette';
 import { audio } from '../audio/audio';
 import type { BoxId, Level } from '../core/types';
@@ -103,6 +104,11 @@ export class GameView {
   private night = false;
   private barge: THREE.Group | null = null;
   private bunkering = 0;
+  private buoys: THREE.Group[] = [];
+  private cloth: ClothFlag[] = [];
+  private bluePeter: ClothFlag | null = null;
+  private peterUp = false;
+  private dress: THREE.Group | null = null;
 
   constructor(container: HTMLElement) {
     this.renderer = createRenderer(container);
@@ -125,7 +131,7 @@ export class GameView {
     this.places.clear();
     this.tweens.clear();
     this.held = null;
-    this.ship = new ShipModel(level.ship.bays, level.ship.tiers, level.ship.name.toUpperCase());
+    this.ship = new ShipModel(level.ship.bays, level.ship.tiers, level.ship.name.toUpperCase(), level.mechanics.includes('reefer') ? (level.ship.plugs ?? []) : []);
     this.levelGroup.add(this.ship.group);
     const width = Math.max(40, this.ship.length * 4);
     this.quayWidth = width;
@@ -136,6 +142,16 @@ export class GameView {
     this.sign = this.makeSign();
     this.world.add(this.sign);
     this.buildBarge();
+    this.buildBuoys();
+    // Blue Peter waits at the foot of the yard halyard
+    this.cloth = [];
+    this.dress = null;
+    this.peterUp = false;
+    this.bluePeter = new ClothFlag('P', 0.34, 0.24);
+    this.bluePeter.mesh.position.copy(this.ship.yard).setY(this.ship.deckY + 1.2);
+    this.bluePeter.mesh.visible = false;
+    this.ship.body.add(this.bluePeter.mesh);
+    this.cloth.push(this.bluePeter);
     // bay hit volumes (invisible, taller than the stacks, for thumbs)
     this.bayHits = [];
     const hitMat = new THREE.MeshBasicMaterial({ visible: false });
@@ -148,7 +164,7 @@ export class GameView {
       this.bayHits.push(m);
     }
     for (const b of level.boxes) {
-      const mesh = makeBox({ color: portColor(b.to), weight: b.weight, flag: level.ports[b.to].flag as FlagId, kind: b.reefer ? 'reefer' : undefined });
+      const mesh = makeBox({ color: portColor(b.to), weight: b.weight, flag: level.ports[b.to].flag as FlagId, kind: b.reefer && level.mechanics.includes('reefer') ? 'reefer' : undefined, seal: b.contract });
       mesh.userData.box = b.id;
       mesh.visible = false;
       this.world.add(mesh);
@@ -230,6 +246,35 @@ export class GameView {
     this.barge = g;
   }
 
+  /** Channel buoys that drift past while she sails (red cans to port, green cones to starboard). */
+  private buildBuoys(): void {
+    this.buoys = [];
+    const mk = (color: string, cone: boolean) => {
+      const g = new THREE.Group();
+      const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.5 });
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.2, 0.36, 12), mat);
+      body.position.y = 0.12;
+      g.add(body);
+      const top = cone ? new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.26, 12), mat) : new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.16, 12), mat);
+      top.position.y = cone ? 0.42 : 0.38;
+      g.add(top);
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.205, 0.205, 0.06, 12), new THREE.MeshStandardMaterial({ color: '#f8f7f2' }));
+      band.position.y = 0.02;
+      g.add(band);
+      g.traverse((o) => ((o as THREE.Mesh).castShadow = true));
+      g.visible = false;
+      this.levelGroup.add(g);
+      return g;
+    };
+    for (let i = 0; i < 6; i++) {
+      const far = i % 2 === 0;
+      const b = mk(far ? '#d62f2b' : '#2f8a5a', !far);
+      b.userData.z = far ? -2.6 : 2.4;
+      b.userData.offset = i * 6.5;
+      this.buoys.push(b);
+    }
+  }
+
   /** Show the bunker barge and its hose (amount > 0) at this call. */
   setBunker(amount: number, pulse = false): void {
     if (!this.barge) return;
@@ -266,10 +311,14 @@ export class GameView {
     const portrait = h > w * 1.15;
     const freeH = Math.max(200, h - this.insets.top - this.insets.bottom);
     // portrait: let the bow and stern run a little off the edges so the boxes get the pixels
-    const span = portrait ? Math.max(8.4, this.ship.length - 0.5) : this.ship.length + 2;
-    let viewW = span;
-    if (!portrait) viewW = Math.max(span, (9.5 * w) / freeH);
-    this.unitPx = w / viewW;
+    // the ship fills a phone-width column; wider screens see more harbour around it
+    const col = Math.min(w, 640);
+    const span = portrait ? Math.max(8.4, this.ship.length - 0.5) : this.ship.length + 1.2;
+    let unit = col / span;
+    // keep her (and the quay below) inside the free height
+    unit = Math.min(unit, freeH / 5.2 + 8);
+    this.unitPx = unit;
+    const viewW = w / unit;
     const viewH = h / this.unitPx;
     this.camera.left = -viewW / 2;
     this.camera.right = viewW / 2;
@@ -687,19 +736,57 @@ export class GameView {
     return ids.length * gap + 0.6;
   }
 
+  /** Blue Peter: "about to proceed to sea", hoisted when the plan is clear to sail. */
+  setBluePeter(on: boolean): void {
+    const f = this.bluePeter;
+    if (!f || on === this.peterUp) return;
+    this.peterUp = on;
+    const lowY = this.ship.deckY + 1.0;
+    const highY = this.ship.yard.y - 0.14;
+    f.mesh.visible = true;
+    const from = f.mesh.position.y;
+    this.tweens.cancel(f);
+    this.tweens.add(on ? 0.7 : 0.35, (k) => (f.mesh.position.y = from + ((on ? highY : lowY) - from) * k), {
+      ease: on ? ease.outBack : ease.inQuad,
+      tag: f,
+      done: () => (f.mesh.visible = on),
+    });
+  }
+
   /** Dress overall and fire flag confetti (three-star arrival). */
   celebrate(): void {
     const p = this.ship.body.localToWorld(new THREE.Vector3(0, this.ship.deckY + 2.5, 0.5));
     this.fx.confetti(p, 90, this.ship.length * 0.6);
     this.onMarkGlint();
+    if (!this.dress) {
+      const sh = this.ship;
+      const { group, flags } = dressLine([
+        new THREE.Vector3(sh.bowX - 0.15, sh.hull.deckAt(sh.bowX - 0.2) + 0.25, 0),
+        sh.foremastTop.clone(),
+        sh.yard.clone().setY(sh.yard.y + 0.15).setZ(0),
+        new THREE.Vector3(sh.sternX + 0.15, sh.deckY + 0.6, 0),
+      ], 22);
+      this.ship.body.add(group);
+      this.dress = group;
+      flags.forEach((f, i) => {
+        this.cloth.push(f);
+        this.tweens.add(0.25, (k) => f.mesh.scale.setScalar(Math.max(0.001, k)), { delay: 0.3 + i * 0.05, ease: ease.outBack, start: () => i % 4 === 0 && audio.play('flag', { volume: 0.4 }) });
+      });
+    }
   }
 
   setNight(on: boolean): void {
     this.night = on;
-    this.water.uniforms.uNight.value = on ? 0.75 : 0;
+    this.water.uniforms.uNight.value = on ? 0.6 : 0;
     this.scene.background = new THREE.Color(on ? '#16233a' : PAL.skyTop);
-    this.lights.sun.intensity = on ? 0.5 : 2.5;
-    this.lights.hemi.intensity = on ? 0.55 : 1.05;
+    // a navy harbour under sodium lamps, never a black slab
+    this.renderer.toneMappingExposure = on ? 0.72 : 1.0;
+    this.lights.sun.color.set(on ? '#ffcf8a' : '#fff6e6');
+    this.lights.sun.intensity = on ? 1.3 : 2.5;
+    this.lights.hemi.color.set(on ? '#6f8fc8' : '#ddf1ff');
+    this.lights.hemi.groundColor.set(on ? '#1d2a44' : '#6e8c99');
+    this.lights.hemi.intensity = on ? 0.9 : 1.05;
+    this.scene.environmentIntensity = on ? 0.14 : 0.32;
   }
 
   // ───────────────────────────── frame ─────────────────────────────
@@ -723,7 +810,16 @@ export class GameView {
       this.water.uniforms.uScroll.value = this.scroll;
       const qw = this.quayWidth / 2;
       this.water.uniforms.uQuayX.value.set(this.world.position.x - qw, this.world.position.x + qw);
-      this.water.uniforms.uSea.value = Math.min(1, Math.abs(this.world.position.x) / (qw * 0.9));
+      const sea = Math.min(1, Math.abs(this.world.position.x) / (qw * 0.9));
+      this.water.uniforms.uSea.value = sea;
+      const span = 39;
+      for (const b of this.buoys) {
+        b.visible = sea > 0.25;
+        if (!b.visible) continue;
+        const x = (((b.userData.offset - this.scroll * 1.0) % span) + span) % span - span / 2;
+        b.position.set(x, Math.sin(t * 1.7 + b.userData.offset) * 0.03 - 0.05, b.userData.z);
+        b.rotation.z = Math.sin(t * 1.3 + b.userData.offset) * 0.08;
+      }
       const radar = this.ship.body.getObjectByName('radar');
       if (radar) radar.rotation.y = t * 1.8;
       // the crane follows the box in the air, else parks
@@ -746,6 +842,7 @@ export class GameView {
         this.fx.puff(this.ship.body.localToWorld(new THREE.Vector3(this.ship.bowX - 0.3, 0.05, 0.75)), { n: 1, color: '#ffffff', size: 0.16, speed: 0.6, rise: 0.4, life: 0.6, alpha: 0.8 });
       }
       if (this.bunkering > 0) this.bunkering -= dt;
+      for (const f of this.cloth) if (f.mesh.visible) f.update(t, 0.6 + this.speed * 0.8);
     }
     this.water.uniforms.uTime.value = t;
     this.fx.update(dt, this.camera);

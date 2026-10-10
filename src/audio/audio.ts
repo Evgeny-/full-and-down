@@ -56,10 +56,10 @@ export const DEFAULT_MUSIC_VOLUME = 0.5;
 /** Bus gains at volume 1, calibrated against each other (see docs/audio.md). */
 const MUSIC_GAIN = 1.0;
 const AMBIENCE_GAIN = 0.7;
-const ENGINE_GAIN = 0.32;
+const ENGINE_GAIN = 0.22;
 const MASTER_GAIN = 0.9;
-/** Undoes the compressor's automatic makeup gain, so levels below its threshold pass unchanged (measured). */
-const COMPRESSOR_TRIM = 0.71;
+/** Undoes the compressor's automatic makeup gain (+3.55 dB, measured in Chrome), so levels below its knee pass unchanged. */
+const COMPRESSOR_TRIM = 0.665;
 /** Seconds of music scheduled ahead of the clock (bars are scheduled whole). */
 const LOOKAHEAD = 0.5;
 
@@ -299,7 +299,7 @@ export class AudioEngine implements Audio {
   }
 
   /** Start a region's theme at context time `t`. Live contexts are pumped by a timer; offline renders call `pumpMusic`. */
-  startMusicAt(theme: number, t: number, seed?: number): void {
+  startMusicAt(theme: number, t: number, seed?: number, solo?: string[]): void {
     const ctx = this.ctx;
     if (!ctx || !this.musicBus || !this.res) return;
     this.fadeOutSong(2);
@@ -312,7 +312,7 @@ export class AudioEngine implements Audio {
     out.gain.linearRampToValueAtTime(level, t + 2.5);
     out.connect(this.musicBus);
     const s = seed ?? (this.rnd.next() * 1e9) | 0;
-    this.song = new Song(def, new Band(this.res, out, this.reverb, { ...def.mix }, s), t, s);
+    this.song = new Song(def, new Band(this.res, out, this.reverb, { ...def.mix }, s, solo), t, s);
     this.songOut = out;
     if (ctx === this.live) {
       this.pumpMusic();

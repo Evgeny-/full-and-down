@@ -9,6 +9,8 @@ export interface BoxLook {
   weight: number;
   flag: FlagId;
   kind?: 'box' | 'reefer' | 'dg' | 'heavy';
+  /** contract cargo: a red seal */
+  seal?: boolean;
 }
 
 const cache = new Map<string, THREE.Material[]>();
@@ -74,6 +76,32 @@ function paintSide(look: BoxLook): THREE.CanvasTexture {
   g.fillStyle = 'rgba(0,0,0,0.25)';
   g.fillRect(fx + 2, fy + 3, fw, fh);
   drawFlag(g, look.flag, fx, fy, fw, fh);
+  if (look.seal) {
+    // a contract seal: a red wax disc with a white tick
+    const cx = look.kind === 'reefer' ? W - 160 : W - 104;
+    const cy = H - 28;
+    g.fillStyle = 'rgba(0,0,0,0.25)';
+    g.beginPath();
+    g.arc(cx + 2, cy + 3, 17, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#b3201c';
+    g.beginPath();
+    for (let k = 0; k < 16; k++) {
+      const a = (k / 16) * Math.PI * 2;
+      const r = k % 2 ? 15 : 18;
+      g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+    }
+    g.closePath();
+    g.fill();
+    g.strokeStyle = '#fff';
+    g.lineWidth = 4;
+    g.lineCap = 'round';
+    g.beginPath();
+    g.moveTo(cx - 7, cy);
+    g.lineTo(cx - 2, cy + 6);
+    g.lineTo(cx + 8, cy - 6);
+    g.stroke();
+  }
   if (look.kind === 'dg') {
     // a dangerous-goods diamond
     g.save();
@@ -121,7 +149,7 @@ function paintEnd(look: BoxLook): THREE.CanvasTexture {
 }
 
 export function boxMaterials(look: BoxLook): THREE.Material[] {
-  const key = `${look.color}|${look.weight}|${look.flag}|${look.kind ?? 'box'}`;
+  const key = `${look.color}|${look.weight}|${look.flag}|${look.kind ?? 'box'}|${look.seal ? 1 : 0}`;
   let mats = cache.get(key);
   if (!mats) {
     const side = new THREE.MeshStandardMaterial({ map: paintSide(look), roughness: 0.62, metalness: 0.05 });

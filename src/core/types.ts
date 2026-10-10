@@ -113,6 +113,8 @@ export interface Level {
   mechanics: Mechanic[];
   /** the mechanic this level introduces (shows a Notice to Mariners) */
   intro?: Mechanic;
+  /** spot: choose from the offers; contract: sealed boxes must sail; exact: the Full & Down exact fit */
+  format?: 'spot' | 'contract' | 'exact';
   /** one optimal plan */
   best?: Call[];
   /** names the trap, shown after ★★★ */

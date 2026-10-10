@@ -8,6 +8,7 @@
 //   node review/audio-check.mjs                 everything (music: 30 s per theme)
 //   node review/audio-check.mjs --seconds 90    longer music excerpts (loudness calibration)
 //   node review/audio-check.mjs --wav <dir>     also write every render as WAV into <dir>
+//   node review/audio-check.mjs --stems         also measure each instrument of each theme (balance)
 //   node review/audio-check.mjs --url http://localhost:5210   use a running dev server
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -90,10 +91,17 @@ try {
   await clickText('Play 3');
   await new Promise((r) => setTimeout(r, 1500));
   await clickText('Stop 3');
+  const costs = [];
+  for (let i = 0; i < 5; i++) {
+    costs.push(await page.evaluate((k) => window.audit.startCost(k), i));
+    await new Promise((r) => setTimeout(r, 2500));
+  }
+  console.log(`  main-thread cost of starting each theme: ${costs.map((c) => `${c.toFixed(0)} ms`).join(', ')}`);
+  await page.evaluate(() => window.audit.stopMusic());
   await clickText('Engine: on');
   await clickText('Ambience: on');
   await clickText('Cast off');
-  await new Promise((r) => setTimeout(r, 1000));
+  await new Promise((r) => setTimeout(r, 5000));
   const st2 = await page.evaluate(() => window.audit.state());
   console.log(`  after more clicks: SFX cache ${(st2.cacheBytes / 1024).toFixed(0)} KB`);
 
@@ -126,6 +134,13 @@ try {
     if (m.peak >= 1 || m.clipped) fail(`${songs[i].id} clips`);
     if (m.lufs < -50) fail(`${songs[i].id} is (nearly) silent`);
     if (wavDir && r.wav) writeFileSync(join(wavDir, `music-${i}-${songs[i].id}.wav`), Buffer.from(r.wav, 'base64'));
+  }
+  if (args.includes('--stems')) {
+    console.log(`\n   stems (LUFS of each instrument soloed, ${seconds} s)`);
+    for (let i = 0; i < songs.length; i++) {
+      const s = await page.evaluate((k, sec) => window.audit.stems(k, sec), i, seconds);
+      console.log(`   ${songs[i].id.padEnd(14)} ${Object.entries(s).map(([k, v]) => `${k} ${v.toFixed(1)}`).join(' · ')}`);
+    }
   }
   for (const [label, fn] of [
     ['ambience (30 s)', () => page.evaluate(() => window.audit.ambience(30))],

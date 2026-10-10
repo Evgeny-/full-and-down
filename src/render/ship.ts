@@ -44,7 +44,7 @@ export class ShipModel {
   readonly cranes: Crane[];
   private hullMat: THREE.MeshStandardMaterial;
 
-  constructor(stacks: number, tiers: number, name = 'FULL & DOWN') {
+  constructor(stacks: number, tiers: number, name = 'FULL & DOWN', plugs: number[] = []) {
     this.stacks = stacks;
     this.tiers = tiers;
     const cargoLen = stacks * SLOT;
@@ -83,7 +83,7 @@ export class ShipModel {
     hullGroup.add(deck);
 
     this.buildBulwark(hullGroup);
-    this.buildCellGuides(cargoLen);
+    this.buildCellGuides(cargoLen, plugs);
     this.buildSuperstructure();
     this.buildForecastle();
     this.cranes = [
@@ -139,7 +139,7 @@ export class ShipModel {
     hullGroup.add(stMesh);
   }
 
-  private buildCellGuides(cargoLen: number): void {
+  private buildCellGuides(cargoLen: number, plugs: number[]): void {
     // hatch covers under the stacks, and lashing bridges between bays sized to the stack height
     const hatchMat = new THREE.MeshStandardMaterial({ color: PAL.hatch, roughness: 0.6 });
     const ribMat = new THREE.MeshStandardMaterial({ color: '#35505f', roughness: 0.6 });
@@ -149,6 +149,27 @@ export class ShipModel {
       hatch.castShadow = true;
       hatch.receiveShadow = true;
       this.body.add(hatch);
+      if (plugs.includes(i)) {
+        // a reefer power plate on the hatch front and a cable reel
+        const [pc, pg] = canvas(64, 64);
+        pg.fillStyle = '#1e4fa3';
+        pg.beginPath();
+        pg.roundRect(2, 2, 60, 60, 10);
+        pg.fill();
+        pg.strokeStyle = '#ffffff';
+        pg.lineWidth = 5;
+        pg.lineCap = 'round';
+        for (let k = 0; k < 3; k++) {
+          const a = (k / 3) * Math.PI;
+          pg.beginPath();
+          pg.moveTo(32 - Math.cos(a) * 20, 32 - Math.sin(a) * 20);
+          pg.lineTo(32 + Math.cos(a) * 20, 32 + Math.sin(a) * 20);
+          pg.stroke();
+        }
+        const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.3), new THREE.MeshStandardMaterial({ map: toTexture(pc), roughness: 0.4, emissive: '#1e4fa3', emissiveIntensity: 0.25 }));
+        plate.position.set(this.bayX(i), this.deckY - 0.12, BEAM / 2 + 0.005);
+        this.body.add(plate);
+      }
       for (let k = 0; k < 3; k++) {
         const rib = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.02, BEAM - 0.4), ribMat);
         rib.position.set(this.bayX(i) - 0.3 + k * 0.3, this.deckY + 0.075, 0);
@@ -207,6 +228,7 @@ export class ShipModel {
     const yard = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 0.7), mastMat);
     yard.position.set(x0 + w - 0.35, top + 0.62, 0);
     this.body.add(yard);
+    this.yard.set(x0 + w - 0.35, top + 0.62, 0.3);
     const radar = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.03, 0.06), new THREE.MeshStandardMaterial({ color: '#30343c' }));
     radar.position.set(x0 + w - 0.35, top + 0.47, 0);
     radar.name = 'radar';
@@ -237,6 +259,9 @@ export class ShipModel {
   }
 
   readonly funnelTop = new THREE.Vector3();
+  /** the yard on the bridge mast (Blue Peter flies here) and the foremast truck */
+  readonly yard = new THREE.Vector3();
+  readonly foremastTop = new THREE.Vector3();
 
   private buildForecastle(): void {
     const mat = new THREE.MeshStandardMaterial({ color: PAL.deck, roughness: 0.8 });
@@ -244,6 +269,7 @@ export class ShipModel {
     const x = this.bowX - 0.75;
     const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.7, 6), new THREE.MeshStandardMaterial({ color: PAL.funnel }));
     mast.position.set(x, this.hull.deckAt(x + 0.2) + 0.35, 0);
+    this.foremastTop.set(x, this.hull.deckAt(x + 0.2) + 0.7, 0);
     mast.castShadow = true;
     this.body.add(mast);
     // windlass

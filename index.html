@@ -3,13 +3,65 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
-    <title>Full &amp; Down</title>
+    <title>Full &amp; Down: load her to the marks</title>
+    <meta name="description" content="A cozy 3D puzzle about bunkers, boxes and the load line. Plan a short voyage: which boxes, which stacks, how much fuel. Fuel weighs too. No timers, just thinking." />
     <meta name="theme-color" content="#bfe3f5" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Full &amp; Down" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Full &amp; Down: load her to the marks" />
+    <meta property="og:description" content="Plan a short voyage: which boxes, which stacks, how much fuel. Fuel weighs too." />
+    <meta property="og:image" content="og.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <!-- the loading moment, inline so it plays before any script or font: boxes drop on a hull, she sinks to her mark -->
+    <style>
+      .boot { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; align-content: center; gap: 4px; padding-bottom: min(18vh, 120px); background: linear-gradient(#bfe3f5 0 58%, #2d8daf 58% 100%); transition: opacity .45s; font-family: 'Oswald Variable', Oswald, 'Arial Narrow', sans-serif; color: #1f2e4d; overflow: hidden; }
+      .boot.out { opacity: 0; pointer-events: none; }
+      .boot svg { width: 280px; height: 170px; overflow: visible; }
+      .boot h1 { margin: 6px 0 0; font-size: 40px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+      .boot p { margin: 0; font: 700 11px/1 system-ui, sans-serif; letter-spacing: .22em; text-transform: uppercase; color: #eaf6fb; }
+      .boot .ship { animation: sink 3.2s cubic-bezier(.4, 0, .2, 1) infinite; }
+      @keyframes sink { 0%, 8% { transform: translateY(0); } 22% { transform: translateY(6px); } 40% { transform: translateY(12px); } 58%, 86% { transform: translateY(18px); } 100% { transform: translateY(0); } }
+      .boot .b1 { animation: d1 3.2s cubic-bezier(.4, 0, .2, 1) infinite; }
+      .boot .b2 { animation: d2 3.2s cubic-bezier(.4, 0, .2, 1) infinite; }
+      .boot .b3 { animation: d3 3.2s cubic-bezier(.4, 0, .2, 1) infinite; }
+      @keyframes d1 { 0% { transform: translateY(-120px); opacity: 0; } 6% { opacity: 1; } 18%, 88% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-120px); opacity: 0; } }
+      @keyframes d2 { 0%, 18% { transform: translateY(-120px); opacity: 0; } 24% { opacity: 1; } 36%, 88% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-120px); opacity: 0; } }
+      @keyframes d3 { 0%, 36% { transform: translateY(-120px); opacity: 0; } 42% { opacity: 1; } 54%, 88% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-120px); opacity: 0; } }
+      .boot .glint { opacity: 0; animation: glint 3.2s ease infinite; }
+      @keyframes glint { 0%, 56% { opacity: 0; } 62% { opacity: 1; } 80% { opacity: 0; } }
+      @media (prefers-reduced-motion: reduce) { .boot * { animation: none !important; } }
+    </style>
   </head>
   <body>
     <div id="app">
       <div id="stage"></div>
       <div id="ui"></div>
+      <div id="boot" class="boot" role="status" aria-label="Loading">
+        <svg viewBox="0 0 280 170" aria-hidden="true">
+          <g class="ship">
+            <rect class="b1" x="78" y="62" width="40" height="26" rx="2" fill="#2c5da8"/>
+            <rect class="b2" x="122" y="62" width="40" height="26" rx="2" fill="#2f8a72"/>
+            <rect class="b3" x="166" y="62" width="40" height="26" rx="2" fill="#7b3f6e"/>
+            <rect x="32" y="40" width="34" height="48" fill="#f2f1ea"/>
+            <rect x="38" y="30" width="14" height="14" fill="#f5c518"/>
+            <rect x="38" y="34" width="14" height="4" fill="#1e4fa3"/>
+            <path d="M20 88h232l-22 46H40z" fill="#1f2e4d"/>
+            <path d="M28 112h216l-14 22H40z" fill="#b8432f"/>
+            <circle cx="150" cy="112" r="9" fill="none" stroke="#f8f7f2" stroke-width="2.5"/>
+            <rect x="136" y="111" width="28" height="2.5" fill="#f8f7f2"/>
+            <rect class="glint" x="120" y="109" width="60" height="6" rx="3" fill="#f5c518"/>
+          </g>
+          <rect x="-40" y="128" width="360" height="60" fill="#2d8daf"/>
+          <path d="M-40 128h360" stroke="#eaf9fb" stroke-width="3"/>
+        </svg>
+        <h1>Full &amp; Down</h1>
+        <p>Load her to the marks</p>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

@@ -323,6 +323,22 @@ window.audit = {
     const b = await renderMusic(i, seconds);
     return { id: SONGS[i].id, renderMs: performance.now() - t0, metrics: measure(b), wav: wav ? b64(toWav(b)) : null };
   },
+  /** Loudness of each instrument of a theme, soloed (balance check). */
+  async stems(i: number, seconds: number) {
+    const names = ['organ', 'drone', 'flute', 'concertina', 'harmonium', 'bass', 'guitar', 'harp', 'tanpura', 'tabla', 'bell', 'brush', 'brushTap', 'block', 'knock', 'oceanDrum', 'frame', 'ge'];
+    const out: Record<string, number> = { all: measure(await renderMusic(i, seconds)).lufs };
+    for (const n of names) {
+      const m = measure(await renderMusic(i, seconds, { solo: [n] }));
+      if (m.lufs > -100) out[n] = m.lufs;
+    }
+    return out;
+  },
+  /** How long starting a theme blocks the main thread (the first bars bake synchronously). */
+  startCost(i: number) {
+    const t0 = performance.now();
+    audio.startMusic(i);
+    return performance.now() - t0;
+  },
   async ambience(seconds: number) {
     return { metrics: measure(await renderAmbience(seconds)) };
   },
@@ -330,5 +346,6 @@ window.audit = {
     return { metrics: measure(await renderEngine(seconds, load)) };
   },
   state: () => ({ ready: audio.ready, info: audioEngine.musicInfo(), cacheBytes: audioEngine.cacheBytes() }),
+  stopMusic: () => audio.stopMusic(0),
 };
 window.auditReady = true;
