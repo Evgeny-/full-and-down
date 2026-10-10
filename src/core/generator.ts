@@ -263,14 +263,16 @@ const MUTATIONS: { name: string; w: number; when?: (row: LadderRow) => boolean; 
     fn: (L, row, rng) => {
       const pumps = L.ports.slice(0, -1).filter((p) => p.price !== null);
       const d = rng.chance(0.5) ? 1 : -1;
+      // where the bands must shape the load, bunkers stay dear enough to count
+      const lo = row.fuelMatters ? 2 : 1;
       if (has(row, 'prices')) {
         const p = rng.pick(pumps);
-        const v = clampInt(p.price! + d, 1, 3);
+        const v = clampInt(p.price! + d, lo, 3);
         if (v === p.price) return false;
         p.price = v;
         return true;
       }
-      const v = clampInt(pumps[0].price! + d, 1, 3);
+      const v = clampInt(pumps[0].price! + d, lo, 3);
       if (v === pumps[0].price) return false;
       for (const p of pumps) p.price = v;
       return true;
@@ -717,7 +719,7 @@ export function logbookFor(L: Level, m: Metrics): string {
     const at = legs.length ? L.ports[legs[0]].name : L.ports[0].name;
     const dry = L.ports.findIndex((p, i) => i > 0 && i < last && p.price === null);
     if (dry > 0) {
-      return `No barge at ${L.ports[dry].name}, so ${L.ports[0].name} stemmed the fuel for every leg: ${listing(L, ids(m.bestMask, n))} and ${fuelT(m.best)} t of bunkers put her on the mark at ${at}, and she berthed at ${L.ports[last].name} on the reserve.`;
+      return `No barge at ${L.ports[dry].name}, so ${L.ports[0].name} stemmed ${fuelT(m.best)} t for every leg: with ${listing(L, ids(m.bestMask, n))} that put her on the mark at ${at}, and she berthed at ${L.ports[last].name} on the reserve.`;
     }
     return `One load and no other: ${listing(L, ids(m.bestMask, n))} with ${fuelT(m.best)} t of bunkers put her on the mark at ${at}, and she berthed at ${L.ports[last].name} on the reserve.`;
   }

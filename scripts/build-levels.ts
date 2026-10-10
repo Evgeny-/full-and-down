@@ -38,7 +38,7 @@ const CACHE = join(ROOT, '.cache/levels');
  * Per-level seeds chosen after a build (a re-roll that landed closer to its band); SALT= overrides
  * them for the levels being built.
  */
-const LEVEL_SALTS: Record<number, string> = {};
+const LEVEL_SALTS: Record<number, string> = { 17: 'r2', 21: 'r1', 44: 'r1', 57: 'r1', 58: 'r1', 59: 'r2', 63: 'r1' };
 const saltOf = (n: number) => process.env.SALT ?? LEVEL_SALTS[n] ?? '';
 const ATTEMPTS = Number(process.env.ATTEMPTS ?? 12);
 const ITERS = Number(process.env.ITERS ?? 800);

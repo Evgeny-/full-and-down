@@ -280,11 +280,11 @@ export class Hud {
       .join('');
     const band = bandOf(lv.ship, used);
     const nextUp = lv.ship.bands[band].upTo;
-    const hint = pv ? `<b class="pv">+${pv.weight} t</b> → ${used > C ? `<b class="over">${over} t over</b>` : used === C ? '<b class="mark">on the mark</b>' : `${C - used} t spare`}` : used > C ? `<b class="over">${over} t over</b>` : used === C ? `<b class="mark">ON THE MARK</b>` : band < lv.ship.bands.length - 1 ? `▲${nextUp - used + 1} t to ${bandName(lv, band + 1)}` : `▲${C - used} t to the mark`;
+    const hint = pv ? `<b class="pv">+${pv.weight} t</b> → ${used > C ? `<b class="over">${over} t over</b>` : used === C ? '<b class="mark">on the mark</b>' : `${C - used} t spare`}` : used > C ? `<b class="over">${over} t too heavy</b>` : used === C ? `<b class="mark">ON THE MARK</b>` : band < lv.ship.bands.length - 1 ? `${nextUp - used + 1} t more burns ×${lv.ship.bands[band + 1].rate}` : `${C - used} t spare`;
     this.dwt.innerHTML = `
-      <div class="dwt-row"><span class="caps">Deadweight</span><span class="num tot ${over ? 'bad' : ''}">${used}<small>/${C} t</small></span><span class="hint caps">${hint}</span></div>
+      <div class="dwt-row"><span class="caps">Cargo + fuel</span><span class="num tot ${over ? 'bad' : ''}">${used}<small>/${C} t</small></span><span class="hint caps">${hint}</span></div>
       <div class="cells ${over ? 'over' : ''}" style="--n:${Math.max(C, used)}">${cells.join('')}<b class="smark" style="left:${(C / Math.max(C, used)) * 100}%">S</b></div>
-      <div class="zones">${zones}</div>`;
+      ${lv.ship.bands.length > 1 ? `<div class="zones">${zones}</div>` : ''}`;
     void a;
   }
 
