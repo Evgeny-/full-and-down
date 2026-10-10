@@ -116,3 +116,13 @@ html.night .report { filter: brightness(0.92); }
 .area-card small { max-width: 280px; font: 600 15px/1.4 var(--font); opacity: 0.85; }
 .area-card .ac-in::before, .area-card .ac-in::after { content: ''; width: 140px; height: 3px; background: repeating-linear-gradient(90deg, #c2257e 0 8px, transparent 8px 14px); }
 @keyframes ac-in { from { transform: translateY(16px) scale(0.92); opacity: 0; } }
+
+/* ── the social card (?og) ── */
+#ui.og .hud, #ui.og .coach, #ui.og .overlay, #ui.og .area-card { display: none !important; }
+.og-title { position: absolute; left: 50%; top: 34px; transform: translateX(-50%); display: flex; align-items: center; gap: 18px; padding: 16px 28px 16px 18px; border-radius: 12px; background: var(--enamel); box-shadow: var(--shadow); }
+.og-title .mark { width: 72px; height: 72px; border-radius: 14px; flex: none; background:
+  linear-gradient(transparent 49%, #f8f7f2 49% 55%, transparent 55%) center / 56px 100% no-repeat,
+  radial-gradient(circle, transparent 18px, #f8f7f2 18.5px 23px, transparent 23.5px),
+  linear-gradient(var(--navy) 52%, #2d8daf 52%); }
+.og-title b { display: block; font: 600 58px/1 var(--num); letter-spacing: 0.05em; text-transform: uppercase; color: var(--navy); }
+.og-title small { display: block; margin-top: 6px; font: 700 15px/1 var(--font); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-2); }

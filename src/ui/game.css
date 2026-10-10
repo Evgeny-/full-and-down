@@ -165,3 +165,6 @@ html.night .dwt { background: rgba(38, 53, 82, 0.93); }
 .strip.dense .leg .ltop .bn { display: none; }
 .strip.dense .port { min-width: 44px; padding-left: 2px; padding-right: 2px; }
 .strip.dense .leg .cells { max-width: 40px; }
+
+/* transient overlays never take a tap (they sit above the 3D view) */
+#ui > .pop, #ui > .toast, #ui > .banner, #ui > .coach { pointer-events: none; }

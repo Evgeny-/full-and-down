@@ -17,7 +17,7 @@ try {
   const page = await browser.newPage();
   await page.setViewport({ width, height, deviceScaleFactor: 2 });
   page.on('pageerror', (e) => errors.push(String(e)));
-  page.on('console', (m) => m.type() === 'error' && !m.text().includes('404') && errors.push(m.text()));
+  page.on('console', (m) => (m.type() === 'error' && !m.text().includes('404') && errors.push(m.text()), process.env.VERBOSE && m.text().startsWith('down') && console.log('  page:', m.text())));
   await page.goto(`${base}?debug&nointro&level=${lv}`, { waitUntil: 'load' });
   await new Promise((r) => setTimeout(r, 2500));
   const pts = () => page.evaluate(() => window.game.debugPoints());
@@ -39,6 +39,7 @@ try {
       await sleep(300);
       if (i === 0 && ld === best[i].loads[0]) await snap('held');
       const b = d.bays[ld.bay];
+      if (process.env.VERBOSE) console.log(' held', await page.evaluate(() => window.game.held), 'want', ld.box, 'pick', JSON.stringify(await page.evaluate((x, y) => window.game.view.pick(x, y), b.x, b.y)));
       await page.mouse.click(b.x, b.y);
       await sleep(750);
     }
@@ -54,6 +55,7 @@ try {
       await sleep(120);
     }
     await snap(`port${i}`);
+    if (process.env.VERBOSE) console.log('after port', i, JSON.stringify((await pts()).plan));
   }
   const state = await page.evaluate(() => window.game.debugState());
   console.log('state', JSON.stringify(state));

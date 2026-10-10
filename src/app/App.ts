@@ -68,6 +68,21 @@ export class App {
       for (let i = 1; i <= n; i++) this.save.levels[i] = { stars: 3, profit: this.levels[i - 1]?.stars[2] ?? 0 };
     }
     this.onResize();
+    if (params.has('og')) {
+      // the social card: a loaded ship at her berth, no HUD, the title on an enamel plate
+      this.play(Number(params.get('level')) || 64);
+      this.autoSolve();
+      this.ui.classList.add('og');
+      this.hud?.root.remove();
+      this.hud = null;
+      this.view.insets = { top: 150, bottom: 6 };
+      this.view.resize(window.innerWidth, window.innerHeight);
+      this.anchors = this.view.layout();
+      this.ui.append(h('div', { class: 'og-title', html: '<span class="mark"></span><span><b>Full &amp; Down</b><small>Load her to the marks. Not a tonne more.</small></span>' }));
+      requestAnimationFrame((t) => this.frame(t));
+      document.getElementById('boot')?.remove();
+      return;
+    }
     const lv = Number(params.get('level'));
     // first launch goes straight into the first voyage (the map comes after the first report)
     if (lv) this.play(lv);
@@ -434,6 +449,7 @@ export class App {
     if (this.mode !== 'plan' || dialogOpen() || !this.model) return;
     const m = this.model;
     const p = this.view.pick(e.clientX, e.clientY);
+    if (DEBUG) console.log('down', e.clientX, e.clientY, JSON.stringify(p), 'held', this.held, 'port', m.port);
     if (!p) {
       this.release();
       return;

@@ -607,7 +607,7 @@ export class GameView {
     const r = this.renderer.domElement.getBoundingClientRect();
     this.ndc.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
     this.raycaster.setFromCamera(this.ndc, this.camera);
-    const boxMeshes = [...this.boxes.values()].filter((m) => m.visible);
+    const boxMeshes = [...this.boxes.entries()].filter(([id, m]) => m.visible && this.places.get(id)?.at !== 'gone').map(([, m]) => m);
     const hits = this.raycaster.intersectObjects(boxMeshes, false);
     if (hits.length) {
       const id = hits[0].object.userData.box as BoxId;
@@ -706,6 +706,8 @@ export class GameView {
   discharge(ids: BoxId[], onEach: (id: BoxId, at: THREE.Vector2) => void, gap = 0.32): number {
     ids.forEach((id, k) => {
       const mesh = this.boxes.get(id)!;
+      // off the plan at once: a box on its way ashore can't be tapped
+      this.places.set(id, { at: 'gone' });
       this.tweens.after(k * gap, () => {
         const from = mesh.getWorldPosition(new THREE.Vector3());
         this.scene.attach(mesh);
