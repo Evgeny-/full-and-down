@@ -5,9 +5,10 @@ import { DEV_LEVELS } from './devLevels';
 const built = import.meta.glob<{ default: Level[] }>('../data/levels.json', { eager: true });
 
 export function campaign(): Level[] {
-  if (new URLSearchParams(location.search).has('dev')) return DEV_LEVELS;
+  if (new URLSearchParams(location.search).has('dev')) return DEV_LEVELS.map((l) => ({ ...l, auto: false }));
   const mod = Object.values(built)[0];
   const list = mod?.default ?? (mod as unknown as Level[] | undefined);
-  if (Array.isArray(list) && list.length) return list;
-  return DEV_LEVELS;
+  // bunkering is the heart of the game: the player always orders fuel (NEED does the sum)
+  if (Array.isArray(list) && list.length) return list.map((l) => ({ ...l, auto: false }));
+  return DEV_LEVELS.map((l) => ({ ...l, auto: false }));
 }

@@ -138,6 +138,7 @@ export class App {
     this.onResize();
     this.view.sync(0, this.model.baysAt(0), this.model.quayAt(0), 'instant');
     this.refresh(false);
+    this.onResize();
     audio.ambience(true);
     audio.startMusic(Math.min(4, Math.floor(((level.chapter || 1) - 1) * 5 / 8)));
     audio.play('pipe');
@@ -172,7 +173,28 @@ export class App {
     setTimeout(finish, 2200);
   }
 
+  /** The rules on one card (first voyage, and from the pause menu). */
+  private showHowTo(then?: () => void): void {
+    const steps = [
+      ['1', 'Load boxes', 'Tap a box on the quay, then tap the ship. Each box pays its <b>freight</b> when it reaches its port.'],
+      ['2', 'Buy fuel', 'The voyage burns fuel: the route strip shows how much. Tap <b>NEED</b> for just enough, or − / +.'],
+      ['3', 'Mind her marks', 'Boxes <b>and fuel</b> must fit her deadweight. Fuel weighs too, and a heavier ship burns more.'],
+      ['4', 'Sail', 'Earn the charter (★) and <b>SAIL</b>. If she can\'t go yet, tap SAIL and the crew tells you why.'],
+    ];
+    openDialog({
+      title: 'How to play',
+      cls: 'howto',
+      body: [h('ol', { class: 'howto-steps', html: steps.map(([n, t, d]) => `<li><span class="hn num">${n}</span><span><b>${t}</b><small>${d}</small></span></li>`).join('') })],
+      buttons: [{ label: then ? 'Let\'s load her' : 'Got it', cls: 'blue', onClick: () => then?.() }],
+    });
+  }
+
   private showNotice(level: Level, then: () => void): void {
+    if (level.intro === 'weight') {
+      this.save.seen.push('weight');
+      writeSave(this.save);
+      return this.showHowTo(then);
+    }
     const n = NOTICES[level.intro!]!;
     const body: HTMLElement[] = [];
     body.push(h('div', { class: 'notice-sub caps', text: `${n.kind} · Nº ${String(level.n).padStart(3, '0')}` }));
@@ -193,8 +215,102 @@ export class App {
 
   // ───────────────────────────── coach marks ─────────────────────────────
 
+  /** Level 1: the pilot always says (and points at) the one next thing to do. */
+  private tutor: { el: HTMLElement; arrow: HTMLElement; target: { box?: BoxId; bay?: number } | null; text: string } | null = null;
+
+  private tutorTick(): void {
+    const m = this.model;
+    const t = this.tutor;
+    if (!m || !t || this.mode !== 'plan') return;
+    const lv = m.level;
+    const pr = m.sim.projection;
+    const loaded = m.sim.plan[0].loads.length;
+    const best = lv.best?.[0].loads.map((l) => l.box) ?? [];
+    const onQuay = m.quayAt(0);
+    const pickable = best.find((id) => onQuay.includes(id)) ?? onQuay[0];
+    const over = pr.problems.find((p) => p.code === 'overMarks');
+    const short = pr.problems.find((p) => p.code === 'short');
+    let text = '';
+    let target: { box?: BoxId; bay?: number } | null = null;
+    let pulse: Parameters<Hud['pulse']>[0] = null;
+    if (this.held !== null) {
+      text = 'Now tap the ship to load it.';
+      const bays = m.baysAt(0);
+      const bay = bays.findIndex((_, i) => m.canPlace(this.held!, i).ok);
+      target = bay >= 0 ? { bay } : null;
+    } else if (!loaded) {
+      text = 'Each box pays its freight on arrival. Tap a box to pick it up.';
+      target = pickable !== undefined ? { box: pickable } : null;
+    } else if (over) {
+      // point at a box the best voyage leaves ashore (else the last one loaded)
+      const loads = m.sim.plan[0].loads;
+      const bays = m.baysAt(0);
+      const tops = new Set(bays.map((b) => b[b.length - 1]).filter((x) => x !== undefined));
+      const spare = loads.find((l) => !best.includes(l.box) && tops.has(l.box)) ?? loads[loads.length - 1];
+      text = `Too heavy by ${over.amount} t: fuel weighs too! Tap a box on the ship to land it.`;
+      target = spare ? { box: spare.box } : null;
+      pulse = 'dwt';
+    } else if (short && m.sim.plan[0].bunker === 0) {
+      text = 'She needs fuel for the trip. Tap NEED to buy just enough.';
+      pulse = 'need';
+    } else if (short) {
+      text = 'Still short of fuel: tap NEED.';
+      pulse = 'need';
+    } else if (m.profit < lv.stars[0]) {
+      const leg = pr.legs[0];
+      const room = lv.ship.capacity - leg.weight;
+      const want = pickable !== undefined ? lv.boxes[pickable] : null;
+      if (want && want.weight > room) {
+        const loads = m.sim.plan[0].loads;
+        const cheap = loads.find((l) => !best.includes(l.box));
+        text = `The charter pays from $${lv.stars[0]}. No room for the $${want.freight} box: land a cheaper one to make room.`;
+        target = cheap ? { box: cheap.box } : { box: want.id };
+      } else {
+        text = `The charter pays from $${lv.stars[0]}. Load the $${want?.freight ?? ''} box too.`;
+        target = want ? { box: want.id } : null;
+      }
+      pulse = 'rule';
+    } else {
+      text = 'All clear: loaded and fuelled. Tap SAIL!';
+      pulse = 'sail';
+    }
+    if (text !== t.text) {
+      t.text = text;
+      t.el.innerHTML = `<b>PILOT</b><span>${text}</span>`;
+      t.el.classList.remove('in');
+      void t.el.offsetWidth;
+      t.el.classList.add('in');
+    }
+    t.target = target;
+    this.hud?.pulse(pulse);
+  }
+
+  private placeTutorArrow(): void {
+    const t = this.tutor;
+    if (!t) return;
+    let p: { x: number; y: number } | null = null;
+    if (t.target?.box !== undefined) {
+      const s = this.view.boxScreen(t.target.box);
+      if (s) p = { x: s.x, y: s.y - 0.45 * this.view.unitPx };
+    } else if (t.target?.bay !== undefined) {
+      const s = this.view.bayScreen(t.target.bay);
+      p = { x: s.x, y: s.y - 0.9 * this.view.unitPx };
+    }
+    t.arrow.style.display = p && this.mode === 'plan' ? 'block' : 'none';
+    if (p) t.arrow.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px)`;
+  }
+
   private startCoach(level: Level): void {
     this.clearCoach();
+    if (level.n === 1 && !(this.save.levels[1]?.stars ?? 0)) {
+      const el = h('div', { class: 'coach in' });
+      const arrow = h('div', { class: 'coach-arrow', html: '<svg width="34" height="40" viewBox="0 0 34 40"><path d="M10 2h14v18h8L17 38 2 20h8z" fill="#f5c518" stroke="#15181e" stroke-width="2.5" stroke-linejoin="round"/></svg>' });
+      this.ui.append(el, arrow);
+      this.ui.classList.add('has-coach');
+      this.tutor = { el, arrow, target: null, text: '' };
+      this.tutorTick();
+      return;
+    }
     if (level.format === 'exact') toast(this.ui, 'OFFICE: one load puts her exactly on the mark and lands her on the reserve. Find it.', 4200);
     else if (level.format === 'contract' && level.n !== 46) toast(this.ui, 'OFFICE: the sealed boxes are under contract and must sail.', 3600);
     const steps = COACH[level.n];
@@ -229,6 +345,10 @@ export class App {
   private clearCoach(): void {
     this.coach?.el.remove();
     this.coach = null;
+    this.tutor?.el.remove();
+    this.tutor?.arrow.remove();
+    this.tutor = null;
+    this.hud?.pulse(null);
     this.ui.classList.remove('has-coach');
   }
 
@@ -249,6 +369,7 @@ export class App {
     this.view.setBunker(lv.ports[m.port].price !== null ? m.sim.plan[m.port].bunker : 0);
     this.hud.update(m, this.anchors);
     this.view.setBluePeter(!m.sailRefusal());
+    this.tutorTick();
     if (m.sim.projection.problems.some((p) => p.code === 'overMarks')) this.coachEvent('over');
   }
 
@@ -286,6 +407,7 @@ export class App {
     const b = m.level.boxes[box];
     this.hud?.setPreview({ weight: b.weight, to: b.to });
     audio.play('pick', { volume: 0.5 });
+    this.tutorTick();
     this.coachEvent('pick');
   }
 
@@ -294,6 +416,7 @@ export class App {
     this.held = null;
     this.view.setHeld(null);
     this.hud?.setPreview(null);
+    this.tutorTick();
   }
 
   private place(box: BoxId, bay: number): void {
@@ -557,9 +680,10 @@ export class App {
     } else if (this.hud) {
       this.view.insets.top = this.hud.topHeight() + 6;
       // dock 66, voice 48, bunker 58, quay tags 32, quay boxes ~30, deadweight bar 58
-      // dock 66 + voice 50 + bunker 62 + freight tags 34 (from the bottom of the screen)
-      this.view.insets.bottom = compact ? 58 + 40 + 52 + 30 + 14 : 66 + 50 + 62 + 34 + 14;
+      // dock 66 + bunker 62 + freight tags 34 (from the bottom of the screen)
+      this.view.insets.bottom = compact ? 58 + 52 + 30 + 14 : 66 + 62 + 34 + 14;
     }
+    if (this.hud) this.ui.style.setProperty('--top-block', `${Math.round(this.view.insets.top)}px`);
     this.view.resize(w, hgt);
     this.anchors = this.view.layout();
     if (this.hud && this.model) {
@@ -576,6 +700,7 @@ export class App {
       this.view.update(dt);
       this.view.render();
       this.placeTags();
+      this.placeTutorArrow();
     }
     requestAnimationFrame((tt) => this.frame(tt));
   }
@@ -599,9 +724,42 @@ export class App {
 
   // ───────────────────────────── the voyage ─────────────────────────────
 
+  /** SAIL tapped while she can't go: say why, in the voice of who stops her, and point at the fix. */
+  private explain(): void {
+    const m = this.model;
+    if (!m) return;
+    const r = m.sailRefusal();
+    if (!r) return;
+    const lv = m.level;
+    audio.play('whistle', { volume: 0.5 });
+    let advice = '';
+    let pulse: Parameters<Hud['pulse']>[0] = null;
+    if (r.code === 'short') {
+      // the fuel has to come from the last pump at or before the short leg
+      let k = r.port;
+      while (k > 0 && lv.ports[k].price === null) k--;
+      if (k !== m.port) this.selectPort(k);
+      advice = ` Tap NEED at ${lv.ports[k].name} for just enough.`;
+      pulse = 'need';
+    } else if (r.code === 'overMarks') {
+      if (r.port !== m.port) this.selectPort(r.port);
+      advice = ' Fuel weighs too: land a box (tap it on the ship) or take less fuel.';
+      pulse = 'dwt';
+    } else if (r.code === 'stars') {
+      advice = ' Carry more freight, or burn less fuel.';
+      pulse = 'rule';
+    } else if (r.port < m.calls && r.port !== m.port) {
+      this.selectPort(r.port);
+    }
+    this.hud?.pulse(pulse);
+    setTimeout(() => this.hud?.pulse(null), 3200);
+    toast(this.ui, r.text + advice, 4600);
+  }
+
   private async sail(): Promise<void> {
     const m = this.model;
-    if (!m || this.mode !== 'plan' || !this.canSail) return;
+    if (!m || this.mode !== 'plan') return;
+    if (!this.canSail) return this.explain();
     this.release();
     this.mode = 'sailing';
     this.fast = false;
@@ -757,6 +915,7 @@ export class App {
       body: [h('p', { text: areaOf(lv).name }), h('div', { class: 'par-chips', html: [...new Set(lv.stars)].map((t) => `<span>${starSvg(true, 13).repeat(lv.stars.lastIndexOf(t) + 1)} $${t}</span>`).join('') })],
       buttons: [
         { label: 'Resume', cls: 'blue', onClick: () => undefined },
+        { label: 'How to play', onClick: () => (this.showHowTo(), true) },
         { label: 'Clear the plan', onClick: () => this.clearPlan() },
         { label: 'Chart', onClick: () => this.showMap() },
         { label: 'Settings', onClick: () => (this.openSettings(), true) },

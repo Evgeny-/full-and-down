@@ -17,6 +17,7 @@ const report = [];
 try {
   const page = await browser.newPage();
   await page.setViewport({ width, height, deviceScaleFactor: 1 });
+  await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'light' }]);
   let errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => m.type() === 'error' && !m.text().includes('404') && errors.push(m.text()));

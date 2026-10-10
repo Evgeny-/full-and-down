@@ -139,13 +139,6 @@ export interface CoachStep {
 }
 
 export const COACH: Record<number, CoachStep[]> = {
-  1: [
-    { text: 'Tap a box on the quay to pick it up.', until: 'pick' },
-    { text: 'Now tap the ship to load it.', until: 'place' },
-    { text: 'Load what pays. The red showing is room aboard.', until: 'over' },
-    { text: 'No room for fuel. Fuel weighs too. Tap a box aboard to land it.', until: 'unload' },
-    { text: 'The Chief orders just enough fuel. When the Office is happy, sail.', until: 'sail' },
-  ],
-  2: [{ text: 'Past the stripe she burns double. Watch the leg on the strip.', until: 'tap' }],
+  2: [{ text: 'Past the stripe on the deadweight bar she burns double. Watch the leg on the strip.', until: 'tap' }],
   3: [{ text: 'Two calls. Tap a port on the strip to plan her there.', until: 'tab' }],
 };

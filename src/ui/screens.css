@@ -87,7 +87,7 @@ html.night .report { filter: brightness(0.92); }
 .notice p::before { content: ''; position: absolute; left: 0; top: 8px; width: 6px; height: 6px; background: var(--navy); border-radius: 1px; }
 
 /* ── coach ── */
-.coach { position: absolute; left: 12px; right: 12px; z-index: 15; top: calc(218px + var(--safe-top)); display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 8px; background: var(--yellow); color: var(--black); font: 700 15px/1.3 var(--font); box-shadow: var(--shadow); pointer-events: none; }
+.coach { position: absolute; left: 12px; right: 12px; z-index: 15; top: calc(var(--top-block, 218px) + 4px); display: flex; gap: 8px; align-items: center; padding: 10px 12px; border-radius: 8px; background: var(--yellow); color: var(--black); font: 700 15px/1.3 var(--font); box-shadow: var(--shadow); pointer-events: none; }
 .coach b { flex: none; padding: 3px 6px; border-radius: 3px; background: var(--black); color: var(--yellow); font: 600 11px/1 var(--num); letter-spacing: 0.08em; }
 .coach.in { animation: coach-in 0.35s cubic-bezier(0.2, 1.5, 0.4, 1); }
 @keyframes coach-in { from { transform: translateY(10px); opacity: 0; } }
@@ -117,7 +117,7 @@ html.night .report { filter: brightness(0.92); }
 .landscape .rule .rcol { gap: 3px; }
 .landscape .strip { top: calc(88px + var(--safe-top)); left: auto; right: calc(8px + env(safe-area-inset-right, 0px)); width: 360px; min-height: 78px; padding: 3px; }
 .landscape .strip .port { padding: 2px 3px; gap: 1px; }
-.landscape .bunker { left: auto; right: calc(8px + env(safe-area-inset-right, 0px)); width: 360px; bottom: calc(96px + var(--safe-bottom)); min-height: 44px; padding: 3px 6px 3px 10px; }
+.landscape .bunker { left: auto; right: calc(8px + env(safe-area-inset-right, 0px)); width: 360px; bottom: calc(54px + var(--safe-bottom)); min-height: 44px; padding: 3px 6px 3px 10px; }
 .landscape .bunker .stepper .btn.token { width: 34px; min-width: 34px; min-height: 34px; }
 .landscape .bunker .need { min-height: 34px; }
 .landscape .voice { left: auto; right: calc(8px + env(safe-area-inset-right, 0px)); width: 360px; bottom: calc(54px + var(--safe-bottom)); min-height: 36px; padding: 5px 10px; font-size: 12.5px; }
@@ -148,10 +148,9 @@ html.night .report { filter: brightness(0.92); }
 .og-title b { display: block; font: 600 58px/1 var(--num); letter-spacing: 0.05em; text-transform: uppercase; color: var(--navy); }
 .og-title small { display: block; margin-top: 6px; font: 700 15px/1 var(--font); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-2); }
 
-.compact .toast { top: calc(184px + var(--safe-top)); }
+
 .landscape .toast { top: 10px; left: calc((100% - 376px) / 2); max-width: min(440px, calc(100% - 400px)); }
-.has-coach .toast { top: calc(296px + var(--safe-top)); }
-.compact.has-coach .toast { top: calc(250px + var(--safe-top)); }
+.has-coach .toast { top: calc(var(--top-block, 296px) + 74px); }
 
 /* short screens (landscape phones): the report in two columns, the notice without its picture */
 @media (max-height: 480px) {
@@ -187,3 +186,20 @@ html.night .map-top { background: linear-gradient(rgba(20, 32, 52, 1) 80%, rgba(
 .settings input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; border-radius: 5px; background: var(--blue); }
 .par-chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 2px 2px 12px; }
 .par-chips span { display: inline-flex; align-items: center; gap: 3px; padding: 4px 8px; border-radius: 5px; background: var(--enamel-2); font: 600 14px/1 var(--num); }
+
+/* landscape: the deadweight bar joins the right-hand column */
+.landscape .dwt { left: auto !important; right: calc(8px + env(safe-area-inset-right, 0px)) !important; width: 360px; top: calc(170px + var(--safe-top)) !important; }
+.landscape .strip { min-height: 74px; }
+
+.coach-arrow { position: absolute; left: 0; top: 0; z-index: 16; margin: -40px 0 0 -17px; pointer-events: none; filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.3)); }
+.coach-arrow svg { display: block; animation: arrow-bob 0.9s ease-in-out infinite; }
+@keyframes arrow-bob { 50% { transform: translateY(-9px); } }
+#ui > .coach-arrow { pointer-events: none; }
+
+.howto-steps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; }
+.howto-steps li { display: flex; gap: 12px; align-items: flex-start; }
+.howto-steps .hn { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--navy); color: #fff; font-size: 16px; font-weight: 600; }
+html.night .howto-steps .hn { background: #3b5687; }
+.howto-steps b { display: block; font: 600 17px/1.1 var(--num); letter-spacing: 0.04em; text-transform: uppercase; }
+.howto-steps small { display: block; margin-top: 3px; font: 500 15px/1.4 var(--font); color: var(--ink); }
+.howto-steps small b { display: inline; font: 800 15px/1 var(--font); text-transform: none; letter-spacing: 0; }

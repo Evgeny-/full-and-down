@@ -154,7 +154,7 @@ html.night .btn { color: var(--ink); }
 .toast {
   position: absolute;
   left: 50%;
-  top: calc(222px + var(--safe-top));
+  top: calc(var(--top-block, 222px) + 6px);
   z-index: 40;
   width: max-content;
   max-width: min(366px, calc(100% - 24px));

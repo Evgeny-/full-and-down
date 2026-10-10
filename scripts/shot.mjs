@@ -18,7 +18,7 @@ try {
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
   // SHOT_SCHEME=light|dark pins the colour scheme (night mode follows it on 'auto')
-  if (process.env.SHOT_SCHEME) await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: process.env.SHOT_SCHEME }]);
+  await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: process.env.SHOT_SCHEME ?? 'light' }]);
   await page.goto(url, { waitUntil: 'load', timeout: 60000 });
   if (process.env.SHOT_DEBUG) console.log(await page.evaluate(() => { const c = document.createElement('canvas').getContext('webgl2'); const d = c && c.getExtension('WEBGL_debug_renderer_info'); return d ? c.getParameter(d.UNMASKED_RENDERER_WEBGL) : 'no webgl'; }));
   await new Promise((r) => setTimeout(r, Number(wait)));

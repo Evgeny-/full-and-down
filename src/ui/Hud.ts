@@ -80,10 +80,10 @@ export class Hud {
     this.undoBtn.addEventListener('click', () => on.onUndo());
     this.hintBtn = h('button', { class: 'btn pilot', html: `<span class="flagsw G"></span><span>Pilot</span>` });
     this.hintBtn.addEventListener('click', () => on.onHint());
-    this.sailBtn = h('button', { class: 'btn blue sail', html: `<span class="flagsw P"></span><span>Sail</span>` });
+    this.sailBtn = h('button', { class: 'btn blue sail', html: `<span class="flagsw P"></span><span class="lbl">Sail<small></small></span>` });
     this.sailBtn.addEventListener('click', () => on.onSail());
     this.dock.append(this.undoBtn, this.hintBtn, this.sailBtn);
-    this.root.append(this.top, this.rule, this.strip, this.dwt, this.tags, this.bunker, this.voice, this.dock);
+    this.root.append(this.top, this.rule, this.strip, this.dwt, this.tags, this.bunker, this.dock);
     parent.append(this.root);
   }
 
@@ -97,10 +97,13 @@ export class Hud {
     this.tagEls.clear();
   }
 
-  /** Height of the top block (for the 3D framing). */
+  /** Height of the top block (for the 3D framing): the deadweight bar sits right under the strip. */
   topHeight(): number {
+    const land = this.root.parentElement?.classList.contains('landscape');
+    if (land) return 8;
     const r = this.strip.getBoundingClientRect();
-    return r.bottom + 8;
+    this.dwt.style.top = `${Math.round(r.bottom + 6)}px`;
+    return r.bottom + 6 + this.dwt.getBoundingClientRect().height + 4;
   }
 
   bottomHeight(): number {
@@ -124,17 +127,26 @@ export class Hud {
     this.renderDwt(m, pr, anchors);
     this.renderBunker(m, pr);
     const refusal = m.sailRefusal();
-    this.sailBtn.disabled = !!refusal;
+    this.sailBtn.classList.toggle('blocked', !!refusal);
+    this.sailBtn.querySelector('small')!.textContent = refusal ? shortReason(lv, refusal) : '';
     this.undoBtn.disabled = !m.canUndo;
-    this.voice.classList.toggle('show', !!refusal);
-    if (refusal) {
-      const who = { chief: 'CHIEF', mate: 'MATE', pilot: 'PILOT', office: 'OFFICE', harbour: 'HARBOUR MASTER' }[refusal.who];
-      const raw = refusal.text.replace(/^[A-Z ]+:\s*/, '');
-      const text = raw.charAt(0).toUpperCase() + raw.slice(1);
-      this.voice.innerHTML = `<b>${who}</b><span>${text}</span>${refusal.port !== m.port && refusal.code !== 'stars' ? `<em>${lv.ports[refusal.port].code} ›</em>` : ''}`;
-      this.voice.dataset.port = String(refusal.port);
-      this.voice.classList.toggle('money', refusal.code === 'stars');
-    }
+    void this.voice;
+  }
+
+  /** Pulse a part of the HUD so the eye goes there. */
+  pulse(what: 'need' | 'plus' | 'dwt' | 'rule' | 'sail' | 'strip' | 'bunker' | null): void {
+    this.root.querySelectorAll('.pulse').forEach((e) => e.classList.remove('pulse'));
+    if (!what) return;
+    const el = {
+      need: this.bunker.querySelector('.need'),
+      plus: this.bunker.querySelector('.plus'),
+      dwt: this.dwt,
+      rule: this.rule,
+      sail: this.sailBtn,
+      strip: this.strip,
+      bunker: this.bunker,
+    }[what];
+    el?.classList.add('pulse');
   }
 
   private renderRule(profit: number, bad: boolean): void {
@@ -146,14 +158,14 @@ export class Hud {
     const pos = (v: number) => `${Math.max(0, Math.min(100, ((v - lo) / (hi - lo)) * 100))}%`;
     const bump = profit !== this.lastProfit;
     this.lastProfit = profit;
-    const money = profit < 0 ? `−<small>$</small>${-profit}` : `<small>$</small>${profit}`;
+    const money = `<span class="v">${profit < 0 ? `−<small>$</small>${-profit}` : `<small>$</small>${profit}`}</span>`;
     const marks = [t1, t2, t3]
       .map((t, i) => ({ t, i }))
       .filter((x, k, arr) => arr.findIndex((y) => y.t === x.t) === k || true)
       .map(({ t, i }) => `<div class="mark ${profit >= t ? 'on' : ''}" style="left:${pos(t)}"><i>${'•'.repeat(i + 1)}</i></div>`)
       .join('');
     this.rule.innerHTML = `
-      <div class="money num ${bad || profit < 0 ? 'bad' : ''} ${bump ? 'bump' : ''}">${money}</div>
+      <div class="money num ${bad || profit < 0 ? 'bad' : ''} ${bump ? 'bump' : ''}"><span class="cap">Profit</span>${money}</div>
       <div class="rcol">
         <div class="track">
           <div class="fill ${bad ? 'bad' : ''}" style="width:${pos(Math.max(lo, profit))}"></div>
@@ -218,7 +230,7 @@ export class Hud {
         const bridge = L.bridge && lv.mechanics.includes('bridge') ? `<span class="bridge" title="Low bridge: she must weigh at least ${L.bridge.min} t when she sails">⌒≥${L.bridge.min}</span>` : '';
         parts.push(`
           <div class="leg ${short ? 'shortleg' : ''}" style="--band:${bandColor(lv, leg.band)}">
-            <span class="ltop caps">${L.days}d<span class="bn"> · ${bandName(lv, leg.band)}</span></span>
+            <span class="ltop caps">${L.days} day${L.days > 1 ? 's' : ''}${lv.ship.bands.length > 1 ? `<span class="bn"> · ${bandName(lv, leg.band)}</span>` : ''}</span>
             <span class="arrow"></span>
             <span class="cells">${cells.join('')}</span>
             <span class="burn num">−${leg.burn}${leg.reefers ? `<small>❄${leg.reefers}</small>` : ''}</span>
@@ -273,12 +285,7 @@ export class Hud {
       <div class="dwt-row"><span class="caps">Deadweight</span><span class="num tot ${over ? 'bad' : ''}">${used}<small>/${C} t</small></span><span class="hint caps">${hint}</span></div>
       <div class="cells ${over ? 'over' : ''}" style="--n:${Math.max(C, used)}">${cells.join('')}<b class="smark" style="left:${(C / Math.max(C, used)) * 100}%">S</b></div>
       <div class="zones">${zones}</div>`;
-    if (a) {
-      this.dwt.style.top = `${Math.round(a.waterY + 11)}px`;
-      const land = this.root.parentElement?.classList.contains('landscape');
-      this.dwt.style.left = '12px';
-      this.dwt.style.right = land ? '388px' : '12px';
-    }
+    void a;
   }
 
   private bunkerKey = '';
@@ -354,6 +361,30 @@ export class Hud {
 
   get bestEarned(): number {
     return this.bestStars;
+  }
+}
+
+/** A couple of words for the SAIL button: why she can't go yet. */
+export function shortReason(level: Level, r: { code: string; amount?: number }): string {
+  const n = r.amount ?? 0;
+  switch (r.code) {
+    case 'short':
+      return `${n} t fuel short`;
+    case 'overMarks':
+      return `${n} t too heavy`;
+    case 'bar':
+    case 'barAhead':
+      return `${n} t too deep`;
+    case 'zone':
+      return `${n} t over winter mark`;
+    case 'bridge':
+      return `${n} t too light`;
+    case 'contract':
+      return 'contract box ashore';
+    case 'stars':
+      return `earn $${level.stars[0]}`;
+    default:
+      return 'not ready';
   }
 }
 

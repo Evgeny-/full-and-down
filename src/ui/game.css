@@ -64,7 +64,7 @@ html.night .rule .money { color: var(--ink); }
 .strip .leg .zone small { font-size: 8px; opacity: 0.75; }
 
 /* the deadweight bar, under the waterline */
-.dwt { position: absolute; left: 12px; right: 12px; padding: 6px 8px 5px; background: rgba(248, 247, 242, 0.93); border-radius: 7px; box-shadow: var(--shadow-sm); pointer-events: none; }
+.dwt { position: absolute; left: 10px; right: 10px; padding: 6px 10px 6px; background: var(--enamel); border-radius: 7px; box-shadow: inset 0 0 0 2px rgba(31, 46, 77, 0.12), var(--shadow-sm); pointer-events: none; }
 html.night .dwt { background: rgba(38, 53, 82, 0.93); }
 .dwt-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
 .dwt-row .caps { font-size: 9.5px; color: var(--ink-2); }
@@ -99,7 +99,7 @@ html.night .dwt { background: rgba(38, 53, 82, 0.93); }
 .tag.held { opacity: 0; }
 
 /* bunkers */
-.bunker { position: absolute; left: 12px; right: 12px; bottom: calc(126px + var(--safe-bottom)); display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 6px 8px 6px 10px; }
+.bunker { position: absolute; left: 12px; right: 12px; bottom: calc(76px + var(--safe-bottom)); display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 6px 8px 6px 10px; }
 .bunker .bk-l { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .bunker .bk-l .caps { font-size: 9px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bunker .bk-l b { display: flex; align-items: center; gap: 4px; font: 700 15px/1 var(--font); }
@@ -128,6 +128,17 @@ html.night .dwt { background: rgba(38, 53, 82, 0.93); }
 .dock .btn.token { width: 52px; min-width: 52px; }
 .dock .pilot { flex: 1; }
 .dock .sail { flex: 1.6; font-size: 20px; }
+.dock .sail .lbl { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; line-height: 1; }
+.dock .sail .lbl small { font: 700 10.5px/1 var(--font); letter-spacing: 0.06em; text-transform: none; opacity: 0.95; }
+.dock .sail .lbl small:empty { display: none; }
+.dock .sail.blocked { background: #7c8798; color: #f3f5f8; }
+.dock .sail.blocked .flagsw { opacity: 0.6; }
+.pulse { animation: pulse 1.15s ease-in-out infinite !important; position: relative; z-index: 3; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(245, 197, 24, 0.95), var(--shadow-sm); } 50% { box-shadow: 0 0 0 7px rgba(245, 197, 24, 0.35), var(--shadow-sm); } }
+.rule .money { display: flex; flex-direction: column; align-items: flex-end; }
+.rule .money .v { white-space: nowrap; }
+.dwt { min-height: 56px; }
+.rule .money .cap { font: 700 8.5px/1 var(--font); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 1px; }
 .dock .sail.ready { animation: sail-ready 0.6s ease; }
 @keyframes sail-ready { 30% { transform: scale(1.05); } }
 
@@ -139,7 +150,7 @@ html.night .dwt { background: rgba(38, 53, 82, 0.93); }
 @keyframes pop-up { 0% { opacity: 0; transform: translate(-50%, -30%) scale(0.6); } 15% { opacity: 1; transform: translate(-50%, -60%) scale(1.1); } 70% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -160%); } }
 
 /* the voyage banner */
-.banner { position: absolute; left: 50%; top: calc(226px + var(--safe-top)); z-index: 20; transform: translateX(-50%); padding: 8px 16px; border-radius: 6px; background: var(--navy); color: #f8f7f2; font: 600 18px/1 var(--num); letter-spacing: 0.12em; text-transform: uppercase; box-shadow: var(--shadow); white-space: nowrap; animation: banner-in 0.3s ease; pointer-events: none; }
+.banner { position: absolute; left: 50%; top: calc(var(--top-block, 226px) + 8px); z-index: 20; transform: translateX(-50%); padding: 8px 16px; border-radius: 6px; background: var(--navy); color: #f8f7f2; font: 600 18px/1 var(--num); letter-spacing: 0.12em; text-transform: uppercase; box-shadow: var(--shadow); white-space: nowrap; animation: banner-in 0.3s ease; pointer-events: none; }
 .banner small { display: block; margin-top: 4px; font: 700 10px/1 var(--font); letter-spacing: 0.14em; opacity: 0.75; }
 @keyframes banner-in { from { opacity: 0; transform: translate(-50%, -8px); } }
 .skip { position: absolute; right: 12px; bottom: calc(16px + var(--safe-bottom)); z-index: 20; }
@@ -157,7 +168,7 @@ html.night .dwt { background: rgba(38, 53, 82, 0.93); }
 .compact .strip .port { padding: 3px 3px 3px; gap: 2px; }
 .compact .strip .leg { padding-top: 3px; }
 .compact .voice { bottom: calc(64px + var(--safe-bottom)); min-height: 34px; padding: 6px 10px; font-size: 12.5px; }
-.compact .bunker { bottom: calc(104px + var(--safe-bottom)); min-height: 46px; padding: 4px 6px 4px 10px; }
+.compact .bunker { bottom: calc(64px + var(--safe-bottom)); min-height: 46px; padding: 4px 6px 4px 10px; }
 .compact .bunker .stepper .btn.token { width: 34px; min-width: 34px; min-height: 34px; }
 .compact .bunker .need { min-height: 34px; }
 .compact .dock { bottom: calc(10px + var(--safe-bottom)); }

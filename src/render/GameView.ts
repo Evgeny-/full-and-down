@@ -339,7 +339,7 @@ export class GameView {
     const u = this.unitPx;
     const faceH = BOX_H * c * u;
     const topFace = BOX_W * s * u;
-    const barPx = 70;
+    const barPx = 22;
     let waterPx = h - this.insets.bottom - faceH - topFace - barPx;
     // never let the ship's mast run under the top block
     const shipAbove = (this.ship.deckY + this.level.ship.tiers * BOX_H + 0.9) * c * u;
