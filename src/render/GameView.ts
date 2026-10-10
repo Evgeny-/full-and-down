@@ -17,7 +17,9 @@ import { audio } from '../audio/audio';
 import type { BoxId, Level } from '../core/types';
 
 /** Camera elevation (radians): broadside, low enough that the box faces get the pixels. */
-const PITCH = (27 * Math.PI) / 180;
+const PITCH = (30 * Math.PI) / 180;
+/** Camera azimuth toward the bow: a three-quarter view. */
+const YAW = (19 * Math.PI) / 180;
 
 export interface Insets {
   top: number;
@@ -66,7 +68,7 @@ class Spring {
 export class GameView {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene = new THREE.Scene();
-  readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 200);
+  readonly camera = new THREE.PerspectiveCamera(30, 1, 0.5, 200);
   readonly tweens = new Tweens();
   readonly water = new Water();
   readonly fx = new FxView();
@@ -95,11 +97,9 @@ export class GameView {
   private ghosts: THREE.Mesh[] = [];
   private held: BoxId | null = null;
   private quayZ = 2.6;
-  private quaySpacing = 1.3;
   private raycaster = new THREE.Raycaster();
   private ndc = new THREE.Vector2();
   private tmp = new THREE.Vector3();
-  private look = new THREE.Vector3();
   private crane = { busy: 0, target: null as THREE.Vector3 | null };
   private scroll = 0;
   private speed = 0;
@@ -367,69 +367,79 @@ export class GameView {
     this.layout();
   }
 
-  /** Ship across the width, waterline in the free area, the quay row below with room for the bar. */
+  /**
+   * A real perspective camera from the bow quarter: you see her side and her bow, the boxes' sides
+   * and ends. The ship fills a phone-width column (the same perspective on every screen), her
+   * waterline sits in the free area, and the quay row sits just below it.
+   */
   layout(): Anchors | null {
     if (!this.ship) return null;
     const w = this.width;
     const h = this.height;
     const portrait = h > w * 1.15;
     const freeH = Math.max(200, h - this.insets.top - this.insets.bottom);
-    // portrait: let the bow and stern run a little off the edges so the boxes get the pixels
-    // the ship fills a phone-width column; wider screens see more harbour around it
     const right = this.insets.right ?? 0;
     const col = Math.min(w - right - (right ? 16 : 0), w >= 1200 ? 900 : 640);
-    const span = portrait ? Math.max(8.4, this.ship.length - 0.5) : this.ship.length + 1.2;
+    const span = portrait ? Math.max(8.2, this.ship.length - 0.7) : this.ship.length + 1.0;
     let unit = col / span;
-    // keep her (and the quay below) inside the free height
-    unit = Math.min(unit, freeH / 5.2 + 8);
+    unit = Math.min(unit, freeH / 5.0 + 8);
     this.unitPx = unit;
-    const viewW = w / unit;
-    const viewH = h / this.unitPx;
-    this.camera.left = -viewW / 2;
-    this.camera.right = viewW / 2;
-    this.camera.top = viewH / 2;
-    this.camera.bottom = -viewH / 2;
-    const s = Math.sin(PITCH);
-    const c = Math.cos(PITCH);
-    const up = new THREE.Vector3(0, c, -s);
-    const dir = new THREE.Vector3(0, -s, -c);
-    const sideZ = 0.78;
-    // work up from the bottom: the quay row's faces end `insets.bottom` above the screen bottom,
-    // the deadweight bar sits between the quay row and the waterline
-    const u = this.unitPx;
-    const faceH = BOX_H * c * u;
-    const topFace = BOX_W * s * u;
-    const barPx = 22;
-    let waterPx = h - this.insets.bottom - faceH - topFace - barPx;
-    // never let the ship's mast run under the top block
-    const shipAbove = (this.ship.deckY + this.level.ship.tiers * BOX_H + 0.9) * c * u;
-    waterPx = Math.max(waterPx, this.insets.top + shipAbove * 0.8);
-    // when she doesn't fit, let the bow run off the edge, never the bridge
-    const room = (w - right) / u;
+    const spanPx = span * unit;
+    // a fixed horizontal field of view across the ship: the same depth everywhere
+    const hfov = (30 * Math.PI) / 180;
+    const vfov = 2 * Math.atan((Math.tan(hfov / 2) * h) / spanPx);
+    const cam = this.camera;
+    cam.fov = (vfov * 180) / Math.PI;
+    cam.aspect = w / h;
+    cam.near = 0.5;
+    cam.far = 200;
+    const dist = span / 2 / Math.tan(hfov / 2);
     const mid = (this.ship.bowX + this.ship.sternX) / 2;
-    const cx = this.ship.length + 0.4 > room ? this.ship.sternX - 0.25 + room / 2 : mid;
-    const waterPoint = new THREE.Vector3(right / 2 / u + cx, 0, sideZ);
-    this.look.copy(waterPoint).addScaledVector(up, (waterPx - h / 2) / u);
-    this.camera.position.copy(this.look).addScaledVector(dir, -40);
-    this.camera.up.set(0, 1, 0);
-    this.camera.lookAt(this.look);
-    this.camera.updateProjectionMatrix();
-    // the quay row: its box tops sit `gap` px under the waterline
-    const gap = barPx + topFace;
-    const boxTopY = QUAY_Y + BOX_H;
-    const zFront = (gap / u + sideZ * s + boxTopY * c) / s;
-    this.quayZ = zFront - BOX_W / 2;
-    const quayEdge = sideZ + (QUAY_Y * c) / s + 0.28;
+    const roomW = (w - right) / unit;
+    const cx = this.ship.length + 0.4 > roomW ? this.ship.sternX - 0.2 + roomW / 2 : mid;
+    const target = new THREE.Vector3(cx, 0.35, 0.4);
+    const off = new THREE.Vector3(Math.sin(YAW) * Math.cos(PITCH), Math.sin(PITCH), Math.cos(YAW) * Math.cos(PITCH)).multiplyScalar(dist);
+    cam.position.copy(target).add(off);
+    cam.up.set(0, 1, 0);
+    cam.clearViewOffset();
+    cam.updateProjectionMatrix();
+    cam.lookAt(target);
+    cam.updateMatrixWorld();
+    // put her waterline amidships in the free area: shift the image, not the camera
+    const barPx = 18;
+    const faceH = BOX_H * Math.cos(PITCH) * unit;
+    const topFace = BOX_W * Math.sin(PITCH) * unit;
+    let waterPx = h - this.insets.bottom - faceH - topFace - barPx - 6;
+    const shipAbove = (this.ship.deckY + this.level.ship.tiers * BOX_H + 0.9) * Math.cos(PITCH) * unit;
+    waterPx = Math.max(waterPx, this.insets.top + shipAbove * 0.8);
+    const water = this.toScreen(new THREE.Vector3(mid, 0, 0.78));
+    const wantX = (w - right) / 2;
+    cam.setViewOffset(w, h, water.x - wantX + (cx - mid) * unit, water.y - waterPx, w, h);
+    cam.updateProjectionMatrix();
+    // the quay row: find the z where its box tops sit just under the waterline
+    const yAt = (z: number) => this.toScreen(new THREE.Vector3(mid, QUAY_Y + BOX_H, z + BOX_W / 2)).y;
+    const wantY = waterPx + barPx + topFace;
+    let lo = 1.2;
+    let hi = 9;
+    for (let k = 0; k < 30; k++) {
+      const m = (lo + hi) / 2;
+      if (yAt(m) < wantY) lo = m;
+      else hi = m;
+    }
+    this.quayZ = (lo + hi) / 2;
+    this.rowY = this.toScreen(new THREE.Vector3(mid, QUAY_Y + BOX_H / 2, this.quayZ)).y;
+    this.rowCx = wantX;
+    this.rowStep = Math.min(1.42 * unit, (w - right - 36) / 5);
+    const quayEdge = Math.max(1.35, this.quayZ - BOX_W / 2 - 0.55);
     this.quay.group.position.z = quayEdge - 1.6; // Quay is built with its edge at z = 1.6
     this.water.uniforms.uQuayZ.value = quayEdge;
-    this.quaySpacing = Math.min(1.4, (viewW - 0.8) / 5);
     this.sign.visible = !portrait;
-    this.sign.position.set(-viewW / 2 + 1.45, QUAY_Y + 0.01, this.quayZ + 1.35);
+    this.sign.position.set(cx - (w / unit) / 2 + 1.6, QUAY_Y + 0.01, this.quayZ + 1.35);
     this.sign.rotation.x = -0.35;
+    this.sign.rotation.y = YAW * 0.5;
     const sun = this.lights.sun;
-    sun.target.position.copy(this.look);
-    sun.position.copy(this.look).add(new THREE.Vector3(-7, 16, 9));
-    // re-place quay boxes at the new row
+    sun.target.position.copy(target);
+    sun.position.copy(target).add(new THREE.Vector3(-7, 16, 9));
     for (const [id, p] of this.places) if (p.at === 'quay' && id !== this.held) this.boxes.get(id)!.position.copy(this.quayPos(p.slot));
     return this.anchors();
   }
@@ -447,10 +457,20 @@ export class GameView {
     return { waterY: s, stackTopY: top, hullBottomY: hullB, quayY: q, quayBottomY: qb, cargoLeft: l, cargoRight: r, unitPx: this.unitPx };
   }
 
+  private rowY = 0;
+  private rowCx = 0;
+  private rowStep = 60;
+  private rowPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+  /** Quay slots sit on a straight line across the screen (the quay itself runs at an angle). */
   quayPos(slot: number, out = new THREE.Vector3()): THREE.Vector3 {
     const n = Math.max(1, this.quaySlots);
-    const x = (slot - (n - 1) / 2) * this.quaySpacing;
-    return out.set(x, QUAY_Y + BOX_H / 2 + 0.01, this.quayZ);
+    const sx = this.rowCx + (slot - (n - 1) / 2) * this.rowStep;
+    this.ndc.set((sx / this.width) * 2 - 1, -((this.rowY / this.height) * 2 - 1));
+    this.raycaster.setFromCamera(this.ndc, this.camera);
+    this.rowPlane.constant = -(QUAY_Y + BOX_H / 2 + 0.01);
+    if (!this.raycaster.ray.intersectPlane(this.rowPlane, out)) out.set(0, QUAY_Y + BOX_H / 2, this.quayZ);
+    return out;
   }
 
   private quaySlots = 1;

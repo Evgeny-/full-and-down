@@ -312,7 +312,8 @@ export class App {
       this.tutorTick();
       return;
     }
-    if (level.format === 'exact') toast(this.ui, 'OFFICE: one load puts her exactly on the mark and lands her on the reserve. Find it.', 4200);
+    if (!this.model?.quayAt(0).length) toast(this.ui, `No cargo at ${level.ports[0].name}: fuel her and sail on to pick some up.`, 4000);
+    else if (level.format === 'exact') toast(this.ui, 'OFFICE: one load puts her exactly on the mark and lands her on the reserve. Find it.', 4200);
     else if (level.format === 'contract' && level.n !== 46) toast(this.ui, 'OFFICE: the sealed boxes are under contract and must sail.', 3600);
     const steps = COACH[level.n];
     if (!steps || (this.save.levels[level.n]?.stars ?? 0) > 0) return;
@@ -840,7 +841,7 @@ export class App {
     this.view.sync(next, m.baysAt(next), m.quayAt(next), 'edit');
     this.lastWeight = -1;
     this.refresh();
-    toast(this.ui, `${lv.ports[next].name}: load what's offered here, buy fuel, sail on.`, 3200);
+    toast(this.ui, m.quayAt(next).length ? `${lv.ports[next].name}: load what's offered here, buy fuel, sail on.` : `${lv.ports[next].name}: no cargo here. Fuel her and sail on.`, 3200);
   }
 
   private pop(text: string, x: number, y: number): void {
