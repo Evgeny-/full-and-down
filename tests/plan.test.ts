@@ -55,12 +55,13 @@ describe('plan model', () => {
     expect(m.stars).toBe(3);
   });
 
-  it('NEED buys just enough for the next leg', () => {
+  it('NEED buys just enough to reach the next pump (through the dry port)', () => {
     const m = new PlanModel(lv);
     m.place(3, 0);
     const n = m.need();
-    expect(n).toBe(2); // 4 t + 2 t fuel = 6 t: LIGHT, 2 days × 1
-    expect(m.sim.projection.legs[0].fuelIn).toBe(0);
+    // P1 sells nothing: 4 t + 3 t = 7 t LIGHT burns 2 to P1, then 5 t LIGHT burns 1 to P2
+    expect(n).toBe(3);
+    expect(m.sim.projection.legs[1].fuelIn).toBe(0);
   });
 
   it('the automatic valve orders the cheapest safe plan', () => {

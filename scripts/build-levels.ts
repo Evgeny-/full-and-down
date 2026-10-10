@@ -9,8 +9,9 @@
  *   LEVELS=1-20 bun scripts/build-levels.ts     (re)build a range (also LEVELS=5,9,30-36); others are kept from levels.json
  *   JOBS=8                                      parallel workers (child processes; default: CPU count)
  *   FRESH=1                                     ignore the checkpoint (.cache/levels/), rebuild everything selected
- *   SALT=2                                      different seeds
- *   ATTEMPTS=8 ITERS=500                        drafts per level and climb steps per draft
+ *   SALT=2                                      different seeds (LEVEL_SALTS below records the ones kept)
+ *   ATTEMPTS=12 ITERS=800                       drafts per seed and climb steps per draft
+ *   RETRIES=4                                   seeds tried while a level breaks a hard rule (generator.ts hardProblems)
  *
  * Checkpoint: every finished level is written to .cache/levels/L<n>.json with a key (the source of
  * the core modules + the options). A rerun with the same code reuses it, so an interrupted build
@@ -22,7 +23,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { cpus } from 'node:os';
 import { dirname, join } from 'node:path';
 import { authoredLevel } from '../src/core/authored';
-import { finalize, generate } from '../src/core/generator';
+import { finalize, generate, hardProblems } from '../src/core/generator';
 import { FULL, measure, statsRecord } from '../src/core/metrics';
 import { CAMPAIGN_LEVELS, rowOf, type LadderRow } from '../src/core/progression';
 import { hashString } from '../src/core/rng';
@@ -33,10 +34,30 @@ import type { Level } from '../src/core/types';
 const ROOT = join(dirname(new URL(import.meta.url).pathname), '..');
 const OUT = join(ROOT, 'src/data/levels.json');
 const CACHE = join(ROOT, '.cache/levels');
-const SALT = process.env.SALT ?? '';
-const ATTEMPTS = Number(process.env.ATTEMPTS ?? 10);
-const ITERS = Number(process.env.ITERS ?? 700);
+/**
+ * Per-level seeds chosen after a build (a re-roll that landed closer to its band); SALT= overrides
+ * them for the levels being built.
+ */
+const LEVEL_SALTS: Record<number, string> = {
+  11: 'r1',
+  40: 'r3',
+  42: 'r1',
+  45: 'r1',
+  52: 'r1',
+  54: 'r2',
+  58: 'r4',
+  61: 'r1',
+  62: 'r2',
+  63: 'r3',
+  65: 'r3',
+  70: 'r3',
+};
+const saltOf = (n: number) => process.env.SALT ?? LEVEL_SALTS[n] ?? '';
+const ATTEMPTS = Number(process.env.ATTEMPTS ?? 12);
+const ITERS = Number(process.env.ITERS ?? 800);
 const JOBS = Math.max(1, Number(process.env.JOBS ?? cpus().length));
+/** seeds tried per level when the result breaks a hard rule */
+const RETRIES = Number(process.env.RETRIES ?? 4);
 
 interface Built {
   key: string;
@@ -62,14 +83,16 @@ function keyFor(n: number): string {
   for (const f of ['rules', 'solver', 'types', 'players', 'metrics', 'targets', 'generator', 'progression', 'authored', 'ports', 'rng']) {
     h.update(readFileSync(join(ROOT, `src/core/${f}.ts`)));
   }
-  h.update(JSON.stringify({ n, SALT, ATTEMPTS, ITERS }));
+  h.update(JSON.stringify({ n, salt: saltOf(n), ATTEMPTS, ITERS, RETRIES }));
   return h.digest('hex').slice(0, 16);
 }
 
 /** Build one level (in a worker). */
 function buildOne(n: number): Built {
   const t0 = performance.now();
+  const key = keyFor(n);
   const row = rowOf(n);
+  const SALT = saltOf(n);
   const seed = hashString(`full-and-down:${n}${SALT ? ':' + SALT : ''}`);
   const a = authoredLevel(n);
   let level: Level;
@@ -88,19 +111,31 @@ function buildOne(n: number): Built {
     off = short.total;
     misses = short.misses.join('; ');
   } else {
-    const res = generate(row, seed, { attempts: ATTEMPTS, iters: ITERS });
-    if (!res) throw new Error(`level ${n}: generation failed`);
-    const f = finalize(res.level, row, seed);
-    level = f.level;
-    off = f.short.total;
-    misses = f.short.misses.join('; ');
+    // a level that breaks a hard rule (stars, the instinctive plan passing, the exact fit…) is
+    // regenerated from other seeds; the best of the valid ones is kept
+    let best: { level: Level; off: number; misses: string; hard: string[] } | null = null;
+    for (let k = 0; k < RETRIES && !(best && !best.hard.length); k++) {
+      const s = k ? hashString(`full-and-down:${n}${SALT ? ':' + SALT : ''}:retry${k}`) : seed;
+      const res = generate(row, s, { attempts: ATTEMPTS, iters: ITERS });
+      if (!res) continue;
+      const f = finalize(res.level, row, s);
+      const hard = hardProblems(f.level, f.metrics);
+      if (!f.metrics.naturals.some((p) => p.legal)) hard.push('no natural start sails');
+      const cand = { level: f.level, off: f.short.total, misses: f.short.misses.join('; '), hard };
+      if (!best || hard.length < best.hard.length || (hard.length === best.hard.length && cand.off < best.off)) best = cand;
+    }
+    if (!best) throw new Error(`level ${n}: generation failed`);
+    if (best.hard.length) console.error(`L${n}: still breaks ${best.hard.join(', ')}`);
+    level = best.level;
+    off = best.off;
+    misses = best.misses;
   }
   // the stored optimum must replay to ★★★ exactly
   const sim = simulate(level, level.best!);
   if (sim.projection.problems.length || sim.bounced.length || sim.projection.profit !== level.stars[2]) {
     throw new Error(`level ${n}: best plan does not replay (${sim.projection.profit} vs ${level.stars[2]})`);
   }
-  return { key: keyFor(n), n, level, ms: performance.now() - t0, off, misses };
+  return { key, n, level, ms: performance.now() - t0, off, misses };
 }
 
 const pct = (x: unknown) => (typeof x === 'number' ? String(Math.round(100 * x)).padStart(3) : '  -');
@@ -145,13 +180,13 @@ const levels = new Map<number, Level>();
 for (const l of stored) if (!selected.includes(l.n)) levels.set(l.n, l);
 
 const results = new Map<number, Built>();
-const fromCache = (n: number): Built | null => {
-  if (process.env.FRESH === '1') return null;
+const readCache = (n: number): Built | null => {
   const file = join(CACHE, `L${n}.json`);
   if (!existsSync(file)) return null;
   const b: Built = JSON.parse(readFileSync(file, 'utf8'));
   return b.key === keyFor(n) ? b : null;
 };
+const fromCache = (n: number): Built | null => (process.env.FRESH === '1' ? null : readCache(n));
 
 function save(): void {
   mkdirSync(dirname(OUT), { recursive: true });
@@ -183,7 +218,7 @@ async function worker(): Promise<void> {
       const proc = spawn(process.execPath, [new URL(import.meta.url).pathname, '--worker', String(n)], { stdio: 'inherit', env: process.env });
       proc.on('exit', (c) => resolve(c ?? 1));
     });
-    const b = code === 0 ? fromCache(n) : null;
+    const b = code === 0 ? readCache(n) : null;
     if (!b) {
       failed++;
       console.log(`L${n}: worker failed (exit ${code})`);

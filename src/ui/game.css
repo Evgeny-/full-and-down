@@ -161,3 +161,7 @@ html.night .dwt { background: rgba(38, 53, 82, 0.93); }
 .compact .dock .btn { min-height: 46px; }
 .compact .dock .btn.token { width: 46px; min-width: 46px; }
 .compact .coach { top: calc(184px + var(--safe-top)); padding: 7px 10px; font-size: 13px; }
+
+.strip.dense .leg .ltop .bn { display: none; }
+.strip.dense .port { min-width: 44px; padding-left: 2px; padding-right: 2px; }
+.strip.dense .leg .cells { max-width: 40px; }

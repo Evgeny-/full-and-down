@@ -4,6 +4,7 @@
  * ablation of every mechanic present, the arrival remarks and the difficulty index
  * DI = 40(1−S★) + 30(1−S★★★) + 30(1−C★★★).
  */
+import { isLesson } from './progression';
 import { simulate } from './rules';
 import { fuelDP, ManifestTable, toPlan } from './solver';
 import { Rng } from './rng';
@@ -87,18 +88,21 @@ export const QUICK: Omit<MeasureOptions, 'seed'> = { strongRuns: 40, carefulRand
 /**
  * Star thresholds (doc 13 §3.2, critic 20's separation rule): T3 = V*; T1 = the best natural start
  * + 1; T2 = the best decoy + 1 if that is above T1, else the midpoint; each at least 2 above the one
- * below. When the range is too narrow for that (lesson levels), ★ and ★★ coincide, or all three do.
+ * below. When the range is too narrow for that, lesson levels (T0, B1, B2) let ★ and ★★ (or all
+ * three) coincide; other levels keep them strictly increasing as far as the range allows.
  */
-export function thresholds(vstar: number, greedyBest: number, bestDecoy: number | null): [number, number, number] {
+export function thresholds(vstar: number, greedyBest: number, bestDecoy: number | null, lesson = true): [number, number, number] {
   const T3 = vstar;
   let T1 = Math.min(greedyBest + 1, T3);
+  const aim = (lo: number, hi: number) => {
+    const t = bestDecoy !== null && bestDecoy + 1 > T1 ? bestDecoy + 1 : Math.round((T1 + T3) / 2);
+    return Math.max(lo, Math.min(hi, t));
+  };
   let T2: number;
-  if (T3 - T1 >= 4) {
-    T2 = bestDecoy !== null && bestDecoy + 1 > T1 ? bestDecoy + 1 : Math.round((T1 + T3) / 2);
-    T2 = Math.max(T1 + 2, Math.min(T3 - 2, T2));
-  } else if (T3 - T1 >= 2) {
-    T2 = T1;
-  } else {
+  if (T3 - T1 >= 4) T2 = aim(T1 + 2, T3 - 2);
+  // too narrow for both gaps: keep ★★★ two clear of ★★ (never "★★★ by one coin") where it fits
+  else if (T3 - T1 >= 2) T2 = lesson ? T1 : T3 - T1 >= 3 ? T1 + 1 : aim(T1 + 1, T3 - 1);
+  else {
     T1 = T3;
     T2 = T3;
   }
@@ -331,7 +335,7 @@ export function measure(level: Level, o: MeasureOptions): Metrics | null {
 
   const decoys = decoysOf(land, vstar, Math.ceil(0.9 * vstar));
   const bestDecoy = decoys.length ? decoys[0].value : null;
-  const stars = thresholds(vstar, greedyBest, bestDecoy);
+  const stars = thresholds(vstar, greedyBest, bestDecoy, isLesson(level.band));
 
   const optimal = land.masksWorth(vstar);
   const omega = new Set(optimal.map((m) => land.canonical(m))).size;

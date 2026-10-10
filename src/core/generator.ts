@@ -7,7 +7,7 @@
  */
 import { simulate } from './rules';
 import { FULL, measure, QUICK, statsRecord, type Metrics } from './metrics';
-import { checkPalette, PALETTE, type LadderRow } from './progression';
+import { checkPalette, isLesson, PALETTE, type LadderRow } from './progression';
 import { AREA_PORTS, AREA_SHIPS, flagsFor } from './ports';
 import { Rng } from './rng';
 import { aim, shortfall, targetFor, type Shortfall, type Target } from './targets';
@@ -112,7 +112,8 @@ export function draft(row: LadderRow, rng: Rng): Level {
   counts.forEach((c, from) => {
     for (let k = 0; k < c; k++) {
       const to = rng.int(from + 1, P - 1);
-      const weight = rng.int(1, 5);
+      // stacked holds get lighter boxes, so the slots bind as well as the marks
+      const weight = row.tiers >= 2 ? rng.pick([1, 1, 2, 2, 2, 3, 3, 4, 5]) : rng.int(1, 5);
       boxes.push({ id: boxes.length, from, to, weight, freight: freightFor(rng, weight, to - from) });
     }
   });
@@ -344,7 +345,8 @@ const MUTATIONS: { name: string; w: number; when?: (row: LadderRow) => boolean; 
     w: 1,
     fn: (L, _r, rng) => {
       const v = L.ship.tank + (rng.chance(0.5) ? 1 : -1);
-      if (v < 3 || v > PALETTE.maxTank) return false;
+      // never so small that the tank becomes a rule of its own
+      if (v < 5 || v > PALETTE.maxTank) return false;
       L.ship.tank = v;
       return true;
     },
@@ -638,6 +640,24 @@ export function generate(row: LadderRow, seed: number, o: GenOptions): GenResult
   return best;
 }
 
+/** The rules a stored level may never break (the build retries other seeds until none is broken). */
+export function hardProblems(L: Level, m: Metrics): string[] {
+  const out: string[] = [...checkPalette(L)];
+  const [T1, T2, T3] = L.stars;
+  if (!(T1 <= T2 && T2 <= T3)) out.push('stars not increasing');
+  if (!isLesson(L.band) && !(T1 < T2 && T2 < T3)) out.push('stars not strictly increasing');
+  if (!isLesson(L.band) && T3 - T2 < 2) out.push('★★★ by one coin');
+  if (L.n >= 2 && !(T1 > m.greedyBest)) out.push('★ does not beat the instinctive plan');
+  if (L.band !== 'T0' && (m.vstar < 6 || T1 < 2)) out.push(`par too small (${m.vstar})`);
+  if (L.format === 'exact' && !(m.onMark && m.onReserve && m.omega === 1)) out.push('not an exact fit');
+  if (!L.best) out.push('no best plan');
+  else {
+    const sim = simulate(L, L.best);
+    if (sim.projection.problems.length || sim.bounced.length || sim.projection.profit !== T3) out.push('best plan does not replay');
+  }
+  return out;
+}
+
 /** Holdout measurement, stars, the optimal plan, the logbook line and the stats. */
 export function finalize(level: Level, row: LadderRow, seed: number): { level: Level; metrics: Metrics; short: Shortfall } {
   const L = clone(level);
@@ -718,15 +738,21 @@ export function logbookFor(L: Level, m: Metrics): string {
         const pick = took.find((i) => L.boxes[i].from > 0);
         if (pick === undefined) break;
         const b = L.boxes[pick];
+        const rival = left.find((i) => L.boxes[i].from <= b.from);
+        if (rival !== undefined && L.boxes[rival].from === b.from) {
+          return `At ${L.ports[b.from].name} par takes ${boxName(L, pick)} and leaves ${boxName(L, rival)}: it paid $${b.freight} at ${L.ports[b.to].name} and kept her in a cheaper band.`;
+        }
         const room = opt.legs[b.from - 1] ? L.ship.capacity - opt.legs[b.from - 1].weight : 0;
-        const filled = left.length ? `Filling her with ${boxName(L, left[0])} at ${L.ports[L.boxes[left[0]].from].name}` : `Loading to the marks at ${L.ports[0].name}`;
-        return `${filled} left no room for the ${L.ports[b.from].name} pickup; sailing ${room > 0 ? room + ' t light' : 'lighter'} paid $${b.freight} at ${L.ports[b.to].name}.`;
+        const filled = rival !== undefined ? `Filling her with ${boxName(L, rival)} at ${L.ports[L.boxes[rival].from].name}` : `Loading to the marks at ${L.ports[0].name}`;
+        const light = room > 0 && room <= 6 ? `sailing ${room} t light into ${L.ports[b.from].name}` : `keeping room for it`;
+        return `${filled} left no room for the ${L.ports[b.from].name} pickup; ${light} paid $${b.freight} at ${L.ports[b.to].name}.`;
       }
       case 'calls': {
         const near = took.find((i) => L.boxes[i].to < last);
         const far = left.find((i) => L.boxes[i].to === last);
         if (near === undefined || far === undefined) break;
-        return `${cap(boxName(L, far))} paid more on paper, but it rode every leg; ${boxName(L, near)} came off at ${L.ports[L.boxes[near].to].name} and she sailed on lighter.`;
+        const richer = L.boxes[far].freight > L.boxes[near].freight ? ` paid $${L.boxes[far].freight}, but it` : '';
+        return `${cap(boxName(L, far))}${richer} rode every leg; ${boxName(L, near)} came off at ${L.ports[L.boxes[near].to].name} and she sailed on lighter.`;
       }
       case 'noPump': {
         const dry = L.ports.findIndex((p, i) => i > 0 && i < last && p.price === null);
@@ -786,7 +812,9 @@ export function logbookFor(L: Level, m: Metrics): string {
         const z = L.legs[zl].zone!;
         const leg = opt.legs[zl];
         const atLine = leg.weight - z.at * L.ship.bands[leg.band].rate;
-        return `She left ${L.ports[zl].name} at ${leg.weight} t and burnt down to ${atLine} t by the winter line (limit ${z.limit} t): load past the line, because she burns down to it.`;
+        const over = leg.weight - z.limit;
+        if (over > 0) return `The winter line allows ${z.limit} t, ${plural(z.at, 'day')} out of ${L.ports[zl].name}; par sails ${over} t over it and burns down to ${atLine} t by the line, because she burns down to it.`;
+        return `The winter line on the ${legName(L, zl)} leg allows ${z.limit} t: par crosses it at ${atLine} t${left.length ? `, and ${boxName(L, left[0])} would have put her over her winter mark` : ''}.`;
       }
       case 'bridge': {
         const bl = L.legs.findIndex((l) => l.bridge);

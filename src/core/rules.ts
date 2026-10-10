@@ -160,14 +160,15 @@ export function simulate(level: Level, input: Call[]): SimResult {
     }
     const fuelIn = fuel - burn;
     if (fuelIn < level.reserve) {
-      const noPumpAhead = ports[i + 1].price === null && i + 1 < last;
-      problems.push({
-        who: 'chief',
-        code: 'short',
-        port: i,
-        amount: level.reserve - fuelIn,
-        text: `CHIEF: ${level.reserve - fuelIn} t short for the ${ports[i + 1].name} leg${noPumpAhead ? '' : ''}.`,
-      });
+      const n = level.reserve - fuelIn;
+      let text = `CHIEF: ${n} t short for the ${ports[i + 1].name} leg.`;
+      if (port.price === null) {
+        // a dry port: the fuel had to come from the last pump
+        let k = i - 1;
+        while (k >= 0 && ports[k].price === null) k--;
+        text = `CHIEF: ${n} t short for the ${ports[i + 1].name} leg, and ${port.name} sells no bunkers.${k >= 0 ? ` Carry it from ${ports[k].name}.` : ''}`;
+      }
+      problems.push({ who: 'chief', code: 'short', port: i, amount: n, text });
     }
     const nextBar = ports[i + 1].bar;
     if (nextBar !== undefined && w - burn > nextBar) {
@@ -214,21 +215,27 @@ export function baysAt(level: Level, plan: Call[], port: number): BoxId[][] {
 }
 
 /**
- * Tonnes to buy at `port` so the next leg arrives on the reserve (the NEED button): the smallest
- * lot that works, given everything else in the plan. Null if no amount works here.
+ * Tonnes to buy at `port` so she reaches the next port that sells bunkers on the reserve (the NEED
+ * button): the smallest lot that works, given everything else in the plan. Null if none works.
  */
 export function needAt(level: Level, plan: Call[], port: number): number | null {
   const p = level.ports[port];
   if (p.price === null) return null;
   const lot = p.lot ?? 1;
+  // cover every leg until the next port that sells bunkers (or the end of the voyage)
+  let until = port + 1;
+  while (until < level.ports.length - 1 && level.ports[until].price === null) until++;
   const trial = clonePlan(plan);
   for (let b = 0; b <= level.ship.tank; b += lot) {
     trial[port].bunker = b;
     const r = simulate(level, trial);
-    const leg = r.projection.legs[port];
-    if (!leg) return null;
     if (r.plan[port].bunker !== b) return null; // tank full
-    if (leg.fuelIn >= level.reserve) return b;
+    let ok = true;
+    for (let i = port; i < until; i++) {
+      const leg = r.projection.legs[i];
+      if (!leg || leg.fuelIn < level.reserve) ok = false;
+    }
+    if (ok) return b;
   }
   return null;
 }

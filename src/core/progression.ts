@@ -233,8 +233,10 @@ function buildRow(area: number, local: number, s: RowSpec): LadderRow {
   const n = area * 9 + local;
   const band = s.band ?? POSITION_BANDS[local - 1];
   const ports = s.ports ?? 3;
-  const tiers = s.tiers ?? HOLD[area][1];
-  const bays = s.bays ?? HOLD[area][0];
+  // the Full & Down breathers sail single-tier coasters: the marks and the reserve, nothing else
+  const exact = s.format === 'exact';
+  const tiers = s.tiers ?? (exact ? 1 : HOLD[area][1]);
+  const bays = s.bays ?? (exact ? (n < INTRO_AT.prices ? 4 : 5) : HOLD[area][0]);
   const bands = s.bands ?? 2;
   const mechanics: Mechanic[] = ['weight'];
   if (bands >= 2) mechanics.push('bands');

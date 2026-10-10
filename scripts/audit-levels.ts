@@ -75,6 +75,7 @@ for (const l of levels) {
   if (m.greedyBest !== st.greedy) problems.push(`L${l.n}: best natural start ${m.greedyBest} ≠ stored ${st.greedy}`);
   if (m.omega !== st.omega || m.decoys !== st.decoys || m.depth !== st.depth) problems.push(`L${l.n}: ω/decoys/X re-measured ${m.omega}/${m.decoys}/${m.depth} ≠ stored ${st.omega}/${st.decoys}/${st.depth}`);
   if (l.n >= 2 && !(T1 > m.greedyBest)) problems.push(`L${l.n}: ★ ${T1} does not beat the instinctive plan (${m.greedyBest})`);
+  if (!m.naturals.some((p) => p.legal)) problems.push(`L${l.n}: no natural start sails (★ has no instinctive plan to beat)`);
   if (l.format === 'exact' && !(m.onMark && m.onReserve && m.omega === 1)) warn.push(`L${l.n}: Full & Down is not an exact fit (mark ${m.onMark}, reserve ${m.onReserve}, ω ${m.omega})`);
   if (typeof st.off === 'number' && st.off > 0) warn.push(`L${l.n} off target ${st.off}: ${st.misses}`);
 }
@@ -130,7 +131,9 @@ lines.push('  later boxes placeable.');
 lines.push('- **Strong editor**: 64 games, each from a natural start (density 40%, freight 30%, tank 15%, myopic 15%; half');
 lines.push('  of them with ±18% jitter on the preferences), best improvement on the manifest landscape (exact values:');
 lines.push('  freight − the cheapest bunker plan, stowage checked) over add / drop / 1↔1 / 2↔1 / 1↔2, 5% slips, at most 20');
-lines.push("  edits. A strong human's first session.");
+lines.push("  edits. On levels with a manual valve (World 2 on) half of the runs value a load with NEED bunkers instead of the");
+lines.push("  cheapest plan (critic 21's gas-station fuel): they never think of carrying cheap fuel or stemming past a dry port");
+lines.push("  beyond what NEED asks. A strong human's first session.");
 lines.push('- **Careful editor**: 3-exchange best improvement from every natural start and 6 random maximal loads, no slips.');
 lines.push('  The fairness check.');
 lines.push("- **Random tinkerer** (critic 20's gate): 40 random legal edits on the plan from an empty ship (add a box on a");

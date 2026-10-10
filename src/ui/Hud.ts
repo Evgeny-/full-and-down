@@ -163,6 +163,7 @@ export class Hud {
       if (i < P - 1) cols.push('1fr');
     }
     this.strip.style.gridTemplateColumns = cols.join(' ');
+    this.strip.classList.toggle('dense', P >= 5 || (P >= 4 && this.strip.clientWidth < 360));
     const parts: string[] = [];
     const problemPorts = new Set(pr.problems.map((p) => p.port));
     for (let i = 0; i < P; i++) {
@@ -192,7 +193,7 @@ export class Hud {
         const bridge = L.bridge && lv.mechanics.includes('bridge') ? `<span class="bridge" title="Low bridge">⌒≥${L.bridge.min}</span>` : '';
         parts.push(`
           <div class="leg ${short ? 'shortleg' : ''}" style="--band:${bandColor(lv, leg.band)}">
-            <span class="ltop caps">${L.days}d · ${bandName(lv, leg.band)}</span>
+            <span class="ltop caps">${L.days}d<span class="bn"> · ${bandName(lv, leg.band)}</span></span>
             <span class="arrow"></span>
             <span class="cells">${cells.join('')}</span>
             <span class="burn num">−${leg.burn}${leg.reefers ? `<small>❄${leg.reefers}</small>` : ''}</span>

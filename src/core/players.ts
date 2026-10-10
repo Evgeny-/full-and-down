@@ -467,8 +467,12 @@ export function stateAt(level: Level, plan: Call[], i: number): BoxId[][] {
  * future box is checked against the stacks as they'll stand at its port), the tightest fit on ties.
  */
 export function chooseBay(level: Level, bays: BoxId[][], box: Box, future: Box[]): number {
-  let best = -1;
-  let bestScore = -Infinity;
+  return rankBays(level, bays, box, future)[0] ?? -1;
+}
+
+/** Every legal stack for a box, best first (see `chooseBay`). */
+export function rankBays(level: Level, bays: BoxId[][], box: Box, future: Box[]): number[] {
+  const scored: [number, number][] = [];
   const { boxes } = level;
   for (let k = 0; k < bays.length; k++) {
     if (placeRefusal(level, bays[k], k, box)) continue;
@@ -485,13 +489,27 @@ export function chooseBay(level: Level, bays: BoxId[][], box: Box, future: Box[]
     }
     const top = bays[k].length ? boxes[bays[k][bays[k].length - 1]] : null;
     const fit = top ? top.to - box.to : 50;
-    const score = s - 0.001 * fit - 0.00001 * k;
-    if (score > bestScore) {
-      bestScore = score;
-      best = k;
+    scored.push([k, s - 0.001 * fit - 0.00001 * k]);
+  }
+  return scored.sort((a, b) => b[1] - a[1]).map((x) => x[0]);
+}
+
+/**
+ * The sealed boxes go aboard first, port by port (a mate plans the charter before the top-offs).
+ * Returns the plan with them loaded, bunkers by `rule`.
+ */
+function sealedFirst(level: Level, rule: BunkerRule, land: Landscape | undefined): Call[] {
+  const plan = emptyPlan(level);
+  for (let i = 0; i < level.ports.length - 1; i++) {
+    const sealed = level.boxes.filter((b) => b.contract && b.from === i).sort((a, b) => b.to - a.to || b.weight - a.weight);
+    for (let k = 0; k < sealed.length; k++) {
+      const bays = stateAt(level, plan, i);
+      const future = [...sealed.slice(k + 1), ...level.boxes.filter((b) => b.from > i)];
+      const bay = chooseBay(level, bays, sealed[k], future);
+      if (bay >= 0) plan[i].loads.push({ box: sealed[k].id, bay });
     }
   }
-  return best;
+  return applyBunkers(level, plan, rule, land);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -525,26 +543,26 @@ function greedyPlay(level: Level, kind: NaturalKind, land: Landscape | undefined
   const jitter = new Map<number, number>();
   if (noise) for (const b of level.boxes) jitter.set(b.id, noise.range(0.82, 1.18));
   const key = (b: Box) => prefKey(kind, b) * (jitter.get(b.id) ?? 1);
-  let plan = applyBunkers(level, emptyPlan(level), rule, land);
-  let cur = judge(level, plan, 0);
+  let plan = sealedFirst(level, rule, land);
+  let cur = judge(level, plan);
   for (let i = 0; i < P - 1; i++) {
-    cur = judge(level, plan, i);
-    const offers = level.boxes
-      .filter((b) => b.from === i)
-      .sort((a, b) => (b.contract ? 1 : 0) - (a.contract ? 1 : 0) || key(b) - key(a) || a.id - b.id);
+    const offers = level.boxes.filter((b) => b.from === i && !b.contract).sort((a, b) => key(b) - key(a) || a.id - b.id);
     for (let k = 0; k < offers.length; k++) {
       const box = offers[k];
       const bays = stateAt(level, plan, i);
       const future = [...offers.slice(k + 1), ...level.boxes.filter((b) => b.from > i)];
-      const bay = chooseBay(level, bays, box, future);
-      if (bay < 0) continue;
-      const trial = clonePlan(plan);
-      trial[i].loads.push({ box: box.id, bay });
-      const t2 = applyBunkers(level, trial, rule, land);
-      const j = judge(level, t2, i);
-      if (j.bad <= cur.bad) {
-        plan = t2;
-        cur = j;
+      // the best-looking stack first; another one if that bounces a later box
+      for (const bay of rankBays(level, bays, box, future).slice(0, 3)) {
+        const trial = clonePlan(plan);
+        trial[i].loads.push({ box: box.id, bay });
+        const t2 = applyBunkers(level, trial, rule, land);
+        const j = judge(level, t2);
+        if (j.bad <= cur.bad) {
+          plan = t2;
+          cur = j;
+          break;
+        }
+        if (!j.sim.bounced.some((b) => b.box !== undefined)) break;
       }
     }
   }
@@ -561,11 +579,11 @@ function subsetsOf<T>(xs: T[]): T[][] {
 function myopicPlay(level: Level, land: Landscape | undefined): Call[] {
   const rule = ruleFor(level, 'myopic');
   const P = level.ports.length;
-  let plan = applyBunkers(level, emptyPlan(level), rule, land);
+  let plan = sealedFirst(level, rule, land);
   for (let i = 0; i < P - 1; i++) {
-    const base = judge(level, plan, i);
+    const base = judge(level, plan);
     const offers = level.boxes.filter((b) => b.from === i);
-    const mand = offers.filter((b) => b.contract);
+    const mand: Box[] = [];
     const opt = offers.filter((b) => !b.contract);
     let best: Call[] | null = null;
     let bestScore = -Infinity;
@@ -586,9 +604,9 @@ function myopicPlay(level: Level, land: Landscape | undefined): Call[] {
       }
       if (!ok) continue;
       const t2 = applyBunkers(level, trial, rule, land);
-      const j = judge(level, t2, i);
+      const j = judge(level, t2);
       if (j.bad > base.bad && sub.length) continue;
-      const freight = chosen.reduce((s, b) => s + b.freight, 0);
+      const freight = sub.reduce((s, b) => s + b.freight, 0);
       // this call's stem only: the fuel for later legs is a later call's problem
       const fuel = t2[i].bunker * (level.ports[i].price ?? 0);
       const score = freight - fuel - (j.bad > base.bad ? 1000 : 0);
@@ -603,10 +621,38 @@ function myopicPlay(level: Level, land: Landscape | undefined): Call[] {
   return applyBunkers(level, plan, rule, land);
 }
 
+/**
+ * The repair (doc 13 §2.1, "what a person does when the gauge turns red"): if the plan can't sail,
+ * the best manifest one box exchange away that can (two if none), valued with the player's bunker
+ * habit, stowed and bunkered as the player would. Null if nothing near sails.
+ */
+function repair(level: Level, plan: Call[], rule: BunkerRule, land: Landscape): Call[] | null {
+  const mask = maskOf(plan);
+  const table = rule === 'auto' ? land.ub : land.gasUb();
+  for (const k of [1, 2]) {
+    const cand = improvingNeighbours(land, mask, NEG, kExchange(k), table);
+    cand.sort((a, b) => table[b] - table[a] || popcount(a ^ mask) - popcount(b ^ mask) || a - b);
+    for (const m of cand) {
+      const stow = land.stowable(m) ? land.table.stow(m) : null;
+      if (!stow) continue;
+      const fixed = applyBunkers(level, stow.loads.slice(0, -1).map((loads) => ({ loads, bunker: 0 })), rule, land);
+      if (judge(level, fixed).legal) return fixed;
+    }
+  }
+  return null;
+}
+
 /** One natural start, as a full plan evaluated by `simulate()`. `noise` jitters the preferences (±18%). */
 export function playNatural(level: Level, kind: NaturalKind, land?: Landscape, noise?: Rng): Played {
-  const plan = kind === 'myopic' ? myopicPlay(level, land) : greedyPlay(level, kind === 'tank' ? 'tank' : kind, land, noise);
-  const j = judge(level, plan);
+  let plan = kind === 'myopic' ? myopicPlay(level, land) : greedyPlay(level, kind === 'tank' ? 'tank' : kind, land, noise);
+  let j = judge(level, plan);
+  if (!j.legal && land) {
+    const fixed = repair(level, plan, ruleFor(level, kind), land);
+    if (fixed) {
+      plan = fixed;
+      j = judge(level, plan);
+    }
+  }
   return { kind, plan, profit: j.sim.projection.profit, legal: j.legal, mask: maskOf(plan) };
 }
 

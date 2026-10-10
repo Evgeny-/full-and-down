@@ -5,7 +5,7 @@
  * separation, the tinkerer gate, uniqueness, ablation, the exact fit).
  */
 import type { Metrics } from './metrics';
-import { CORE, type BandId, type LadderRow } from './progression';
+import { CORE, isLesson, type BandId, type LadderRow } from './progression';
 import type { Mechanic } from './types';
 
 export interface Target {
@@ -29,6 +29,8 @@ export interface Target {
   maxOmega: number;
   /** Full & Down: the unique optimum departs on the mark and arrives on the reserve */
   exact: boolean;
+  /** difficulty index range (docs/design-process/13 §2.3) */
+  di: [number, number];
   /** the optimum's heaviest leg carries at least this share of the deadweight in cargo */
   minFill: number;
   /** the intro mechanic (must bind) and the advanced ones present (should bind) */
@@ -40,9 +42,20 @@ export interface Target {
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const slide = (a: [number, number], b: [number, number], t: number): [number, number] => [lerp(a[0], b[0], t), lerp(a[1], b[1], t)];
 
+const DI: Record<BandId, [[number, number], [number, number]]> = {
+  T0: [[0, 100], [0, 100]],
+  B1: [[5, 25], [10, 28]],
+  B2: [[12, 30], [22, 40]],
+  B3: [[25, 40], [38, 55]],
+  B4: [[35, 50], [48, 65]],
+  B5: [[48, 65], [62, 78]],
+  B6: [[58, 78], [72, 90]],
+};
+
 export function targetFor(row: LadderRow): Target {
   const t = row.area / 7;
-  const base = { band: row.band, intro: row.intro, mechanics: row.mechanics, ports: row.ports, exact: false, minFill: 0.45 };
+  const base = {
+    di: slide(DI[row.band][0], DI[row.band][1], t), band: row.band, intro: row.intro, mechanics: row.mechanics, ports: row.ports, exact: false, minFill: 0.45 };
   switch (row.band) {
     case 'T0':
       return { ...base, s1: [0, 1], s3: [0, 1], c3: [0, 1], depth: [1, 4], minDecoys: 0, minGap: 0, minSpread: 0, separation: false, maxT1: 1, maxT3: 1, maxOmega: 9 };
@@ -84,13 +97,14 @@ export function shortfall(m: Metrics, t: Target): Shortfall {
   };
   add(2 * linBand(m.s1, t.s1), `S★ ${pct(m.s1)}`);
   add(2 * linBand(m.s3, t.s3), `S★★★ ${pct(m.s3)}`);
-  add(1.5 * linBand(m.c3, t.c3), `C★★★ ${pct(m.c3)}`);
+  add(1 * linBand(m.c3, t.c3), `C★★★ ${pct(m.c3)}`);
   add(0.25 * linBand(m.depth, t.depth), `X ${m.depth}`);
   add(0.15 * Math.max(0, t.minDecoys - m.decoys), `decoys ${m.decoys}`);
   add(4 * Math.max(0, t.minGap - m.gap), `gap ${pct(m.gap)}`);
   const [T1, T2, T3] = m.stars;
   add(0.25 * Math.max(0, t.minSpread - (T3 - T1)), `spread ${T3 - T1}`);
   if (t.separation) add(0.2 * (Math.max(0, 2 - (T2 - T1)) + Math.max(0, 2 - (T3 - T2))), `stars ${T1}/${T2}/${T3}`);
+  if (!isLesson(t.band) && !(T1 < T2 && T2 < T3)) add(2, 'stars collapse');
   add(1.5 * Math.max(0, m.t1 - t.maxT1), `T★ ${pct(m.t1)}`);
   add(3 * Math.max(0, m.t3 - t.maxT3), `T★★★ ${pct(m.t3)}`);
   add(0.5 * Math.max(0, m.omega - t.maxOmega), `ω ${m.omega}`);
@@ -99,10 +113,12 @@ export function shortfall(m: Metrics, t: Target): Shortfall {
     const d = m.ablation[mech];
     if (d === undefined || d > 0) continue;
     if (mech === t.intro) add(3, `intro ${mech} idle`);
-    else if (mech === 'tiers') add(1, `${mech} idle`);
+    else if (mech === 'tiers') add(1.5, `${mech} idle`);
     else if (CORE.includes(mech)) add(0.5, `${mech} idle`);
     else add(1, `${mech} idle`);
   }
+  // the difficulty index inside the band's range (the sawtooth)
+  add(0.04 * linBand(m.di, t.di), `DI ${Math.round(m.di)}`);
   // par must be worth sailing for, and ★ must earn something
   add(0.1 * Math.max(0, MIN_VSTAR[t.band] - m.vstar), `V* ${m.vstar}`);
   if (t.band !== 'T0' && m.stars[0] < 3) add(2, `★ ${m.stars[0]}`);
