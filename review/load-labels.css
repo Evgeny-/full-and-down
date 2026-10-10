@@ -1,0 +1,16 @@
+/* Only the live review page imports this file. Keep the existing HUD structure,
+   route/profit blocks, cargo cells, all bands and every control. */
+.review-load-labels .lrow { gap: 5px; }
+.review-load-labels .lrow .eq { display: inline-flex; align-items: baseline; gap: 3px; font-size: 10.5px; letter-spacing: 0; }
+.review-load-labels .lrow .eq .f { align-self: center; color: var(--fuel-2); }
+.review-load-labels .lrow .tot { white-space: nowrap; }
+.review-load-labels .lrow .aboard-label { font: 700 9.5px/1 var(--font); margin-right: 1px; }
+.review-load-labels .load-state { margin-left: auto; font: 700 10.5px/1 var(--font); white-space: nowrap; }
+.review-load-labels .load-state .lhint { font: inherit; margin: 0; }
+.review-load-labels .load-state .lhint b { color: var(--ink); }
+.review-load-labels .load-state .lhint b.bad { color: var(--red); }
+.review-load-labels .load-state .lhint b.mark { color: var(--ok); }
+.review-load-labels .load-state .need-note { color: var(--fuel-2); }
+.review-load-labels .load-state .preview-note { color: var(--navy); }
+.review-load-labels .load-state .bad { color: var(--red); }
+.review-load-labels .free-label { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; font: 700 9px/1 var(--font); color: var(--ink-2); pointer-events: none; }
