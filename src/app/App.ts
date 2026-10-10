@@ -1,4 +1,4 @@
-import { GameView, type Anchors } from '../render/GameView';
+import { GameView, shipKind, type Anchors } from '../render/GameView';
 import { loadFonts } from '../render/paint';
 import { Hud } from '../ui/Hud';
 import { h, button } from '../ui/dom';
@@ -130,7 +130,6 @@ export class App {
       onUndo: () => this.undo(),
       onHint: () => this.hint(),
       onSail: () => void this.sail(),
-      onVoice: () => this.onVoice(),
     });
     this.hud.setLevel(level, areaOf(level).name, this.save.levels[level.n]?.stars ?? 0);
     this.updatePilots();
@@ -176,9 +175,9 @@ export class App {
   /** The rules on one card (first voyage, and from the pause menu). */
   private showHowTo(then?: () => void): void {
     const steps = [
-      ['1', 'Load boxes', 'Tap a box on the quay, then tap the ship. Each box pays its <b>freight</b> when it reaches its port.'],
-      ['2', 'Buy fuel', 'The voyage burns fuel: the route strip shows how much. Tap <b>NEED</b> for just enough, or − / +.'],
-      ['3', 'Mind her marks', 'Boxes <b>and fuel</b> must fit her deadweight. Fuel weighs too, and a heavier ship burns more.'],
+      ['1', 'Load boxes', 'Tap a box on the quay to load it (or drag it onto a stack). Each box pays its <b>freight</b> when it reaches its port.'],
+      ['2', 'Buy fuel', 'Each leg burns fuel: the route shows how much, and what she\'ll have left. Tap <b>BUY</b> for just enough, or − / +.'],
+      ['3', 'Mind her marks', 'Boxes <b>and fuel</b> share the load bar. Fuel weighs too, and the heavier she sails, the more she burns a day.'],
       ['4', 'Sail', 'Earn the charter (★) and <b>SAIL</b>. If she can\'t go yet, tap SAIL and the crew tells you why.'],
     ];
     openDialog({
@@ -533,13 +532,6 @@ export class App {
     this.refresh();
   }
 
-  private onVoice(): void {
-    const m = this.model;
-    if (!m) return;
-    const r = m.sailRefusal();
-    void r;
-  }
-
   // ───────────────────────────── the pilot (hints) ─────────────────────────────
 
   private bestPlan: Call[] | null = null;
@@ -704,12 +696,11 @@ export class App {
     this.view.insets.right = landscape ? 376 : 0;
     if (this.hud && landscape) {
       this.view.insets.top = 8;
-      this.view.insets.bottom = 42;
+      this.view.insets.bottom = 56 + this.tagExtra();
     } else if (this.hud) {
       this.view.insets.top = this.hud.topHeight() + 6;
-      // dock 66, voice 48, bunker 58, quay tags 32, quay boxes ~30, deadweight bar 58
-      // dock 66 + bunker 62 + freight tags 34 (from the bottom of the screen)
-      this.view.insets.bottom = compact ? 58 + 52 + 30 + 14 : 66 + 62 + 34 + 14;
+      // the bottom block, plus the freight tags under the quay boxes
+      this.view.insets.bottom = this.hud.bottomHeight() + 50 + this.tagExtra();
     }
     if (this.hud) this.ui.style.setProperty('--top-block', `${Math.round(this.view.insets.top)}px`);
     this.view.resize(w, hgt);
@@ -718,6 +709,11 @@ export class App {
       this.hud.positionBottom(this.anchors);
       this.hud.update(this.model, this.anchors);
     }
+  }
+
+  /** Bulk parcels' freight tags carry their weight too: a line taller. */
+  private tagExtra(): number {
+    return this.level && shipKind(this.level) === 'bulker' ? 14 : 0;
   }
 
   private frame(t: number): void {
@@ -806,13 +802,16 @@ export class App {
     audio.engine(true, leg.band / Math.max(1, lv.ship.bands.length - 1));
     await this.view.steam('out', 1.1);
     say('Full away', `fuel ${leg.fuelOut} t → ${leg.fuelIn} t at ${lv.ports[i + 1].name}`);
-    // burn the leg: the hull rises a tick per tonne
+    // open sea: burn the leg, the hull rising a tick per tonne
     const cargo = leg.weight - leg.fuelOut;
+    const days = lv.legs[i].days;
+    const seaTime = this.fast ? 0.5 : Math.min(2.2, 0.9 + 0.3 * days);
     for (let k = 0; k < leg.burn; k++) {
-      await wait(Math.max(0.06, 0.7 / leg.burn));
+      await wait(seaTime / Math.max(1, leg.burn));
       audio.play('drain', { pitch: Math.max(0, 11 - k) });
       this.view.setLoad((cargo + leg.fuelOut - k - 1) / lv.ship.capacity, false);
     }
+    if (!leg.burn) await wait(seaTime);
     // arrive: the boxes for here are still aboard
     const next = i + 1;
     this.view.sync(next, m.baysAt(i), lv.boxes.filter((b) => b.from === next).map((b) => b.id), 'tab');
@@ -842,7 +841,14 @@ export class App {
     this.view.sync(next, m.baysAt(next), m.quayAt(next), 'edit');
     this.lastWeight = -1;
     this.refresh();
-    toast(this.ui, m.quayAt(next).length ? `${lv.ports[next].name}: load what's offered here, buy fuel, sail on.` : `${lv.ports[next].name}: no cargo here. Fuel her and sail on.`, 3200);
+    const here = lv.ports[next];
+    const offers = m.quayAt(next).length > 0;
+    const fuel = here.price !== null;
+    toast(
+      this.ui,
+      offers && fuel ? `${here.name}: load what's offered here, buy fuel, sail on.` : offers ? `${here.name}: load what's offered here. No fuel sold here.` : fuel ? `${here.name}: no cargo here. Fuel her and sail on.` : `${here.name}: no cargo and no fuel here. Sail on.`,
+      3200,
+    );
   }
 
   private pop(text: string, x: number, y: number): void {

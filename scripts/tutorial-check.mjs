@@ -11,7 +11,7 @@ await shot(1);
 const d = await p.evaluate(()=>window.game.debugPoints());
 for (const q of d.quay) { await p.mouse.click(q.p.x, q.p.y); await S(450); if (q === d.quay[0]) await shot(2); await p.mouse.click(d.bays[d.quay.indexOf(q)].x, d.bays[d.quay.indexOf(q)].y); await S(800); }
 await shot(3);
-await p.click('.bunker .need'); await S(600);
+await p.click('.fuel .buy'); await S(600);
 await shot(4);
 await p.click('.dock .sail'); await S(700);
 await shot(5);

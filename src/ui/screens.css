@@ -98,35 +98,34 @@ html.night .report { filter: brightness(0.92); }
 .settings .seg { display: flex; gap: 4px; }
 .settings .credits { margin-top: 14px; font-size: 12px; color: var(--ink-2); }
 
-.dock .pilot[data-n]::after { content: attr(data-n); position: absolute; top: -7px; right: -5px; display: grid; place-items: center; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 11px; background: var(--yellow); color: var(--black); font: 600 13px/1 var(--num); box-shadow: 0 0 0 2px var(--enamel); }
-
 /* wide screens: the HUD stays a phone-width column */
 @media (min-width: 640px) {
-  #ui:not(.landscape) .dwt { left: 50% !important; right: auto !important; width: 560px; transform: translateX(-50%); }
-  #ui:not(.landscape) :is(.hud-top, .rule, .strip, .bunker, .voice, .dock, .coach) { left: 50% !important; right: auto !important; width: 560px; transform: translateX(-50%); }
+  #ui:not(.landscape) :is(.hud-head, .hud-foot, .coach) { left: 50% !important; right: auto !important; width: 560px; transform: translateX(-50%); }
 }
 
 /* landscape phones: the harbour on the left, the HUD in a column on the right */
-.landscape .hud-top { top: calc(6px + var(--safe-top)); left: auto; right: calc(8px + env(safe-area-inset-right, 0px)); width: 360px; }
+.landscape :is(.hud-head, .hud-foot) { left: auto; right: calc(8px + env(safe-area-inset-right, 0px)); width: 360px; }
+.landscape .hud-head { top: calc(6px + var(--safe-top)); gap: 4px; }
+.landscape .hud-foot { bottom: calc(6px + var(--safe-bottom)); gap: 5px; }
 .landscape .hud-top .btn.token, .landscape .title { height: 36px; min-height: 36px; }
 .landscape .title .lv { height: 26px; min-width: 28px; font-size: 15px; }
 .landscape .title .tt b { font-size: 14px; }
 .landscape .title .tt small { display: none; }
-.landscape .rule { top: calc(46px + var(--safe-top)); left: auto; right: calc(8px + env(safe-area-inset-right, 0px)); width: 360px; height: 38px; }
+.landscape .rule { height: 38px; }
 .landscape .rule .money { font-size: 20px; min-width: 46px; }
 .landscape .rule .rcol { gap: 3px; }
-.landscape .strip { top: calc(88px + var(--safe-top)); left: auto; right: calc(8px + env(safe-area-inset-right, 0px)); width: 360px; min-height: 78px; padding: 3px; }
+.landscape .strip { padding: 10px 3px 2px; }
 .landscape .strip .port { padding: 2px 3px; gap: 1px; }
-.landscape .bunker { left: auto; right: calc(8px + env(safe-area-inset-right, 0px)); width: 360px; bottom: calc(54px + var(--safe-bottom)); min-height: 44px; padding: 3px 6px 3px 10px; }
-.landscape .bunker .stepper .btn.token { width: 34px; min-width: 34px; min-height: 34px; }
-.landscape .bunker .need { min-height: 34px; }
-.landscape .voice { left: auto; right: calc(8px + env(safe-area-inset-right, 0px)); width: 360px; bottom: calc(54px + var(--safe-bottom)); min-height: 36px; padding: 5px 10px; font-size: 12.5px; }
-.landscape .dock { left: auto; right: calc(8px + env(safe-area-inset-right, 0px)); width: 360px; bottom: calc(6px + var(--safe-bottom)); }
+.landscape .cargo { padding: 4px 8px 3px; }
+.landscape .load { gap: 3px; padding-bottom: 4px; }
+.landscape .load .cells { height: 12px; }
+.landscape .fuel { padding-top: 4px; min-height: 38px; }
+.landscape .fuel .btn.token { width: 34px; min-width: 34px; min-height: 34px; }
+.landscape .fuel .buy { min-height: 34px; }
 .landscape .dock .btn { min-height: 42px; }
 .landscape .dock .btn.token { width: 42px; min-width: 42px; }
 .landscape .coach { top: 8px; left: calc(8px + env(safe-area-inset-left, 0px)); right: 380px; padding: 6px 10px; font-size: 13px; }
 .landscape .banner { left: calc((100% - 372px) / 2); top: 10px; }
-
 
 /* ── new waters ── */
 .area-card { position: absolute; inset: 0; z-index: 60; display: grid; place-items: center; background: radial-gradient(circle at 50% 45%, rgba(31, 46, 77, 0.55), rgba(14, 22, 38, 0.82)); animation: fade-in 0.3s ease; cursor: pointer; }
@@ -174,7 +173,6 @@ html.night .settings .seg .btn.navy { background: var(--yellow); color: var(--bl
 html.night .node.locked .disc { background: #3a4a68; color: #8a97ad; box-shadow: inset 0 0 0 2px #52627f; }
 
 /* P3 polish */
-.voice span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .landscape .hud::before { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 384px; background: linear-gradient(90deg, rgba(23, 96, 127, 0), rgba(23, 70, 100, 0.55) 18%); pointer-events: none; }
 .area-card small { text-wrap: balance; }
 .landscape .area-card { right: 376px; }
@@ -186,10 +184,6 @@ html.night .map-top { background: linear-gradient(rgba(20, 32, 52, 1) 80%, rgba(
 .settings input[type=range]::-moz-range-thumb { width: 22px; height: 22px; border: 0; border-radius: 5px; background: var(--blue); }
 .par-chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 2px 2px 12px; }
 .par-chips span { display: inline-flex; align-items: center; gap: 3px; padding: 4px 8px; border-radius: 5px; background: var(--enamel-2); font: 600 14px/1 var(--num); }
-
-/* landscape: the deadweight bar joins the right-hand column */
-.landscape .dwt { left: auto !important; right: calc(8px + env(safe-area-inset-right, 0px)) !important; width: 360px; top: calc(170px + var(--safe-top)) !important; }
-.landscape .strip { min-height: 74px; }
 
 .coach-arrow { position: absolute; left: 0; top: 0; z-index: 16; margin: -40px 0 0 -17px; pointer-events: none; filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.3)); }
 .coach-arrow svg { display: block; animation: arrow-bob 0.9s ease-in-out infinite; }

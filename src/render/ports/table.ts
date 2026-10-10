@@ -1,0 +1,110 @@
+import { register } from './registry';
+import { GROUPS } from './landmarks';
+
+/**
+ * Port → regional look (+ landmark id). Landmarks live in ./landmarks. A port without a landmark still
+ * gets its region's houses, trees and set pieces, varied by a seed from its name.
+ */
+register([
+  // Netherlands & Belgium
+  ['Rotterdam', 'nl'],
+  ['Amsterdam', 'nl'],
+  ['Den Helder', 'nl'],
+  ['Vlissingen', 'nl'],
+  ['Antwerp', 'nl'],
+  ['Zeebrugge', 'nl'],
+  ['Ostend', 'nl'],
+  ['Liege', 'nl'],
+  // Germany
+  ['Hamburg', 'de'],
+  ['Bremerhaven', 'de'],
+  ['Bremen', 'de'],
+  ['Kiel', 'de'],
+  ['Emden', 'de'],
+  ['Wilhelmshaven', 'de'],
+  ['Cologne', 'de'],
+  ['Duisburg', 'de'],
+  ['Mannheim', 'de'],
+  // UK
+  ['Felixstowe', 'uk'],
+  ['Southampton', 'uk'],
+  ['Teesport', 'uk'],
+  ['Aberdeen', 'uk'],
+  ['Immingham', 'uk'],
+  ['Harwich', 'uk'],
+  ['Grimsby', 'uk'],
+  ['Dover', 'uk'],
+  ['Goole', 'uk'],
+  // France
+  ['Le Havre', 'fr'],
+  ['Calais', 'fr'],
+  ['Dunkirk', 'fr'],
+  ['Cherbourg', 'fr'],
+  ['Brest', 'fr'],
+  ['Rouen', 'fr'],
+  ['Nantes', 'fr'],
+  ['Bordeaux', 'fr'],
+  ['Montoir', 'fr'],
+  ['Strasbourg', 'fr'],
+  ['Marseille', 'med'],
+  // Scandinavia
+  ['Esbjerg', 'scan'],
+  ['Aarhus', 'scan'],
+  ['Oslo', 'scan'],
+  ['Stavanger', 'scan'],
+  ['Bergen', 'scan'],
+  ['Alesund', 'scan'],
+  ['Bodo', 'arctic'],
+  ['Narvik', 'arctic'],
+  ['Tromso', 'arctic'],
+  ['Hammerfest', 'arctic'],
+  ['Gothenburg', 'scan'],
+  // Iberia
+  ['Seville', 'med'],
+  ['Lisbon', 'med'],
+  ['Leixoes', 'med'],
+  ['Valencia', 'med'],
+  ['Barcelona', 'med'],
+  ['Algeciras', 'med'],
+  ['Cadiz', 'med'],
+  ['Huelva', 'med'],
+  ['Malaga', 'med'],
+  ['Vigo', 'med'],
+  ['Ceuta', 'med'],
+  ['Gibraltar', 'med'],
+  ['Las Palmas', 'isle'],
+  ['Santa Cruz', 'isle'],
+  ['Funchal', 'isle'],
+  // Italy, Malta, Greece, Slovenia
+  ['Genoa', 'med'],
+  ['La Spezia', 'med'],
+  ['Livorno', 'med'],
+  ['Naples', 'med'],
+  ['Gioia Tauro', 'med'],
+  ['Trieste', 'med'],
+  ['Koper', 'med'],
+  ['Marsaxlokk', 'med'],
+  ['Piraeus', 'med'],
+  // Africa
+  ['Casablanca', 'afN'],
+  ['Agadir', 'afN'],
+  ['Tanger Med', 'afN'],
+  ['Nouakchott', 'afN'],
+  ['Dakar', 'afW'],
+  ['Banjul', 'afW'],
+  ['Freetown', 'afW'],
+  ['Abidjan', 'afW'],
+  ['Tema', 'afW'],
+  ['Lome', 'afW'],
+  ['Lagos', 'afW'],
+  // North Atlantic
+  ['Reykjavik', 'arctic'],
+  ['Torshavn', 'arctic'],
+  ['Nuuk', 'arctic'],
+  ['Halifax', 'na'],
+  ["St John's", 'na'],
+  ['Sept-Iles', 'na'],
+]);
+
+// landmark rows from each area module override the plain regional rows above
+for (const g of GROUPS) register(g.PORTS);

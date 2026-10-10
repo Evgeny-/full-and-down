@@ -5,7 +5,7 @@ import { portColor } from '../render/portStyle';
 import { bandOf } from '../core/rules';
 import type { Level, Projection } from '../core/types';
 import type { PlanModel } from '../game/Plan';
-import type { Anchors } from '../render/GameView';
+import { shipKind, type Anchors } from '../render/GameView';
 
 export interface HudHandlers {
   onPause(): void;
@@ -15,7 +15,6 @@ export interface HudHandlers {
   onUndo(): void;
   onHint(): void;
   onSail(): void;
-  onVoice(): void;
 }
 
 const BAND_NAMES = ['LIGHT', 'LADEN', 'DEEP'];
@@ -35,20 +34,20 @@ export function bandColor(level: Level, b: number): string {
 }
 
 /**
- * The game HUD: the title row, the freight rule with its stars, the route strip (port tabs, legs
- * with their burn, ROB at each port), the deadweight bar, the bunker valve, the dock and the
- * voice line that says why she can't sail yet.
+ * The game HUD. At the top: the title, the profit rule with its stars and the route (ports, legs,
+ * and the fuel she carries from here to the next pump). At the bottom, the call she's making now:
+ * the load bar (cargo and fuel share her deadweight, and the weight sets the burn) and the fuel
+ * she buys here. Then the dock: undo, hint, SAIL.
  */
 export class Hud {
   readonly root: HTMLElement;
-  private top: HTMLElement;
+  private head: HTMLElement;
+  private foot: HTMLElement;
   private title: HTMLElement;
   private rule: HTMLElement;
   private strip: HTMLElement;
-  private dwt: HTMLElement;
-  private bunker: HTMLElement;
-  private voice: HTMLElement;
-  private dock: HTMLElement;
+  private load: HTMLElement;
+  private fuel: HTMLElement;
   private sailBtn: HTMLButtonElement;
   private undoBtn: HTMLButtonElement;
   private hintBtn: HTMLButtonElement;
@@ -58,32 +57,35 @@ export class Hud {
   private lastProfit = 0;
   private preview: { weight: number; to: number } | null = null;
   private lastModel: PlanModel | null = null;
-  private lastAnchors: Anchors | null = null;
   private bestStars = 0;
 
   constructor(parent: HTMLElement, private on: HudHandlers) {
     this.root = h('div', { class: 'hud passthru' });
-    this.top = h('div', { class: 'hud-top' });
+    this.head = h('div', { class: 'hud-head passthru' });
+    const top = h('div', { class: 'hud-top' });
     const pause = h('button', { class: 'btn token', html: glyph('pause', 20), attrs: { 'aria-label': 'Pause' } });
     pause.addEventListener('click', () => on.onPause());
     this.title = h('div', { class: 'title plate' });
-    this.top.append(pause, this.title);
+    top.append(pause, this.title);
     this.rule = h('div', { class: 'rule plate' });
     this.strip = h('div', { class: 'strip plate' });
-    this.dwt = h('div', { class: 'dwt' });
+    this.head.append(top, this.rule, this.strip);
     this.tags = h('div', { class: 'tags passthru' });
-    this.bunker = h('div', { class: 'bunker plate' });
-    this.voice = h('button', { class: 'voice' });
-    this.voice.addEventListener('click', () => on.onVoice());
-    this.dock = h('div', { class: 'dock' });
+    this.foot = h('div', { class: 'hud-foot passthru' });
+    const panel = h('div', { class: 'cargo plate' });
+    this.load = h('div', { class: 'load' });
+    this.fuel = h('div', { class: 'fuel' });
+    panel.append(this.load, this.fuel);
+    const dock = h('div', { class: 'dock' });
     this.undoBtn = h('button', { class: 'btn token', html: glyph('undo', 22), attrs: { 'aria-label': 'Undo' } });
     this.undoBtn.addEventListener('click', () => on.onUndo());
     this.hintBtn = h('button', { class: 'btn pilot', html: `${glyph('bulb', 22)}<span>Hint</span>` });
     this.hintBtn.addEventListener('click', () => on.onHint());
     this.sailBtn = h('button', { class: 'btn blue sail', html: `<span class="flagsw P"></span><span class="lbl"><span class="to">Sail</span><small></small></span>` });
     this.sailBtn.addEventListener('click', () => on.onSail());
-    this.dock.append(this.undoBtn, this.hintBtn, this.sailBtn);
-    this.root.append(this.top, this.rule, this.strip, this.dwt, this.tags, this.bunker, this.dock);
+    dock.append(this.undoBtn, this.hintBtn, this.sailBtn);
+    this.foot.append(panel, dock);
+    this.root.append(this.head, this.tags, this.foot);
     parent.append(this.root);
   }
 
@@ -93,46 +95,43 @@ export class Hud {
     const fmt = level.format === 'exact' ? '<i class="fmt fd">Full &amp; Down</i>' : level.format === 'contract' ? '<i class="fmt ct">Contract</i>' : '';
     this.title.innerHTML = `<span class="lv num">${level.n}</span><span class="tt"><b>${level.title}</b><small class="caps">${area}${fmt}</small></span><span class="best">${[0, 1, 2].map((i) => starSvg(i < best, 15)).join('')}</span>`;
     this.lastProfit = 0;
+    this.fuelKey = '';
     this.tagEls.forEach((t) => t.remove());
     this.tagEls.clear();
   }
 
-  /** Height of the top block (for the 3D framing): the deadweight bar sits right under the strip. */
+  /** Bottom of the top block (for the 3D framing). */
   topHeight(): number {
-    const land = this.root.parentElement?.classList.contains('landscape');
-    if (land) return 8;
-    const r = this.strip.getBoundingClientRect();
-    this.dwt.style.top = `${Math.round(r.bottom + 6)}px`;
-    return r.bottom + 6 + this.dwt.getBoundingClientRect().height + 4;
+    if (this.root.parentElement?.classList.contains('landscape')) return 8;
+    return this.head.getBoundingClientRect().bottom;
   }
 
+  /** Height of the bottom block, from the bottom of the screen. */
   bottomHeight(): number {
-    const r = this.bunker.getBoundingClientRect();
-    return window.innerHeight - r.top + 4;
+    return window.innerHeight - this.foot.getBoundingClientRect().top;
   }
 
-  /** While a box is held, the deadweight bar shows the cells it would take. */
+  /** While a box is held, the load bar shows the cells it would take. */
   setPreview(p: { weight: number; to: number } | null): void {
     this.preview = p;
-    if (this.lastModel) this.renderDwt(this.lastModel, this.lastModel.sim.projection, this.lastAnchors);
+    if (this.lastModel) this.renderLoad(this.lastModel, this.lastModel.sim.projection);
   }
 
-  update(m: PlanModel, anchors: Anchors | null): void {
+  update(m: PlanModel, _anchors: Anchors | null): void {
     this.lastModel = m;
-    this.lastAnchors = anchors;
     const lv = this.level;
     const pr = m.sim.projection;
-    this.renderRule(pr.profit, pr.problems.length > 0);
+    // red only for a loss: shortfalls at later calls are bought there, not here
+    this.renderRule(pr.profit, pr.profit < 0);
     this.renderStrip(m, pr);
-    this.renderDwt(m, pr, anchors);
-    this.renderBunker(m, pr);
+    this.renderLoad(m, pr);
+    this.renderFuel(m, pr);
     const refusal = m.legRefusal();
     this.sailBtn.classList.toggle('blocked', !!refusal);
     const next = lv.ports[Math.min(lv.ports.length - 1, m.port + 1)];
     this.sailBtn.querySelector('.to')!.textContent = 'Sail';
     this.sailBtn.querySelector('small')!.textContent = refusal ? shortReason(lv, refusal) : `to ${next.name}${m.port + 1 === lv.ports.length - 1 ? ' · final' : ''}`;
     this.undoBtn.disabled = !m.canUndo;
-    void this.voice;
   }
 
   /** Pulse a part of the HUD so the eye goes there. */
@@ -140,19 +139,19 @@ export class Hud {
     this.root.querySelectorAll('.pulse').forEach((e) => e.classList.remove('pulse'));
     if (!what) return;
     const el = {
-      need: this.bunker.querySelector('.need'),
-      plus: this.bunker.querySelector('.plus'),
-      dwt: this.dwt,
+      need: this.fuel.querySelector('.buy'),
+      plus: this.fuel.querySelector('.plus'),
+      dwt: this.load,
       rule: this.rule,
       sail: this.sailBtn,
       strip: this.strip,
-      bunker: this.bunker,
+      bunker: this.fuel,
     }[what];
     el?.classList.add('pulse');
   }
 
   private renderRule(profit: number, bad: boolean): void {
-    const [t1, t2, t3] = this.level.stars;
+    const [t1, , t3] = this.level.stars;
     // the track spans a window around the thresholds so the marks spread out
     const spread = Math.max(4, t3 - t1);
     const lo = Math.max(0, t1 - spread * 1.6);
@@ -161,11 +160,7 @@ export class Hud {
     const bump = profit !== this.lastProfit;
     this.lastProfit = profit;
     const money = `<span class="v">${profit < 0 ? `−<small>$</small>${-profit}` : `<small>$</small>${profit}`}</span>`;
-    const marks = [t1, t2, t3]
-      .map((t, i) => ({ t, i }))
-      .filter((x, k, arr) => arr.findIndex((y) => y.t === x.t) === k || true)
-      .map(({ t, i }) => `<div class="mark ${profit >= t ? 'on' : ''}" style="left:${pos(t)}"><i>${'•'.repeat(i + 1)}</i></div>`)
-      .join('');
+    const marks = this.level.stars.map((t, i) => `<div class="mark ${profit >= t ? 'on' : ''}" style="left:${pos(t)}"><i>${'•'.repeat(i + 1)}</i></div>`).join('');
     this.rule.innerHTML = `
       <div class="money num ${bad || profit < 0 ? 'bad' : ''} ${bump ? 'bump' : ''}"><span class="cap">Profit</span>${money}</div>
       <div class="rcol">
@@ -179,9 +174,8 @@ export class Hud {
 
   /** Star labels; equal thresholds share one label. */
   private legend(profit: number): string {
-    const [t1, t2, t3] = this.level.stars;
     const groups: { t: number; n: number }[] = [];
-    [t1, t2, t3].forEach((t, i) => {
+    this.level.stars.forEach((t, i) => {
       const g = groups.find((x) => x.t === t);
       if (g) g.n = i + 1;
       else groups.push({ t, n: i + 1 });
@@ -194,6 +188,19 @@ export class Hud {
       .join('');
   }
 
+  /** The last port the fuel bought here has to reach: the next one that sells bunkers. */
+  private reach(m: PlanModel): number {
+    const lv = this.level;
+    let until = m.port + 1;
+    while (until < lv.ports.length - 1 && lv.ports[until].price === null) until++;
+    return until;
+  }
+
+  /**
+   * The route. Ports carry their flag, a code chip in the colour of the boxes bound there, and the
+   * pump price. The legs this call's fuel must cover show their burn, and the ports along them
+   * show the fuel she'll have left: fuel aboard → −burn → left on arrival.
+   */
   private renderStrip(m: PlanModel, pr: Projection): void {
     const lv = this.level;
     const P = lv.ports.length;
@@ -204,40 +211,43 @@ export class Hud {
     }
     this.strip.style.gridTemplateColumns = cols.join(' ');
     this.strip.classList.toggle('dense', P >= 5 || (P >= 4 && this.strip.clientWidth < 360));
+    const until = this.reach(m);
+    const dests = new Set(lv.boxes.map((b) => b.to));
     const parts: string[] = [];
-    const problemPorts = new Set(pr.problems.map((p) => p.port));
     for (let i = 0; i < P; i++) {
       const p = lv.ports[i];
-      const sel = i === m.port;
       const last = i === P - 1;
-      const arrive = i > 0 ? pr.calls[i].arrivalFuel : null;
-      const robOk = arrive === null || arrive >= lv.reserve;
-      const pump = p.price === null ? `<span class="pump none">no fuel</span>` : `<span class="pump">${glyph('fuel', 11)}$${p.price}${p.lot && p.lot > 1 ? `<i>×${p.lot}</i>` : ''}</span>`;
-      const bar = p.bar !== undefined ? `<span class="barsign" title="Harbour bar: at most ${p.bar} t aboard here">≤${p.bar}</span>` : '';
-      const dot = m.bouncedPorts.has(i) || problemPorts.has(i) ? '<i class="dot"></i>' : '';
       const state = i < m.port ? 'done' : i === m.port ? 'here' : 'later';
+      const pump = last ? '<span class="pump fin">final</span>' : p.price === null ? '<span class="pump none">no fuel</span>' : `<span class="pump">${glyph('fuel', 11)}$${p.price}${p.lot && p.lot > 1 ? `<i>×${p.lot}</i>` : ''}</span>`;
+      const bar = p.bar !== undefined ? `<span class="barsign" title="Harbour bar: at most ${p.bar} t aboard here">≤${p.bar}</span>` : '';
+      const code = dests.has(i) ? `<span class="code chip num" style="--pc:${portColor(i)}">${p.code}</span>` : `<span class="code num">${p.code}</span>`;
+      let fuel = '<span class="arr"></span>';
+      if (state === 'here') fuel = `<span class="arr have num">${glyph('fuel', 10)}${pr.legs[i]?.fuelOut ?? 0} t</span>`;
+      else if (i > m.port && i <= until) {
+        const left = pr.calls[i].arrivalFuel;
+        const short = lv.reserve - left;
+        fuel = short > 0 ? `<span class="arr bad num">${short} t short</span>` : `<span class="arr ok num">${glyph('fuel', 10)}${left} t</span>`;
+      }
       parts.push(`
-        <button class="port ${sel ? 'sel' : ''} ${last ? 'last' : ''} ${state}" data-port="${i}">
-          ${state === 'here' ? '<span class="youare">here</span>' : state === 'done' ? '<span class="tick">✓</span>' : ''}
-          <span class="pflag">${portFlagImg(p, 24, 16)}${dot}${bar}</span>
-          <span class="code num">${p.code}</span>
-          ${last ? '<span class="pump fin">final</span>' : pump}
-          ${arrive !== null ? `<span class="rob num ${robOk ? '' : 'bad'}">ROB ${arrive}</span>` : `<span class="rob num start">ROB ${lv.startFuel}</span>`}
+        <button class="port ${state} ${last ? 'last' : ''}" data-port="${i}">
+          ${state === 'here' ? `<span class="youare">${glyph('anchor', 10)}${p.name}</span>` : state === 'done' ? '<span class="tick">✓</span>' : ''}
+          <span class="pflag">${portFlagImg(p, 24, 16)}${bar}</span>
+          ${code}
+          ${pump}
+          ${fuel}
         </button>`);
       if (!last) {
         const leg = pr.legs[i];
         const L = lv.legs[i];
-        const short = Math.max(0, lv.reserve - leg.fuelIn);
-        const cells: string[] = [];
-        for (let k = 0; k < leg.burn; k++) cells.push(`<i class="${k >= leg.burn - short ? 'short' : ''}"></i>`);
+        const active = i >= m.port && i < until;
+        const short = active ? Math.max(0, lv.reserve - leg.fuelIn) : 0;
         const zone = L.zone && lv.mechanics.includes('zone') ? `<span class="zone" title="Winter zone: after ${L.zone.at} day(s) she must weigh at most ${L.zone.limit} t">W≤${L.zone.limit}<small> @${L.zone.at}d</small></span>` : '';
         const bridge = L.bridge && lv.mechanics.includes('bridge') ? `<span class="bridge" title="Low bridge: she must weigh at least ${L.bridge.min} t when she sails">⌒≥${L.bridge.min}</span>` : '';
         parts.push(`
-          <div class="leg ${short ? 'shortleg' : ''}" style="--band:${bandColor(lv, leg.band)}">
-            <span class="ltop caps">${L.days} day${L.days > 1 ? 's' : ''}${lv.ship.bands.length > 1 ? `<span class="bn"> · ${bandName(lv, leg.band)}</span>` : ''}</span>
+          <div class="leg ${active ? 'active' : i < m.port ? 'done' : 'later'} ${short ? 'shortleg' : ''}" style="--band:${active ? bandColor(lv, leg.band) : 'var(--enamel-3)'}">
+            <span class="ltop caps">${L.days} day${L.days > 1 ? 's' : ''}</span>
             <span class="arrow"></span>
-            <span class="cells">${cells.join('')}</span>
-            <span class="burn num">−${leg.burn}${leg.reefers ? `<small>❄${leg.reefers}</small>` : ''}</span>
+            ${active ? `<span class="burn num">−${leg.burn} t${leg.reefers ? `<small>❄${leg.reefers}</small>` : ''}</span>` : ''}
             ${zone || bridge ? `<span class="legsigns">${zone}${bridge}</span>` : ''}
           </div>`);
       }
@@ -250,98 +260,124 @@ export class Hud {
     );
   }
 
-  private renderDwt(m: PlanModel, pr: Projection, a: Anchors | null): void {
+  /** Fuel she still has to take on here to reach the next pump (0 when she has enough). */
+  private missingFuel(m: PlanModel): number {
+    const need = m.needTotal();
+    if (need !== null) return Math.max(0, need - m.sim.plan[m.port].bunker);
+    const r = m.legRefusal();
+    return r?.code === 'short' ? (r.amount ?? 0) : 0;
+  }
+
+  /**
+   * The load bar: one cell per tonne of her deadweight. Cargo in the colours of its ports, fuel in
+   * amber, the fuel she still needs hatched, then the free tonnes. Underneath, the weight bands:
+   * the heavier she sails, the more she burns a day.
+   */
+  private renderLoad(m: PlanModel, pr: Projection): void {
     const lv = this.level;
     const C = lv.ship.capacity;
     const leg = pr.legs[m.port];
+    if (!leg) return;
     const bays = m.baysAt(m.port);
-    // cargo by destination, then fuel (reserve shown darker), then spare
     const byDest = new Map<number, number>();
     for (const bay of bays) for (const id of bay) {
       const b = lv.boxes[id];
       byDest.set(b.to, (byDest.get(b.to) ?? 0) + b.weight);
     }
     const cells: string[] = [];
-    const dests = [...byDest.keys()].sort((x, y) => x - y);
-    for (const d of dests) for (let k = 0; k < byDest.get(d)!; k++) cells.push(`<i style="background:${portColor(d)}"></i>`);
+    let cargo = 0;
+    for (const d of [...byDest.keys()].sort((x, y) => x - y)) for (let k = 0; k < byDest.get(d)!; k++, cargo++) cells.push(`<i style="background:${portColor(d)}"></i>`);
     const pv = this.preview;
-    if (pv) for (let k = 0; k < pv.weight; k++) cells.push(`<i class="ghost" style="--c:${portColor(pv.to)}"></i>`);
-    const cargo = cells.length;
+    if (pv) for (let k = 0; k < pv.weight; k++) cells.push(`<i class="c-ghost" style="--c:${portColor(pv.to)}"></i>`);
     const fuel = leg.fuelOut;
-    for (let k = 0; k < fuel; k++) cells.push(`<i class="${k < lv.reserve ? 'res' : 'fuel'}"></i>`);
-    const used = cargo + fuel;
-    for (let k = used; k < C; k++) cells.push('<i class="free"></i>');
+    for (let k = 0; k < fuel; k++) cells.push('<i class="c-fuel"></i>');
+    const missing = pv ? 0 : this.missingFuel(m);
+    for (let k = 0; k < missing; k++) cells.push('<i class="c-need"></i>');
+    const used = cargo + (pv?.weight ?? 0) + fuel;
+    const total = used + missing;
+    for (let k = total; k < C; k++) cells.push('<i class="c-free"></i>');
+    const n = Math.max(C, total);
+    // cells past her marks are drawn over the red line
     const over = Math.max(0, used - C);
-    // band zones under the cells
+    let hint: string;
+    if (pv) hint = used > C ? `<b class="bad">+${pv.weight} t → ${used - C} t over</b>` : `<b>+${pv.weight} t → ${used}/${C} t</b>`;
+    else if (over) hint = `<b class="bad">${over} t too heavy</b>`;
+    else if (missing && total > C) hint = `<b class="bad">no room for ${missing} t fuel</b>`;
+    else if (missing) hint = `<b class="short">needs ${missing} t more fuel</b>`;
+    else if (used === C) hint = '<b class="mark">on her marks</b>';
+    else hint = `${C - used} t spare`;
     let prev = 0;
-    const zones = lv.ship.bands
+    const bands = lv.ship.bands;
+    const sailBand = bandOf(lv.ship, Math.min(used + missing, C));
+    const zones = bands
       .map((b, i) => {
-        const w = ((b.upTo - prev) / Math.max(C, used)) * 100;
+        const frac = (b.upTo - prev) / n;
         prev = b.upTo;
-        return `<span style="width:${w}%;background:${bandColor(lv, i)}" class="${leg.band === i ? 'on' : ''}">×${b.rate}</span>`;
+        const wide = frac > 0.24;
+        return `<span style="width:${frac * 100}%;--z:${bandColor(lv, i)}" class="${sailBand === i ? 'on' : ''}">${wide ? `${bandName(lv, i)} · ` : ''}${b.rate} t/day</span>`;
       })
       .join('');
-    const band = bandOf(lv.ship, used);
-    const nextUp = lv.ship.bands[band].upTo;
-    const hint = pv ? `<b class="pv">+${pv.weight} t</b> → ${used > C ? `<b class="over">${over} t over</b>` : used === C ? '<b class="mark">on the mark</b>' : `${C - used} t spare`}` : used > C ? `<b class="over">${over} t too heavy</b>` : used === C ? `<b class="mark">ON THE MARK</b>` : band < lv.ship.bands.length - 1 ? `${nextUp - used + 1} t more burns ×${lv.ship.bands[band + 1].rate}` : `${C - used} t spare`;
-    this.dwt.innerHTML = `
-      <div class="dwt-row"><span class="caps">Cargo + fuel</span><span class="num tot ${over ? 'bad' : ''}">${used}<small>/${C} t</small></span><span class="hint caps">${hint}</span></div>
-      <div class="cells ${over ? 'over' : ''}" style="--n:${Math.max(C, used)}">${cells.join('')}<b class="smark" style="left:${(C / Math.max(C, used)) * 100}%">S</b></div>
-      ${lv.ship.bands.length > 1 ? `<div class="zones">${zones}</div>` : ''}`;
-    void a;
+    this.load.innerHTML = `
+      <div class="lrow"><span class="eq caps"><b class="c">Cargo</b> ${cargo + (pv?.weight ?? 0)} t + <b class="f">fuel</b> ${fuel} t</span><span class="num tot ${over ? 'bad' : ''}">${used}<small>/${C} t</small></span><span class="lhint">${hint}</span></div>
+      <div class="cells ${over || total > C ? 'over' : ''}" style="--n:${n}">${cells.join('')}<b class="smark" style="left:${(C / n) * 100}%"></b></div>
+      ${bands.length > 1 ? `<div class="zones">${zones}</div>` : `<div class="zones one"><span class="on" style="width:100%;--z:${bandColor(lv, 0)}">burns ${bands[0].rate} t/day</span></div>`}`;
   }
 
-  private bunkerKey = '';
+  private fuelKey = '';
 
-  private renderBunker(m: PlanModel, pr: Projection): void {
+  private renderFuel(m: PlanModel, pr: Projection): void {
     const lv = this.level;
     const p = lv.ports[m.port];
     const leg = pr.legs[m.port];
+    if (!leg) return;
     const bought = m.sim.plan[m.port].bunker;
     const key = `${lv.n}|${m.port}|${p.price}|${lv.auto ? 1 : 0}`;
-    if (key !== this.bunkerKey) {
-      this.bunkerKey = key;
-      this.bunker.classList.toggle('none', p.price === null);
+    if (key !== this.fuelKey) {
+      this.fuelKey = key;
+      this.fuel.classList.toggle('none', p.price === null);
       if (p.price === null) {
-        this.bunker.innerHTML = `<span class="bk-l"><span class="caps">Bunkers</span><b>No bunkers at ${p.name}</b></span><span class="bk-r caps"><span class="aboard"></span></span>`;
+        this.fuel.innerHTML = `<div class="fl"><span class="caps">No fuel sold at ${p.name}</span><span class="fa">${glyph('fuel', 15)}<b class="num aboard"></b><small>aboard</small></span></div><span class="nf caps">Carry what<br>you need</span>`;
       } else if (lv.auto) {
-        this.bunker.innerHTML = `<span class="bk-l"><span class="caps">Bunkers $${p.price}/t · ${p.name}</span><b>${glyph('fuel', 14)} Chief orders <span class="num amt"></span></b></span><span class="bk-r caps auto">Auto<br>valve</span>`;
+        this.fuel.innerHTML = `<div class="fl"><span class="caps">Fuel · $${p.price}/t at ${p.name}</span><span class="fa">${glyph('fuel', 15)}<b class="num aboard"></b><small class="bought"></small></span></div><span class="nf caps">Chief<br>orders</span>`;
       } else {
         const lot = p.lot ?? 1;
-        this.bunker.innerHTML = `
-          <span class="bk-l"><span class="caps">Fuel · $${p.price}/t at ${p.name}${lot > 1 ? ` · lots of ${lot}` : ''}</span><b>${glyph('fuel', 14)} <span class="num aboard"></span><i class="burns"></i></b></span>
-          <span class="stepper"><button class="btn small token minus" aria-label="Less fuel">${glyph('minus', 18)}</button><span class="num amt" title="bought here"></span><button class="btn small token plus" aria-label="More fuel">${glyph('plus', 18)}</button></span>
-          <button class="btn small need">Buy</button>`;
-        holdRepeat(this.bunker.querySelector<HTMLButtonElement>('.minus')!, () => this.on.onBunker(-1));
-        holdRepeat(this.bunker.querySelector<HTMLButtonElement>('.plus')!, () => this.on.onBunker(1));
-        this.bunker.querySelector('.need')!.addEventListener('click', () => this.on.onNeed());
+        this.fuel.innerHTML = `
+          <div class="fl"><span class="caps">Fuel · <b>$${p.price}</b>/t at ${p.name}${lot > 1 ? ` · lots of ${lot}` : ''}</span><span class="fa">${glyph('fuel', 15)}<b class="num aboard"></b><small class="bought"></small></span></div>
+          <button class="btn small token minus" aria-label="Less fuel">${glyph('minus', 18)}</button>
+          <button class="btn small token plus" aria-label="More fuel">${glyph('plus', 18)}</button>
+          <button class="btn small buy">Buy</button>`;
+        holdRepeat(this.fuel.querySelector<HTMLButtonElement>('.minus')!, () => this.on.onBunker(-1));
+        holdRepeat(this.fuel.querySelector<HTMLButtonElement>('.plus')!, () => this.on.onBunker(1));
+        this.fuel.querySelector('.buy')!.addEventListener('click', () => this.on.onNeed());
       }
     }
-    const amt = this.bunker.querySelector('.amt');
-    if (amt) amt.textContent = lv.auto ? `${bought} t` : String(bought);
-    const aboard = this.bunker.querySelector('.aboard');
-    if (aboard) aboard.textContent = p.price === null ? `ROB ${pr.calls[m.port].arrivalFuel} t aboard` : `${leg.fuelOut} t`;
-    const minus = this.bunker.querySelector<HTMLButtonElement>('.minus');
-    const plus = this.bunker.querySelector<HTMLButtonElement>('.plus');
+    this.fuel.querySelector('.aboard')!.textContent = `${leg.fuelOut} t`;
+    const small = this.fuel.querySelector('.bought');
+    if (small) small.textContent = bought > 0 ? `aboard · +${bought} t $${bought * (p.price ?? 0)}` : 'aboard';
+    const minus = this.fuel.querySelector<HTMLButtonElement>('.minus');
+    const plus = this.fuel.querySelector<HTMLButtonElement>('.plus');
     if (minus) minus.disabled = bought <= 0;
     if (plus) plus.disabled = leg.fuelOut + (p.lot ?? 1) > lv.ship.tank;
-    const burns = this.bunker.querySelector('.burns');
-    if (burns) burns.textContent = `aboard · burns ${leg.burn}`;
-    const needBtn = this.bunker.querySelector<HTMLButtonElement>('.need');
-    if (needBtn && p.price !== null) {
+    const buy = this.fuel.querySelector<HTMLButtonElement>('.buy');
+    if (buy && p.price !== null) {
       const total = m.needTotal();
       const more = total === null ? null : total - bought;
+      buy.classList.remove('ok', 'spare');
       if (more === null) {
-        needBtn.textContent = 'Too heavy';
-        needBtn.disabled = true;
+        buy.innerHTML = 'Can’t<small>reach it</small>';
+        buy.disabled = true;
       } else if (more > 0) {
-        needBtn.innerHTML = `Buy ${more} t<small>$${more * p.price}</small>`;
-        needBtn.disabled = false;
-        needBtn.classList.remove('ok');
+        buy.innerHTML = `Buy ${more} t<small>$${more * p.price}</small>`;
+        buy.disabled = false;
+      } else if (more === 0) {
+        buy.innerHTML = `<span class="ck">${glyph('check', 15)}Enough</span>`;
+        buy.disabled = true;
+        buy.classList.add('ok');
       } else {
-        needBtn.innerHTML = more < 0 ? `${-more} t extra` : '✓ Enough';
-        needBtn.disabled = more === 0;
-        needBtn.classList.toggle('ok', more === 0);
+        // more than the next pump needs: fine if she's carrying it on purpose; a tap trims it
+        buy.innerHTML = `<span class="ck">${glyph('check', 14)}Enough</span><small>+${-more} t spare</small>`;
+        buy.disabled = false;
+        buy.classList.add('ok', 'spare');
       }
     }
   }
@@ -354,7 +390,9 @@ export class Hud {
       let el = this.tagEls.get(it.id);
       if (!el) {
         const port = this.level.ports[it.to];
-        el = h('div', { class: 'tag', html: `<b class="num">$${it.freight}</b><span class="caps" style="--pc:${portColor(it.to)}">${port.code}</span>` });
+        // a bulk parcel's weight plate is small: the tag repeats it
+        const wt = shipKind(this.level) === 'bulker' ? `<i class="wt num">${this.level.boxes[it.id].weight} t</i>` : '';
+        el = h('div', { class: 'tag', html: `${wt}<b class="num">$${it.freight}</b><span class="caps" style="--pc:${portColor(it.to)}">${port.code}</span>` });
         this.tags.append(el);
         this.tagEls.set(it.id, el);
       }
@@ -368,7 +406,7 @@ export class Hud {
   }
 
   positionBottom(_a: Anchors | null): void {
-    /* the bunker plate is anchored to the bottom (CSS) */
+    /* the bottom block is anchored to the bottom (CSS) */
   }
 
   setBusy(on: boolean): void {

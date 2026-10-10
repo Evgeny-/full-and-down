@@ -49,7 +49,7 @@ try {
       const cur = d.plan[i].bunker;
       const want = best[i].bunker;
       if (cur === want) break;
-      const sel = cur < want ? '.bunker .plus' : '.bunker .minus';
+      const sel = cur < want ? '.fuel .plus' : '.fuel .minus';
       if (!(await page.$(sel))) break;
       await page.click(sel);
       await sleep(120);

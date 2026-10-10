@@ -1,6 +1,10 @@
-/* The in-game HUD: title, freight rule, route strip, deadweight bar, quay tags, bunkers, dock. */
+/* The in-game HUD: a top block (title, profit, route) and a bottom block (this call: load bar and
+   fuel, then the dock). Both are flex columns, so the 3D framing just measures them. */
 .hud { position: absolute; inset: 0; }
-.hud-top { position: absolute; top: calc(8px + var(--safe-top)); left: 10px; right: 10px; display: flex; gap: 8px; align-items: stretch; }
+#ui .hud-head, #ui .hud-foot { pointer-events: none; }
+.hud-head { position: absolute; top: calc(8px + var(--safe-top)); left: 10px; right: 10px; display: flex; flex-direction: column; gap: 6px; }
+.hud-foot { position: absolute; bottom: calc(12px + var(--safe-bottom)); left: 10px; right: 10px; display: flex; flex-direction: column; gap: 8px; }
+.hud-top { display: flex; gap: 8px; align-items: stretch; }
 .hud-top .btn.token { min-height: 44px; height: 44px; }
 .title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 6px; height: 44px; }
 .title .lv { display: grid; place-items: center; min-width: 34px; height: 32px; padding: 0 6px; border-radius: 5px; background: var(--navy); color: #f8f7f2; font: 600 18px/1 var(--num); }
@@ -8,10 +12,15 @@
 .title .tt b { font: 600 17px/1 var(--num); letter-spacing: 0.03em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .title .tt small { color: var(--ink-2); font-size: 9.5px; }
 .title .best { display: flex; gap: 1px; color: var(--ink-2); }
+.title .fmt { margin-left: 6px; padding: 1px 5px; border-radius: 3px; font-style: normal; color: #fff; letter-spacing: 0.1em; }
+.title .fmt.fd { background: #0f7a5c; }
+.title .fmt.ct { background: #b3201c; }
 
-/* the freight rule: profit now against the three star marks */
-.rule { position: absolute; top: calc(58px + var(--safe-top)); left: 10px; right: 10px; height: 48px; display: flex; align-items: center; gap: 12px; padding: 0 12px 0 10px; }
-.rule .money { min-width: 58px; font: 600 26px/1 var(--num); color: var(--navy); text-align: right; white-space: nowrap; }
+/* the profit rule: profit now against the three star marks */
+.rule { height: 46px; display: flex; align-items: center; gap: 12px; padding: 0 12px 0 10px; }
+.rule .money { display: flex; flex-direction: column; align-items: flex-end; min-width: 58px; font: 600 26px/1 var(--num); color: var(--navy); text-align: right; white-space: nowrap; }
+.rule .money .v { white-space: nowrap; }
+.rule .money .cap { font: 700 8.5px/1 var(--font); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 1px; }
 html.night .rule .money { color: var(--ink); }
 .rule .money small { font-size: 15px; margin-right: 1px; vertical-align: 4px; }
 .rule .money.bad { color: var(--red); }
@@ -23,127 +32,169 @@ html.night .rule .money { color: var(--ink); }
 .rule .fill.bad { background: repeating-linear-gradient(-45deg, #b8432f 0 4px, #d62f2b 4px 8px); }
 .rule .mark { position: absolute; top: -3px; width: 3px; height: 14px; margin-left: -1.5px; border-radius: 1px; background: var(--ink-2); }
 .rule .mark.on { background: #e0ae00; }
-.rule .legend { display: flex; justify-content: space-between; color: var(--ink-2); }
-.rule .legend span { display: inline-flex; align-items: center; gap: 0; white-space: nowrap; }
 .rule .mark i { position: absolute; bottom: calc(100% + 1px); left: 50%; transform: translateX(-50%); font: 900 9px/1 var(--font); font-style: normal; letter-spacing: -1px; color: var(--ink-2); }
 .rule .mark.on i { color: #c99a00; }
+.rule .legend { display: flex; justify-content: space-between; color: var(--ink-2); }
+.rule .legend span { display: inline-flex; align-items: center; gap: 0; white-space: nowrap; }
 .rule .legend b { margin-left: 4px; font: 600 13px/1 var(--num); }
 .rule .legend span.on { color: #b88a00; }
 
-/* the route strip: port tabs and legs */
-.strip { position: absolute; top: calc(112px + var(--safe-top)); left: 10px; right: 10px; display: grid; align-items: start; gap: 0; padding: 6px 6px 6px; min-height: 96px; }
-.strip .port { position: relative; display: grid; grid-template-rows: 16px 16px 13px 17px; justify-items: center; align-items: center; gap: 3px; min-width: 50px; padding: 5px 4px 4px; border: 0; border-radius: 6px; background: transparent; cursor: pointer; }
-.strip .port.sel { background: var(--navy); color: #f8f7f2; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25); }
-.strip .port.last { cursor: default; opacity: 0.92; }
-.strip .port:disabled { color: inherit; }
+/* the route: port tabs and legs. The fuel this call must cover reads along it: 7 t → −6 t → 1 t */
+.strip { display: grid; align-items: start; gap: 0; padding: 12px 6px 5px; }
+.strip .port { position: relative; display: grid; grid-template-rows: 16px 17px 12px 15px; justify-items: center; align-items: center; gap: 3px; min-width: 50px; padding: 4px; border: 0; border-radius: 6px; background: transparent; cursor: pointer; }
+.strip .port.here { background: var(--navy); color: #f8f7f2; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25); }
+.strip .port.done { opacity: 0.5; }
+.strip .port.last { cursor: default; }
+.strip .port.later { cursor: help; }
 .strip .pflag { position: relative; height: 16px; }
-.strip .pflag .dot { position: absolute; top: -4px; left: -7px; width: 9px; height: 9px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 2px var(--enamel); }
-.strip .code { font: 600 15px/1 var(--num); letter-spacing: 0.04em; }
+.strip .code { font: 600 14px/1 var(--num); letter-spacing: 0.04em; }
+.strip .code.chip { padding: 2px 5px 1px; border-radius: 3px; background: var(--pc); color: #fff; }
+.strip .port.here .code.chip { box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.75); }
 .strip .pump { display: inline-flex; align-items: center; gap: 2px; font: 700 10.5px/1 var(--font); letter-spacing: 0.04em; }
 .strip .pump i { font-style: normal; opacity: 0.7; margin-left: 1px; }
 .strip .pump.none { text-decoration: line-through; opacity: 0.6; text-transform: uppercase; font-size: 9px; }
 .strip .pump.fin { text-transform: uppercase; font-size: 9px; opacity: 0.6; }
 .strip .barsign { position: absolute; top: -6px; left: calc(100% - 2px); padding: 1px 3px; border-radius: 3px; background: var(--yellow); color: var(--black); font: 700 9px/1.15 var(--num); letter-spacing: 0.02em; box-shadow: 0 0 0 1.5px var(--enamel); white-space: nowrap; }
-.strip .rob { margin-top: 1px; padding: 2px 5px; border-radius: 3px; background: rgba(47, 138, 114, 0.14); color: var(--ok); font-size: 10.5px; line-height: 1; white-space: nowrap; }
-.strip .port.sel .rob { background: rgba(255, 255, 255, 0.16); color: #bdf0de; }
-.strip .rob.start { background: transparent; color: inherit; opacity: 0.55; }
-.strip .rob.bad { background: var(--red); color: #fff; }
-.strip .leg { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 2px 0; min-width: 0; }
+.strip .arr { display: inline-flex; align-items: center; gap: 1px; height: 15px; padding: 0 4px; border-radius: 3px; font: 600 11px/1 var(--num); white-space: nowrap; }
+.strip .arr:empty { visibility: hidden; }
+.strip .arr.have { background: var(--fuel); color: #fff; }
+.strip .arr.ok { background: rgba(238, 139, 30, 0.16); color: var(--fuel-2); }
+.strip .arr.bad { background: var(--red); color: #fff; font-size: 10px; }
+.strip .port .youare { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 2px; padding: 2px 5px 1px 4px; border-radius: 3px; background: var(--yellow); color: var(--black); font: 600 10.5px/1.1 var(--num); letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }
+.strip .port:first-child .youare { left: -2px; transform: none; }
+.strip .port.last .youare { left: auto; right: -2px; transform: none; }
+.strip .port .tick { position: absolute; top: -5px; right: -3px; display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: var(--ok); color: #fff; font: 900 9px/1 var(--font); }
+.strip .leg { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 7px 2px 0; min-width: 0; }
 .strip .leg .ltop { font-size: 8.5px; letter-spacing: 0.08em; color: var(--ink-2); white-space: nowrap; }
-.strip .leg .arrow { position: relative; width: 100%; height: 5px; border-radius: 3px; background: var(--band); }
-.strip .leg .arrow::after { content: ''; position: absolute; right: -2px; top: 50%; width: 0; height: 0; border-left: 8px solid var(--band); border-top: 6px solid transparent; border-bottom: 6px solid transparent; transform: translateY(-50%); }
-.strip .leg .cells { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; max-width: 60px; }
-.strip .leg .cells i { width: 7px; height: 7px; border-radius: 1.5px; background: var(--fuel); box-shadow: inset 0 -1.5px 0 var(--fuel-2); }
-.strip .leg .cells i.short { background: var(--hazard); box-shadow: 0 0 0 1px var(--black); }
-.strip .leg .burn { font: 600 11px/1 var(--num); color: var(--fuel-2); }
+.strip .leg .arrow { position: relative; width: 100%; height: 4px; border-radius: 2px; background: var(--band); }
+.strip .leg .arrow::after { content: ''; position: absolute; right: -2px; top: 50%; width: 0; height: 0; border-left: 7px solid var(--band); border-top: 5px solid transparent; border-bottom: 5px solid transparent; transform: translateY(-50%); }
+.strip .leg.active .arrow { height: 5px; }
+.strip .leg.done { opacity: 0.45; }
+.strip .leg .burn { display: inline-flex; align-items: center; gap: 2px; font: 600 12px/1 var(--num); color: var(--fuel-2); }
 .strip .leg .burn small { margin-left: 3px; color: var(--blue); }
+.strip .leg.shortleg .arrow { background: var(--hazard); }
+.strip .leg.shortleg .arrow::after { border-left-color: var(--black); }
 .strip .leg.shortleg .burn { color: var(--red); }
 .strip .leg .legsigns { display: flex; gap: 3px; }
 .strip .leg .zone, .strip .leg .bridge { padding: 1px 4px; border-radius: 3px; font: 600 9.5px/1.2 var(--num); background: #dbe8f5; color: var(--navy); white-space: nowrap; }
 .strip .leg .bridge { background: #eadcc4; }
 .strip .leg .zone small { font-size: 8px; opacity: 0.75; }
+.strip.dense .leg .ltop .bn { display: none; }
+.strip.dense .port { min-width: 44px; padding-left: 2px; padding-right: 2px; }
 
-/* the deadweight bar, under the waterline */
-.dwt { position: absolute; left: 10px; right: 10px; padding: 6px 10px 6px; background: var(--enamel); border-radius: 7px; box-shadow: inset 0 0 0 2px rgba(31, 46, 77, 0.12), var(--shadow-sm); pointer-events: none; }
-html.night .dwt { background: rgba(38, 53, 82, 0.93); }
-.dwt-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
-.dwt-row .caps { font-size: 9.5px; color: var(--ink-2); }
-.dwt-row .tot { font: 600 16px/1 var(--num); }
-.dwt-row .tot small { font-size: 11px; color: var(--ink-2); margin-left: 1px; }
-.dwt-row .tot.bad { color: var(--red); }
-.dwt-row .hint { margin-left: auto; margin-right: 12px; font-size: 9.5px; color: var(--ink-2); }
-.dwt-row .hint b.over { color: var(--red); }
-.dwt-row .hint b.mark { color: #0f7a5c; }
-.dwt .cells { position: relative; display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 1.5px; height: 14px; }
-.dwt .cells i { border-radius: 1.5px; }
-.dwt .cells i.fuel { background: var(--fuel); }
-.dwt .cells i.res { background: #b98a52; }
-.dwt .cells i.free { background: var(--enamel-3); }
-.dwt .cells i.ghost { background: repeating-linear-gradient(-45deg, var(--c) 0 3px, transparent 3px 5px); box-shadow: inset 0 0 0 1.5px var(--c); animation: ghost 0.9s ease-in-out infinite alternate; }
+/* this call: the load bar and the fuel, one plate */
+.cargo { display: flex; flex-direction: column; padding: 7px 10px 6px; }
+.load { display: flex; flex-direction: column; gap: 4px; padding-bottom: 7px; border-bottom: 1px dashed var(--rule); }
+.lrow { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.lrow .eq { font-size: 9.5px; color: var(--ink-2); white-space: nowrap; }
+.lrow .eq b { font-weight: 800; }
+.lrow .eq b.c { color: var(--navy); }
+html.night .lrow .eq b.c { color: #c9d6ea; }
+.lrow .eq b.f { color: var(--fuel-2); }
+.lrow .tot { font: 600 16px/1 var(--num); }
+.lrow .tot small { font-size: 11px; color: var(--ink-2); margin-left: 1px; }
+.lrow .tot.bad { color: var(--red); }
+.lrow .lhint { margin-left: auto; font: 700 10.5px/1 var(--font); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lrow .lhint b { font-weight: 800; color: var(--ink); }
+.lrow .lhint b.bad { color: var(--red); }
+.lrow .lhint b.short { color: var(--fuel-2); }
+.lrow .lhint b.mark { color: #0f7a5c; text-transform: uppercase; letter-spacing: 0.06em; }
+.load .cells { position: relative; display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 1.5px; height: 16px; }
+.load .cells i { border-radius: 2px; }
+.load .cells i.c-fuel { background: var(--fuel); box-shadow: inset 0 -2px 0 var(--fuel-2); }
+.load .cells i.c-need { background: repeating-linear-gradient(-45deg, var(--fuel) 0 3px, transparent 3px 6px); box-shadow: inset 0 0 0 1.5px var(--fuel); animation: ghost 0.9s ease-in-out infinite alternate; }
+.load .cells i.c-free { background: var(--enamel-3); }
+.load .cells i.c-ghost { background: repeating-linear-gradient(-45deg, var(--c) 0 3px, transparent 3px 5px); box-shadow: inset 0 0 0 1.5px var(--c); animation: ghost 0.9s ease-in-out infinite alternate; }
 @keyframes ghost { to { opacity: 0.55; } }
-.dwt-row .hint b.pv { color: var(--navy); }
-.dwt .cells.over i:nth-last-child(-n + 2) { }
-.dwt .smark { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--red); font: 700 8px/1 var(--num); color: var(--red); }
-.dwt .smark::after { content: 'S'; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); font: 700 9px/1 var(--num); }
-.dwt .smark { font-size: 0; }
-.dwt .zones { display: flex; height: 11px; margin-top: 3px; border-radius: 2px; overflow: hidden; }
-.dwt .zones span { display: grid; place-items: center start; padding-left: 4px; font: 700 9px/1 var(--num); color: #fff; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35); opacity: 0.6; }
-.dwt .zones span.on { opacity: 1; }
+.load .smark { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--red); }
+.load .zones { display: flex; height: 13px; border-radius: 2px; overflow: hidden; }
+.load .zones span { display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--z); font: 700 8.5px/1 var(--font); letter-spacing: 0.06em; color: #fff; white-space: nowrap; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35); opacity: 0.38; }
+.load .zones span + span { box-shadow: inset 1.5px 0 0 var(--enamel); }
+.load .zones span.on { opacity: 1; }
+
+.fuel { display: flex; align-items: center; gap: 6px; padding-top: 7px; min-height: 46px; }
+.fuel .fl { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.fuel .fl .caps { font-size: 9px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fuel .fl .caps b { color: var(--ink); font-weight: 800; }
+.fuel .fa { display: flex; align-items: baseline; gap: 4px; white-space: nowrap; min-width: 0; }
+.fuel .fa .glyph { align-self: center; }
+.fuel .fa b { font: 600 19px/1 var(--num); color: var(--fuel-2); }
+.fuel .fa small { font: 600 12px/1 var(--font); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; }
+.fuel .btn.token { width: 40px; min-width: 40px; min-height: 40px; padding: 0; }
+.fuel .buy { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 84px; min-height: 40px; background: var(--fuel); color: #fff; line-height: 1; }
+.fuel .buy .ck { display: inline-flex; align-items: center; gap: 3px; }
+.fuel .buy small { font: 700 10px/1 var(--font); letter-spacing: 0.04em; opacity: 0.92; text-transform: none; }
+.fuel .buy.ok { background: var(--ok); }
+.fuel .buy.ok:disabled { opacity: 1; filter: none; }
+.fuel .buy:disabled { opacity: 0.8; filter: none; }
+.fuel .nf { font-size: 9px; color: var(--ink-2); text-align: right; line-height: 1.25; }
+html.night .load .cells i.c-free { background: #3d5078; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14); }
 
 /* freight tags under the quay boxes */
 #ui .tags { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 #ui .tags > * { pointer-events: none; }
-.tag { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 38px; padding: 3px 5px 3px; border-radius: 4px; background: #c9a24a; background: linear-gradient(#e2bd62, #c79c3e); color: #2a1d05; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25); transition: opacity 0.15s; white-space: nowrap; }
+.tag { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 38px; padding: 3px 5px 3px; border-radius: 4px; background: linear-gradient(#e2bd62, #c79c3e); color: #2a1d05; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25); transition: opacity 0.15s; white-space: nowrap; }
 .tag b { font: 600 15px/1 var(--num); }
 .tag .caps { padding: 1px 3px; border-radius: 2px; background: var(--pc); color: #fff; font-size: 8.5px; font-weight: 800; letter-spacing: 0.08em; }
 .tag.held { opacity: 0; }
-
-/* bunkers */
-.bunker { position: absolute; left: 12px; right: 12px; bottom: calc(76px + var(--safe-bottom)); display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 6px 8px 6px 10px; }
-.bunker .bk-l { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.bunker .bk-l .caps { font-size: 9px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bunker .bk-l b { display: flex; align-items: center; gap: 4px; font: 700 15px/1 var(--font); }
-.bunker .bk-l b .num { font: 600 16px/1 var(--num); }
-.bunker .bk-l b .lot { margin-left: 4px; padding: 2px 5px; border-radius: 3px; background: var(--fuel); color: #fff; font: 600 11px/1 var(--num); font-style: normal; letter-spacing: 0.04em; }
-.bunker .bk-r { font-size: 9px; color: var(--ink-2); text-align: right; }
-.bunker .bk-r.auto { padding: 4px 6px; border-radius: 4px; background: var(--fuel); color: #fff; line-height: 1.1; }
-.bunker .stepper { display: flex; align-items: center; gap: 4px; }
-.bunker .stepper .btn.token { width: 38px; min-width: 38px; min-height: 38px; }
-.bunker .stepper .amt { min-width: 26px; text-align: center; font: 600 20px/1 var(--num); color: var(--fuel-2); }
-.bunker .need { min-height: 38px; background: var(--fuel); color: #fff; }
-.bunker.none { opacity: 0.85; }
-
-/* the voice: why she can't sail */
-.voice { position: absolute; left: 12px; right: 12px; bottom: calc(76px + var(--safe-bottom)); display: none; align-items: center; gap: 8px; min-height: 40px; padding: 8px 12px; border: 0; border-radius: 7px; background: var(--navy); color: #f8f7f2; text-align: left; font: 600 13.5px/1.3 var(--font); box-shadow: var(--shadow); cursor: pointer; }
-.voice.show { display: flex; animation: voice-in 0.25s ease; }
-@keyframes voice-in { from { transform: translateY(6px); opacity: 0; } }
-.voice b { flex: none; padding: 3px 6px; border-radius: 3px; background: var(--yellow); color: var(--black); font: 600 11px/1 var(--num); letter-spacing: 0.08em; }
-.voice span { flex: 1; }
-.voice em { flex: none; font: 600 12px/1 var(--num); font-style: normal; opacity: 0.8; }
-.voice.money b { background: #c79c3e; }
+.tag .wt { margin: -1px 0 1px; padding: 1px 4px; border-radius: 2px; background: var(--black); color: #fff; font: 600 11px/1 var(--num); font-style: normal; }
 
 /* the dock */
-.dock { position: absolute; left: 12px; right: 12px; bottom: calc(14px + var(--safe-bottom)); display: flex; gap: 8px; }
+.dock { display: flex; gap: 8px; }
 .dock .btn { min-height: 52px; }
 .dock .btn.token { width: 52px; min-width: 52px; }
 .dock .pilot { flex: 1; }
-.dock .sail { flex: 1.6; font-size: 20px; }
-.dock .sail .lbl { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; line-height: 1; }
-.dock .sail .lbl small { font: 700 10.5px/1 var(--font); letter-spacing: 0.06em; text-transform: none; opacity: 0.95; }
+.dock .pilot[data-n]::after { content: attr(data-n); position: absolute; top: -7px; right: -5px; display: grid; place-items: center; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 11px; background: var(--yellow); color: var(--black); font: 600 13px/1 var(--num); box-shadow: 0 0 0 2px var(--enamel); }
+.dock .sail { flex: 1.6; min-width: 0; font-size: 20px; }
+.dock .sail .lbl { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; overflow: hidden; line-height: 1; }
+.dock .sail .lbl .to { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.dock .sail .lbl small { font: 700 10.5px/1 var(--font); letter-spacing: 0.06em; text-transform: none; opacity: 0.95; white-space: nowrap; }
 .dock .sail .lbl small:empty { display: none; }
 .dock .sail.blocked { background: #7c8798; color: #f3f5f8; }
 .dock .sail.blocked .flagsw { opacity: 0.6; }
-.pulse { animation: pulse 1.15s ease-in-out infinite !important; position: relative; z-index: 3; }
-@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(245, 197, 24, 0.95), var(--shadow-sm); } 50% { box-shadow: 0 0 0 7px rgba(245, 197, 24, 0.35), var(--shadow-sm); } }
-.rule .money { display: flex; flex-direction: column; align-items: flex-end; }
-.rule .money .v { white-space: nowrap; }
-.dwt { min-height: 56px; }
-.rule .money .cap { font: 700 8.5px/1 var(--font); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 1px; }
 .dock .sail.ready { animation: sail-ready 0.6s ease; }
 @keyframes sail-ready { 30% { transform: scale(1.05); } }
+.pulse { animation: pulse 1.15s ease-in-out infinite !important; position: relative; z-index: 3; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(245, 197, 24, 0.95), var(--shadow-sm); } 50% { box-shadow: 0 0 0 7px rgba(245, 197, 24, 0.35), var(--shadow-sm); } }
+.load.pulse { border-radius: 5px; }
 
-.hud.sailing .rule, .hud.sailing .dwt, .hud.sailing .bunker, .hud.sailing .voice, .hud.sailing .dock, .hud.sailing .tags { opacity: 0; pointer-events: none; transition: opacity 0.3s; }
-.hud .rule, .hud .dwt, .hud .bunker, .hud .dock { transition: opacity 0.3s; }
+.hud.sailing .rule, .hud.sailing .cargo, .hud.sailing .dock, .hud.sailing .tags { opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+.hud .rule, .hud .cargo, .hud .dock { transition: opacity 0.3s; }
+
+/* short phones (iPhone SE and friends): a tighter top and bottom */
+.compact .hud-head { top: calc(6px + var(--safe-top)); gap: 4px; }
+.compact .hud-top .btn.token, .compact .title { height: 38px; min-height: 38px; }
+.compact .title .lv { height: 28px; min-width: 30px; font-size: 16px; }
+.compact .title .tt b { font-size: 15px; }
+.compact .title .tt small { display: none; }
+.compact .rule { height: 40px; }
+.compact .rule .money { font-size: 22px; min-width: 50px; }
+.compact .rule .rcol { gap: 4px; }
+.compact .strip { padding: 11px 4px 3px; }
+.compact .strip .port { padding: 3px; gap: 2px; }
+.compact .strip .leg { padding-top: 4px; }
+.compact .hud-foot { bottom: calc(8px + var(--safe-bottom)); gap: 6px; }
+.compact .cargo { padding: 5px 8px 4px; }
+.compact .load { gap: 3px; padding-bottom: 5px; }
+.compact .load .cells { height: 13px; }
+.compact .fuel { padding-top: 5px; min-height: 40px; }
+.compact .fuel .btn.token { width: 36px; min-width: 36px; min-height: 36px; }
+.compact .fuel .buy { min-height: 36px; }
+.compact .dock .btn { min-height: 46px; }
+.compact .dock .btn.token { width: 46px; min-width: 46px; }
+.compact .coach { padding: 7px 10px; font-size: 13px; }
+
+/* night: keep every signal readable on navy enamel */
+html.night .strip .port.here { background: #3b5687; box-shadow: inset 0 0 0 2px #8fb3d9; }
+html.night .strip .leg .burn small { color: #8fb3d9; }
+html.night .strip .leg .burn { color: #f3a54a; }
+html.night .strip .arr.ok { color: #f3a54a; }
+html.night .rule .track { background: #3d5078; }
+html.night .title .lv { background: #3b5687; }
+html.night .load .zones span { color: #15181e; text-shadow: none; }
+
+/* transient overlays never take a tap (they sit above the 3D view) */
+#ui > .pop, #ui > .toast, #ui > .banner, #ui > .coach { pointer-events: none; }
 
 /* +$ pops during the voyage */
 .pop { position: absolute; z-index: 30; transform: translate(-50%, -50%); padding: 3px 7px; border-radius: 4px; background: linear-gradient(#e2bd62, #c79c3e); color: #2a1d05; font: 600 17px/1 var(--num); pointer-events: none; animation: pop-up 1.1s ease forwards; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); }
@@ -155,59 +206,3 @@ html.night .dwt { background: rgba(38, 53, 82, 0.93); }
 @keyframes banner-in { from { opacity: 0; transform: translate(-50%, -8px); } }
 .skip { position: absolute; right: 12px; bottom: calc(16px + var(--safe-bottom)); z-index: 20; }
 
-/* short phones (iPhone SE and friends): tighter top block and bottom stack */
-.compact .hud-top { top: calc(6px + var(--safe-top)); }
-.compact .hud-top .btn.token, .compact .title { height: 38px; min-height: 38px; }
-.compact .title .lv { height: 28px; min-width: 30px; font-size: 16px; }
-.compact .title .tt b { font-size: 15px; }
-.compact .title .tt small { display: none; }
-.compact .rule { top: calc(48px + var(--safe-top)); height: 40px; }
-.compact .rule .money { font-size: 22px; min-width: 50px; }
-.compact .rule .rcol { gap: 4px; }
-.compact .strip { top: calc(92px + var(--safe-top)); min-height: 84px; padding: 4px; }
-.compact .strip .port { padding: 3px 3px 3px; gap: 2px; }
-.compact .strip .leg { padding-top: 3px; }
-.compact .voice { bottom: calc(64px + var(--safe-bottom)); min-height: 34px; padding: 6px 10px; font-size: 12.5px; }
-.compact .bunker { bottom: calc(64px + var(--safe-bottom)); min-height: 46px; padding: 4px 6px 4px 10px; }
-.compact .bunker .stepper .btn.token { width: 34px; min-width: 34px; min-height: 34px; }
-.compact .bunker .need { min-height: 34px; }
-.compact .dock { bottom: calc(10px + var(--safe-bottom)); }
-.compact .dock .btn { min-height: 46px; }
-.compact .dock .btn.token { width: 46px; min-width: 46px; }
-.compact .coach { top: calc(184px + var(--safe-top)); padding: 7px 10px; font-size: 13px; }
-
-.strip.dense .leg .ltop .bn { display: none; }
-.strip.dense .port { min-width: 44px; padding-left: 2px; padding-right: 2px; }
-.strip.dense .leg .cells { max-width: 40px; }
-
-/* transient overlays never take a tap (they sit above the 3D view) */
-#ui > .pop, #ui > .toast, #ui > .banner, #ui > .coach { pointer-events: none; }
-
-.title .fmt { margin-left: 6px; padding: 1px 5px; border-radius: 3px; font-style: normal; color: #fff; letter-spacing: 0.1em; }
-.title .fmt.fd { background: #0f7a5c; }
-.title .fmt.ct { background: #b3201c; }
-
-/* night: keep every signal readable on navy enamel */
-html.night .dwt .cells i.free { background: #3d5078; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14); }
-html.night .strip .port.sel { background: #3b5687; box-shadow: inset 0 0 0 2px #8fb3d9; }
-html.night .strip .leg .burn small { color: #8fb3d9; }
-html.night .strip .rob { color: #7fe0c0; }
-html.night .strip .leg .burn { color: #f3a54a; }
-html.night .rule .track { background: #3d5078; }
-html.night .title .lv { background: #3b5687; }
-html.night .dwt .zones span { color: #15181e; text-shadow: none; }
-
-/* port by port: done ✓, here, later */
-.strip .port.done { opacity: 0.55; }
-.strip .port .tick { position: absolute; top: -5px; right: -3px; display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: var(--ok); color: #fff; font: 900 9px/1 var(--font); }
-.strip .port .youare { position: absolute; top: -9px; left: 50%; transform: translateX(-50%); padding: 1px 5px; border-radius: 3px; background: var(--yellow); color: var(--black); font: 700 8.5px/1.2 var(--font); letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); }
-.strip .port.later { cursor: help; }
-.dock .sail .lbl .to { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.dock .sail { min-width: 0; }
-.dock .sail .lbl { min-width: 0; overflow: hidden; }
-.bunker .need { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 76px; line-height: 1; }
-.bunker .need small { font: 700 10px/1 var(--font); letter-spacing: 0.04em; opacity: 0.9; }
-.bunker .need.ok { background: var(--ok); }
-.bunker .need:disabled { opacity: 0.85; filter: none; }
-.bunker .bk-l b { white-space: nowrap; }
-.bunker .bk-l b .burns { font: 600 13px/1 var(--font); font-style: normal; color: var(--ink-2); margin-left: 4px; }

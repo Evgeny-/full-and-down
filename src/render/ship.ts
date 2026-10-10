@@ -4,12 +4,19 @@ import { canvas, toTexture, FONT_NUM, grime, hexA } from './paint';
 import { PAL } from './palette';
 import { Rng } from '../core/rng';
 import { Crane } from './crane';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 /** One container slot along the ship (world units). */
 export const SLOT = 1.0;
 export const BOX_LEN = 0.92;
 export const BOX_H = 0.56;
 export const BOX_W = 0.62;
+
+/** Bulker: the hold's floor above the deck line (a parcel stands on it) and the hatch coaming's height. */
+export const HOLD_FLOOR = 0.1;
+export const COAMING_H = 0.22;
+
+export type ShipKind = 'feeder' | 'bulker';
 
 const AFT = 2.45; // superstructure + aft crane, stern to first bay
 const FWD = 2.3; // fore crane + forecastle, last bay to stem
@@ -25,6 +32,9 @@ const waterUniforms = { uWaterY: { value: 0 }, uTime: { value: 0 } };
 /**
  * The feeder ship: hull painted as the gauge (red antifouling up to the mark = spare deadweight),
  * a deck with cell guides for `stacks` bays of `tiers` boxes, superstructure aft, forecastle.
+ * `kind = 'bulker'` builds a bulk carrier instead: no cell guides, each bay is an open cargo hold
+ * (coaming, folded hatch covers, a dark hold) for one parcel (see bulk.ts); `tiers` is then always 1,
+ * and the cranes carry clamshell grabs.
  * Group origin: keel at y = 0, amidships of the cargo block at x = 0.
  */
 export class ShipModel {
@@ -36,6 +46,7 @@ export class ShipModel {
   readonly hull: HullGeometry;
   readonly stacks: number;
   readonly tiers: number;
+  readonly kind: ShipKind;
   /** x of the stem tip and of the transom */
   readonly bowX: number;
   readonly sternX: number;
@@ -44,9 +55,10 @@ export class ShipModel {
   readonly cranes: Crane[];
   private hullMat: THREE.MeshStandardMaterial;
 
-  constructor(stacks: number, tiers: number, name = 'FULL & DOWN', plugs: number[] = [], registry = 'MONROVIA') {
+  constructor(stacks: number, tiers: number, name = 'FULL & DOWN', plugs: number[] = [], registry = 'MONROVIA', kind: ShipKind = 'feeder') {
+    this.kind = kind;
     this.stacks = stacks;
-    this.tiers = tiers;
+    this.tiers = kind === 'bulker' ? 1 : tiers;
     const cargoLen = stacks * SLOT;
     this.length = AFT + cargoLen + FWD;
     // the cargo block is centred on x = 0
@@ -83,12 +95,13 @@ export class ShipModel {
     hullGroup.add(deck);
 
     this.buildBulwark(hullGroup);
-    this.buildCellGuides(cargoLen, plugs);
+    if (kind === 'bulker') this.buildHolds();
+    else this.buildCellGuides(cargoLen, plugs);
     this.buildSuperstructure();
     this.buildForecastle();
     this.cranes = [
-      new Crane(new THREE.Vector3(-cargoLen / 2 - 0.42, this.deckY, 0), Math.PI * 0.86),
-      new Crane(new THREE.Vector3(cargoLen / 2 + 0.5, this.deckY, 0), Math.PI * 0.14),
+      new Crane(new THREE.Vector3(-cargoLen / 2 - 0.42, this.deckY, 0), Math.PI * 0.86, kind === 'bulker'),
+      new Crane(new THREE.Vector3(cargoLen / 2 + 0.5, this.deckY, 0), Math.PI * 0.14, kind === 'bulker'),
     ];
     for (const c of this.cranes) this.body.add(c.group);
   }
@@ -98,8 +111,12 @@ export class ShipModel {
     return -((this.stacks - 1) * SLOT) / 2 + i * SLOT;
   }
 
-  /** Local position of the centre of the box at bay i, tier j (0 = bottom). */
+  /**
+   * Local position of the centre of the box at bay i, tier j (0 = bottom). On a bulker, `slotPos(i, 0)` is
+   * where a parcel's centre sits in hold i: its bin stands on the hold floor, the heap rises above the coaming.
+   */
   slotPos(i: number, j: number, out = new THREE.Vector3()): THREE.Vector3 {
+    if (this.kind === 'bulker') return out.set(this.bayX(i), this.deckY + HOLD_FLOOR + BOX_H / 2 + j * BOX_H, 0);
     return out.set(this.bayX(i), this.deckY + 0.06 + BOX_H / 2 + j * BOX_H, 0);
   }
 
@@ -189,6 +206,91 @@ export class ShipModel {
       const bar = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, BEAM - 0.4), bridgeMat);
       bar.position.set(x, this.deckY + h, 0);
       this.body.add(bar);
+    }
+  }
+
+  /** Bulker: an open hold per bay: coaming with a yellow top edge, a dark hold, hatch covers folded up at the aft end. */
+  private buildHolds(): void {
+    const L = SLOT - 0.06; // coaming, outer length (x)
+    const Wd = 1.06; // coaming, outer width (z)
+    const t = 0.05; // wall thickness
+    const sink = 0.09; // the coaming's foot sits below the deck line: the deck rises toward the bow
+    const top = this.deckY + COAMING_H;
+    const parts: Record<'green' | 'rib' | 'yellow' | 'dark' | 'floor' | 'red' | 'redRib' | 'steel', THREE.BufferGeometry[]> = { green: [], rib: [], yellow: [], dark: [], floor: [], red: [], redRib: [], steel: [] };
+    const box = (key: keyof typeof parts, x: number, y: number, z: number, w: number, h: number, d: number): void => {
+      parts[key].push(new THREE.BoxGeometry(w, h, d).translate(x, y, z));
+    };
+    const innerL = L - 2 * t;
+    const innerW = Wd - 2 * t;
+    for (let i = 0; i < this.stacks; i++) {
+      const cx = this.bayX(i);
+      const wallY = top - (COAMING_H + sink) / 2;
+      const wallH = COAMING_H + sink;
+      // walls
+      for (const sz of [-1, 1]) box('green', cx, wallY, sz * (Wd / 2 - t / 2), L, wallH, t);
+      for (const sx of [-1, 1]) box('green', cx + sx * (L / 2 - t / 2), wallY, 0, t, wallH, Wd - 2 * t);
+      // the yellow top edge
+      for (const sz of [-1, 1]) box('yellow', cx, top - 0.008, sz * (Wd / 2 - t / 2), L + 0.014, 0.026, t + 0.014);
+      for (const sx of [-1, 1]) box('yellow', cx + sx * (L / 2 - t / 2), top - 0.008, 0, t + 0.014, 0.026, Wd - 2 * t);
+      // stiffeners on the outside of the walls
+      for (const sz of [-1, 1]) for (const k of [-0.31, -0.105, 0.105, 0.31]) box('rib', cx + k, top - 0.1, sz * (Wd / 2 + 0.012), 0.034, 0.17, 0.03);
+      for (const sx of [-1, 1]) for (const k of [-0.33, -0.11, 0.11, 0.33]) box('rib', cx + sx * (L / 2 + 0.012), top - 0.1, k, 0.03, 0.17, 0.034);
+      // the hold: floor, liners on the inside of the walls, a few ribs on the far wall
+      box('floor', cx, this.deckY + HOLD_FLOOR - 0.012, 0, innerL, 0.024, innerW);
+      for (const sz of [-1, 1]) box('dark', cx, this.deckY + (HOLD_FLOOR + COAMING_H) / 2 - 0.012, sz * (innerW / 2 - 0.004), innerL, COAMING_H - HOLD_FLOOR, 0.008);
+      for (const sx of [-1, 1]) box('dark', cx + sx * (innerL / 2 - 0.004), this.deckY + (HOLD_FLOOR + COAMING_H) / 2 - 0.012, 0, 0.008, COAMING_H - HOLD_FLOOR, innerW);
+      for (const k of [-0.25, 0, 0.25]) box('steel', cx + k, this.deckY + (HOLD_FLOOR + COAMING_H) / 2 - 0.012, -innerW / 2 + 0.012, 0.03, COAMING_H - HOLD_FLOOR, 0.012);
+      // hatch covers folded up and leaning over the hold at the aft end: two panels, hinged on the coaming
+      const pw = innerW - 0.04;
+      const ph = 0.27;
+      const lean = -0.15;
+      for (const k of [0, 1]) {
+        // everything is built upright around the panel's foot, then leaned about it
+        const foot = new THREE.Vector3(cx - L / 2 + t / 2 + 0.005 + k * 0.058, top - 0.005, 0);
+        const part = (key: keyof typeof parts, px: number, py: number, pz: number, w: number, h: number, d: number): void => {
+          parts[key].push(new THREE.BoxGeometry(w, h, d).translate(px, py, pz).rotateZ(lean).translate(foot.x, foot.y, foot.z));
+        };
+        part('red', 0, ph / 2, 0, 0.024, ph, pw);
+        // cross ribs and a yellow top edge
+        for (const rz of [-0.36, -0.12, 0.12, 0.36]) part('redRib', 0.017, ph / 2, rz, 0.012, ph - 0.04, 0.03);
+        part('yellow', 0, ph - 0.006, 0, 0.03, 0.014, pw + 0.01);
+      }
+      // the hinge pins at the foot of the covers
+      for (const sz of [-1, 1]) box('steel', cx - L / 2 + t / 2 + 0.03, top + 0.012, sz * (pw / 2 - 0.02), 0.07, 0.03, 0.05);
+    }
+    const mats: Record<keyof typeof parts, THREE.MeshStandardMaterial> = {
+      green: new THREE.MeshStandardMaterial({ color: '#2e4a3f', roughness: 0.55 }),
+      rib: new THREE.MeshStandardMaterial({ color: '#3d5e50', roughness: 0.6 }),
+      yellow: new THREE.MeshStandardMaterial({ color: '#e3ae1b', roughness: 0.5 }),
+      dark: new THREE.MeshStandardMaterial({ color: '#232b31', roughness: 0.85 }),
+      floor: new THREE.MeshStandardMaterial({ color: '#171d22', roughness: 0.9 }),
+      red: new THREE.MeshStandardMaterial({ color: '#8a3a2b', roughness: 0.55 }),
+      redRib: new THREE.MeshStandardMaterial({ color: '#6a2a1f', roughness: 0.6 }),
+      steel: new THREE.MeshStandardMaterial({ color: '#2d343b', roughness: 0.6 }),
+    };
+    for (const key of Object.keys(parts) as (keyof typeof parts)[]) {
+      const g = mergeGeometries(parts[key], false);
+      if (!g) continue;
+      const m = new THREE.Mesh(g, mats[key]);
+      m.castShadow = key !== 'floor' && key !== 'dark';
+      m.receiveShadow = true;
+      this.body.add(m);
+    }
+    // a deck pipe along each side of the holds on little saddles
+    const pipeMat = new THREE.MeshStandardMaterial({ color: '#7c8a86', roughness: 0.5, metalness: 0.2 });
+    const cargoLen = this.stacks * SLOT;
+    for (const sz of [-1, 1]) {
+      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, cargoLen - 0.1, 8), pipeMat);
+      pipe.rotation.z = Math.PI / 2;
+      pipe.position.set(0, this.deckY + 0.05, sz * 0.67);
+      pipe.castShadow = true;
+      this.body.add(pipe);
+      for (let i = 0; i <= this.stacks; i++) {
+        const x = -cargoLen / 2 + i * SLOT;
+        const saddle = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, 0.05), new THREE.MeshStandardMaterial({ color: '#2d343b' }));
+        saddle.position.set(Math.min(Math.max(x, -cargoLen / 2 + 0.05), cargoLen / 2 - 0.05), this.deckY + 0.025, sz * 0.67);
+        this.body.add(saddle);
+      }
     }
   }
 

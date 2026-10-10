@@ -2,13 +2,15 @@ import * as THREE from 'three';
 import { addHarbourLights, createRenderer, LOW_END, type HarbourLights } from './stage';
 import { Tweens, arc, ease, squash } from './anim';
 import { Water } from './water';
-import { ShipModel, LIGHT_Y, MARK_Y, BOX_H, BOX_W, SLOT } from './ship';
+import { ShipModel, LIGHT_Y, MARK_Y, BOX_H, BOX_W, BOX_LEN, SLOT, type ShipKind } from './ship';
 import { Quay, QUAY_Y } from './harbour';
 import { buildScenery } from './scenery';
+import { disposePortScene, setPortNight } from './ports';
 import { buildHull } from './hull';
 import { AdaptiveRenderScale } from './AdaptiveRenderScale';
 import { FxView } from './FxView';
 import { makeBox } from './boxes';
+import { makeParcel, commodityFor } from './bulk';
 import { portColor } from './portStyle';
 import { canvas, toTexture, FONT_NUM, FONT_TEXT } from './paint';
 import { type FlagId } from './flags';
@@ -140,12 +142,14 @@ export class GameView {
     this.held = null;
     const regs = ['MONROVIA', 'ODESSA', 'LONDON'];
     const reg = regs[[...level.ship.name].reduce((a, c) => a + c.charCodeAt(0), 0) % regs.length];
-    this.ship = new ShipModel(level.ship.bays, level.ship.tiers, level.ship.name.toUpperCase(), level.mechanics.includes('reefer') ? (level.ship.plugs ?? []) : [], reg);
+    const kind = shipKind(level);
+    this.ship = new ShipModel(level.ship.bays, level.ship.tiers, level.ship.name.toUpperCase(), level.mechanics.includes('reefer') ? (level.ship.plugs ?? []) : [], reg, kind);
     this.levelGroup.add(this.ship.group);
     const width = Math.max(40, this.ship.length * 4);
     this.quayWidth = width;
     this.quay = new Quay(width);
     this.world.add(this.quay.group);
+    for (const g of this.sceneryCache.values()) disposePortScene(g);
     this.sceneryCache.clear();
     this.scenery = null;
     this.setScenery(0);
@@ -174,18 +178,24 @@ export class GameView {
       this.bayHits.push(m);
     }
     for (const b of level.boxes) {
-      const mesh = makeBox({ color: portColor(b.to), weight: b.weight, flag: level.ports[b.to].flag as FlagId, port: level.ports[b.to], kind: b.reefer && level.mechanics.includes('reefer') ? 'reefer' : undefined, seal: b.contract });
+      const mesh =
+        kind === 'bulker'
+          ? makeParcel({ color: portColor(b.to), weight: b.weight, commodity: commodityFor(level.n * 31 + b.id * 7 + b.from), destCode: level.ports[b.to].code })
+          : makeBox({ color: portColor(b.to), weight: b.weight, flag: level.ports[b.to].flag as FlagId, port: level.ports[b.to], kind: b.reefer && level.mechanics.includes('reefer') ? 'reefer' : undefined, seal: b.contract });
       mesh.userData.box = b.id;
       mesh.visible = false;
       this.world.add(mesh);
       this.boxes.set(b.id, mesh);
       this.places.set(b.id, { at: 'gone' });
     }
+    this.maxSlots = Math.max(1, ...level.ports.map((_, i) => level.boxes.filter((b) => b.from === i).length));
     this.draft.x = this.draft.target = LIGHT_Y;
     this.water.uniforms.uSpeed.value = 0;
     this.scroll = 0;
     this.speed = 0;
     this.world.position.x = 0;
+    this.drift?.done();
+    this.drift = null;
     this.layout();
   }
 
@@ -428,34 +438,53 @@ export class GameView {
     const barPx = 18;
     const faceH = BOX_H * Math.cos(PITCH) * unit;
     const topFace = BOX_W * Math.sin(PITCH) * unit;
-    let waterPx = h - this.insets.bottom - faceH - topFace - barPx - 6;
+    // the quay row runs along the quay, parallel to her side, so it slopes on screen like her
+    // waterline: its low (right) end must still clear the bottom panel
+    const rowStep = Math.min(1.42 * unit, (w - right - 36) / 5);
+    const sa = this.toScreen(new THREE.Vector3(mid - 1, QUAY_Y + BOX_H, 3));
+    const sb = this.toScreen(new THREE.Vector3(mid + 1, QUAY_Y + BOX_H, 3));
+    const slope = (sb.y - sa.y) / (sb.x - sa.x);
+    let drop = Math.max(0, slope * (((Math.max(1, this.maxSlots) - 1) / 2) * rowStep + (cx - mid) * unit));
     const shipAbove = (this.ship.deckY + this.level.ship.tiers * BOX_H + 0.9) * Math.cos(PITCH) * unit;
-    waterPx = Math.max(waterPx, this.insets.top + shipAbove * 0.8);
-    const water = this.toScreen(new THREE.Vector3(mid, 0, 0.78));
     const wantX = (w - right) / 2;
-    cam.setViewOffset(w, h, water.x - wantX + (cx - mid) * unit, water.y - waterPx, w, h);
-    cam.updateProjectionMatrix();
-    // the quay row: find the z where its box tops sit just under the waterline
-    const yAt = (z: number) => this.toScreen(new THREE.Vector3(mid, QUAY_Y + BOX_H, z + BOX_W / 2)).y;
-    const wantY = waterPx + barPx + topFace;
-    let lo = 1.2;
-    let hi = 9;
-    for (let k = 0; k < 30; k++) {
-      const m = (lo + hi) / 2;
-      if (yAt(m) < wantY) lo = m;
-      else hi = m;
+    const ry = QUAY_Y + BOX_H / 2;
+    let pxPerM = unit;
+    // perspective steepens the quay toward the screen edge: measure the lowest box and lift again
+    for (let pass = 0; pass < 3; pass++) {
+      let waterPx = h - this.insets.bottom - faceH - topFace - barPx - 6 - drop;
+      waterPx = Math.max(waterPx, this.insets.top + shipAbove * 0.8);
+      cam.clearViewOffset();
+      cam.updateProjectionMatrix();
+      const water = this.toScreen(new THREE.Vector3(mid, 0, 0.78));
+      cam.setViewOffset(w, h, water.x - wantX + (cx - mid) * unit, water.y - waterPx, w, h);
+      cam.updateProjectionMatrix();
+      // the quay row: find the z where its box tops sit just under the waterline
+      const yAt = (z: number) => this.toScreen(new THREE.Vector3(mid, QUAY_Y + BOX_H, z + BOX_W / 2)).y;
+      const wantY = waterPx + barPx + topFace;
+      let lo = 1.2;
+      let hi = 9;
+      for (let k = 0; k < 30; k++) {
+        const m = (lo + hi) / 2;
+        if (yAt(m) < wantY) lo = m;
+        else hi = m;
+      }
+      this.quayZ = (lo + hi) / 2;
+      // the row's centre sits under the middle of the free area; slots are spaced in quay metres
+      const p0 = this.toScreen(new THREE.Vector3(mid, ry, this.quayZ));
+      const p1 = this.toScreen(new THREE.Vector3(mid + 1, ry, this.quayZ));
+      pxPerM = Math.max(1, p1.x - p0.x);
+      this.rowX = mid + (wantX - p0.x) / pxPerM;
+      this.rowStepM = Math.max(BOX_LEN + 0.16, rowStep / pxPerM);
+      const ends = [-1, 1].map((sgn) => this.rowX + sgn * (((this.maxSlots - 1) / 2) * this.rowStepM + BOX_LEN / 2));
+      const low = Math.max(...ends.map((x) => this.toScreen(new THREE.Vector3(x, QUAY_Y, this.quayZ + BOX_W / 2)).y));
+      const excess = low - (h - this.insets.bottom - 6);
+      if (excess < 1 || waterPx <= this.insets.top + shipAbove * 0.8) break;
+      drop += excess;
     }
-    this.quayZ = (lo + hi) / 2;
-    this.rowY = this.toScreen(new THREE.Vector3(mid, QUAY_Y + BOX_H / 2, this.quayZ)).y;
-    this.rowCx = wantX;
-    this.rowStep = Math.min(1.42 * unit, (w - right - 36) / 5);
     const quayEdge = Math.max(1.35, this.quayZ - BOX_W / 2 - 0.55);
     this.quay.group.position.z = quayEdge - 1.6; // Quay is built with its edge at z = 1.6
     this.water.uniforms.uQuayZ.value = quayEdge;
-    this.sign.visible = !portrait;
-    this.sign.position.set(cx - (w / unit) / 2 + 1.6, QUAY_Y + 0.01, this.quayZ + 1.35);
-    this.sign.rotation.x = -0.35;
-    this.sign.rotation.y = YAW * 0.5;
+    this.placeSign(portrait, pxPerM);
     const sun = this.lights.sun;
     sun.target.position.copy(target);
     sun.position.copy(target).add(new THREE.Vector3(-7, 16, 9));
@@ -476,20 +505,38 @@ export class GameView {
     return { waterY: s, stackTopY: top, hullBottomY: hullB, quayY: q, quayBottomY: qb, cargoLeft: l, cargoRight: r, unitPx: this.unitPx };
   }
 
-  private rowY = 0;
-  private rowCx = 0;
-  private rowStep = 60;
-  private rowPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  private rowX = 0;
+  private rowStepM = 1.2;
+  /** the most boxes any call of this level offers (the quay row is framed for them) */
+  private maxSlots = 1;
 
-  /** Quay slots sit on a straight line across the screen (the quay itself runs at an angle). */
+  /** Quay slots sit in a line along the quay, parallel to her side. */
   quayPos(slot: number, out = new THREE.Vector3()): THREE.Vector3 {
     const n = Math.max(1, this.quaySlots);
-    const sx = this.rowCx + (slot - (n - 1) / 2) * this.rowStep;
-    this.ndc.set((sx / this.width) * 2 - 1, -((this.rowY / this.height) * 2 - 1));
-    this.raycaster.setFromCamera(this.ndc, this.camera);
-    this.rowPlane.constant = -(QUAY_Y + BOX_H / 2 + 0.01);
-    if (!this.raycaster.ray.intersectPlane(this.rowPlane, out)) out.set(0, QUAY_Y + BOX_H / 2, this.quayZ);
-    return out;
+    return out.set(this.rowX + (slot - (n - 1) / 2) * this.rowStepM, QUAY_Y + BOX_H / 2 + 0.01, this.quayZ);
+  }
+
+  /** The enamel port sign stands on the quay left of the row, whole on screen, or not at all. */
+  private placeSign(portrait: boolean, pxPerM: number): void {
+    const signW = 2.4;
+    const leftBox = this.rowX - ((this.maxSlots - 1) / 2) * this.rowStepM - BOX_LEN / 2;
+    // the sign's centre, in quay metres, so its left end sits 20px in from the screen edge
+    const z = this.quayZ + 0.9;
+    const edge = this.screenToQuay(20, z);
+    const x = edge + signW / 2;
+    const fits = x + signW / 2 + 0.4 < leftBox;
+    this.sign.visible = !portrait && fits;
+    this.sign.position.set(x, QUAY_Y + 0.01, z);
+    this.sign.rotation.x = -0.35;
+    this.sign.rotation.y = YAW * 0.5;
+    void pxPerM;
+  }
+
+  /** The quay x (metres) under screen x `sx` along the line z = `z` on the quay top. */
+  private screenToQuay(sx: number, z: number): number {
+    const a = this.toScreen(new THREE.Vector3(0, QUAY_Y, z)).x;
+    const b = this.toScreen(new THREE.Vector3(1, QUAY_Y, z)).x;
+    return (sx - a) / Math.max(1e-3, b - a);
   }
 
   private quaySlots = 1;
@@ -796,15 +843,26 @@ export class GameView {
       if (phase === 'out') {
         audio.play('horn');
         this.fx.puff(this.ship.body.localToWorld(this.ship.funnelTop.clone()), { n: 8, color: '#ffffff', size: 0.25, rise: 0.8, speed: 0.3, life: 1.2 });
+        const far = w + 12;
         this.tweens.add(dur, (k) => {
-          this.world.position.x = -k * k * (w + 12);
+          this.world.position.x = -k * k * far;
           this.speed = k;
-        }, { ease: ease.linear, done: () => resolve() });
+        }, { ease: ease.linear, done: () => {
+          // keep steaming until the harbour is clean off the screen: open sea, nothing else
+          this.drift = { v: (2 * far) / dur, from: this.world.position.x, box: this.harbourBox(), done: resolve };
+        } });
       } else if (phase === 'in') {
-        this.world.position.x = w + 12;
+        this.drift?.done();
+        this.drift = null;
+        this.world.visible = true;
+        this.world.position.x = 0;
+        const box = this.harbourBox();
+        let start = w + 12;
+        for (let k = 0; k < 60 && !this.offScreen(box, start, 'right'); k++) start += 4;
+        this.world.position.x = start;
         this.tweens.add(dur, (k) => {
           const e = ease.outCubic(k);
-          this.world.position.x = (1 - e) * (w + 12);
+          this.world.position.x = (1 - e) * start;
           this.speed = 1 - e;
         }, { ease: ease.linear, done: () => {
           this.speed = 0;
@@ -816,6 +874,41 @@ export class GameView {
         this.tweens.after(dur, () => resolve());
       }
     });
+  }
+
+  private drift: { v: number; from: number; box: THREE.Box3; done: () => void } | null = null;
+
+  /**
+   * The harbour's bounds for the open-sea test: everything in the world but very wide flat things
+   * (a hinterland's ground plane runs far past the screen and would never leave it).
+   */
+  private harbourBox(): THREE.Box3 {
+    const box = new THREE.Box3();
+    const b = new THREE.Box3();
+    this.world.updateMatrixWorld(true);
+    this.world.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh || !mesh.visible) return;
+      b.setFromObject(mesh, false);
+      const size = b.getSize(this.tmp);
+      if (size.x > 70 && size.y < 3) return;
+      box.union(b);
+    });
+    return box;
+  }
+
+  /** Is a box (measured with the world at x = 0 + `shift`) wholly off one side of the screen? */
+  private offScreen(box: THREE.Box3, shift: number, side: 'left' | 'right'): boolean {
+    const x = side === 'left' ? box.max.x + shift : box.min.x + shift;
+    const v = new THREE.Vector3();
+    for (const y of [box.min.y, box.max.y]) for (const z of [box.min.z, box.max.z]) {
+      v.set(x, y, z).project(this.camera);
+      // behind the camera counts as gone
+      if (v.z > 1) continue;
+      const sx = ((v.x + 1) / 2) * this.width;
+      if (side === 'left' ? sx > -16 : sx < this.width + 16) return false;
+    }
+    return true;
   }
 
   /** Lift a set of boxes off to the quay (discharge), one after another. */
@@ -895,6 +988,8 @@ export class GameView {
 
   setNight(on: boolean): void {
     this.night = on;
+    // the towns' windows light up warm
+    setPortNight(on);
     this.water.uniforms.uNight.value = on ? 0.6 : 0;
     this.scene.background = new THREE.Color(on ? '#16233a' : PAL.skyTop);
     // a navy harbour under sodium lamps, never a black slab
@@ -915,6 +1010,15 @@ export class GameView {
     this.draft.step(dt);
     this.roll.step(dt);
     const t = this.clock;
+    if (this.drift && this.world.visible) {
+      this.world.position.x -= this.drift.v * dt;
+      if (this.offScreen(this.drift.box, this.world.position.x - this.drift.from, 'left') || this.world.position.x < -400) {
+        this.world.visible = false;
+        const done = this.drift.done;
+        this.drift = null;
+        done();
+      }
+    }
     if (this.ship) {
       const bob = Math.sin(t * 1.1) * 0.01 + Math.sin(t * 0.63) * 0.007;
       this.ship.group.position.y = -this.draft.x + bob;
@@ -946,7 +1050,7 @@ export class GameView {
       const tgt = this.crane.target ? this.ship.body.worldToLocal(this.crane.target.clone()) : null;
       const which = tgt ? (tgt.x > 0 ? 1 : 0) : -1;
       this.ship.cranes.forEach((c, i) => {
-        if (i === which && tgt) c.follow(tgt, BOX_H / 2 + 0.12);
+        if (i === which && tgt) c.follow(tgt, this.ship.kind === 'bulker' ? undefined : BOX_H / 2 + 0.12);
         else c.park();
         c.update(dt, false);
       });
@@ -993,4 +1097,13 @@ export class GameView {
   get busy(): boolean {
     return this.tweens.busy;
   }
+}
+
+/**
+ * Which ship sails a level: a single-tier hold is sometimes a small bulk carrier (open holds, a grab,
+ * parcels of grain, coal, steel…), else a container feeder. Stacking levels always sail the feeder.
+ */
+export function shipKind(level: Level): ShipKind {
+  const bulky = level.ship.tiers === 1 && !level.mechanics.some((m) => m === 'reefer' || m === 'contract' || m === 'tiers');
+  return bulky && level.n % 2 === 0 ? 'bulker' : 'feeder';
 }

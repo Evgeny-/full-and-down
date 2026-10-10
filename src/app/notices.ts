@@ -61,7 +61,7 @@ export const NOTICES: Partial<Record<Mechanic, Notice>> = {
     kind: 'NOTICE TO MARINERS',
     title: 'No bunkers ahead',
     lines: [
-      'The valve is yours now: <b>− +</b> to order bunkers, <b>NEED</b> for just enough to the next port.',
+      '<b>BUY</b> now buys enough to reach the next port that <i>sells</i> fuel, past the dry ones.',
       'Ports with a crossed-out pump sell no fuel. What you need beyond them sails from here, and it weighs on every leg.',
     ],
     art: svg(210, 80, `<rect x="30" y="18" width="34" height="48" rx="5" fill="#ee8b1e"/><rect x="38" y="26" width="18" height="12" rx="2" fill="#fff6e6"/><path d="M64 30h8v24" stroke="#2a2d33" stroke-width="4" fill="none"/><rect x="120" y="18" width="34" height="48" rx="5" fill="#b9c2cc"/><rect x="128" y="26" width="18" height="12" rx="2" fill="#e6ebef"/><path d="M114 12l46 60" stroke="#d62f2b" stroke-width="6" stroke-linecap="round"/>`),

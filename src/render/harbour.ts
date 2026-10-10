@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { canvas, toTexture, grime, shade } from './paint';
+import { canvas, toTexture, grime } from './paint';
 import { PAL } from './palette';
 import { Rng } from '../core/rng';
 
@@ -74,93 +74,6 @@ export class Quay {
       f.scale.set(1, 0.5, 1);
       f.position.set(x, QUAY_Y - 0.12, QUAY_Z - 0.1);
       this.group.add(f);
-    }
-  }
-}
-
-/**
- * Far side of the berth: open water, a breakwater with a lighthouse, the town on the hills. All low
- * contrast so the ship stays the hero.
- */
-export class Backdrop {
-  readonly group = new THREE.Group();
-
-  constructor(width: number) {
-    const rng = new Rng(5);
-    // breakwater: a long low concrete mole with tetrapods
-    const mole = new THREE.Mesh(new THREE.BoxGeometry(width * 0.62, 0.38, 0.6), new THREE.MeshStandardMaterial({ color: '#b9b3a7', roughness: 0.9 }));
-    mole.position.set(-width * 0.16, 0.12, -7.2);
-    mole.receiveShadow = true;
-    mole.castShadow = true;
-    this.group.add(mole);
-    const rockMat = new THREE.MeshStandardMaterial({ color: '#8f8a80', roughness: 0.95, flatShading: true });
-    const rock = new THREE.IcosahedronGeometry(0.22, 0);
-    const rocks = new THREE.InstancedMesh(rock, rockMat, 60);
-    const m = new THREE.Matrix4();
-    const q = new THREE.Quaternion();
-    for (let i = 0; i < 60; i++) {
-      const x = -width * 0.16 - width * 0.31 + rng.next() * width * 0.62;
-      q.setFromEuler(new THREE.Euler(rng.next() * 3, rng.next() * 3, rng.next() * 3));
-      const s = rng.range(0.6, 1.2);
-      m.compose(new THREE.Vector3(x, 0.02, -6.85 + rng.range(-0.05, 0.12)), q, new THREE.Vector3(s, s * 0.8, s));
-      rocks.setMatrixAt(i, m);
-    }
-    this.group.add(rocks);
-    // lighthouse at the end of the mole: red and white bands
-    const lhX = -width * 0.16 + width * 0.31 - 0.45;
-    const plinth = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.5, 0.75, 16), new THREE.MeshStandardMaterial({ color: '#b9b3a7', roughness: 0.9 }));
-    plinth.position.set(lhX, 0.0, -7.2);
-    plinth.castShadow = true;
-    this.group.add(plinth);
-    const [lc, lg] = canvas(16, 128);
-    for (let i = 0; i < 8; i++) {
-      lg.fillStyle = i % 2 ? '#f6f3ea' : PAL.flagRed;
-      lg.fillRect(0, i * 16, 16, 16);
-    }
-    const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.24, 1.5, 14), new THREE.MeshStandardMaterial({ map: toTexture(lc), roughness: 0.6 }));
-    tower.position.set(lhX, 1.0, -7.2);
-    tower.castShadow = true;
-    this.group.add(tower);
-    const lamp = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.2, 10), new THREE.MeshStandardMaterial({ color: '#fff6c8', emissive: '#ffd66b', emissiveIntensity: 0.6 }));
-    lamp.position.set(lhX, 1.85, -7.2);
-    this.group.add(lamp);
-    const cap = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.16, 12), new THREE.MeshStandardMaterial({ color: PAL.flagRed }));
-    cap.position.set(lhX, 2.03, -7.2);
-    this.group.add(cap);
-
-    // the far shore: soft hills and a little town of gabled houses
-    const hillMat = new THREE.MeshStandardMaterial({ color: '#9fb8a3', roughness: 1 });
-    const hillShape = new THREE.Shape();
-    hillShape.moveTo(-width, 0);
-    for (let i = 0; i <= 24; i++) {
-      const x = -width + (i / 24) * width * 2;
-      const y = 1.2 + Math.sin(i * 0.9) * 0.45 + Math.sin(i * 0.37 + 1) * 0.7;
-      hillShape.lineTo(x, y);
-    }
-    hillShape.lineTo(width, 0);
-    const hills = new THREE.Mesh(new THREE.ExtrudeGeometry(hillShape, { depth: 2, bevelEnabled: false }), hillMat);
-    hills.position.set(0, -0.2, -15);
-    this.group.add(hills);
-    const shore = new THREE.Mesh(new THREE.BoxGeometry(width * 2, 0.5, 3), new THREE.MeshStandardMaterial({ color: '#c9c1ad', roughness: 1 }));
-    shore.position.set(0, 0.05, -12.5);
-    this.group.add(shore);
-    const houseColors = ['#e9dcc3', '#d98f6f', '#f1ece0', '#c7d3d8', '#e3b871', '#b55a45'];
-    const houseGeo = new THREE.BoxGeometry(0.5, 0.45, 0.45);
-    const roofGeo = new THREE.ConeGeometry(0.4, 0.28, 4);
-    roofGeo.rotateY(Math.PI / 4);
-    for (let i = 0; i < 26; i++) {
-      const x = -width * 0.55 + rng.next() * width * 1.1;
-      const z = -12.2 - rng.next() * 1.4;
-      const s = rng.range(0.7, 1.3);
-      const col = rng.pick(houseColors);
-      const h = new THREE.Mesh(houseGeo, new THREE.MeshStandardMaterial({ color: col, roughness: 0.9 }));
-      h.scale.set(s, s * rng.range(0.9, 1.6), s);
-      h.position.set(x, 0.3 + (0.45 * h.scale.y) / 2, z);
-      this.group.add(h);
-      const roof = new THREE.Mesh(roofGeo, new THREE.MeshStandardMaterial({ color: shade('#9b4a3a', rng.range(-0.15, 0.15)), roughness: 0.9 }));
-      roof.scale.set(s, s, s);
-      roof.position.set(x, 0.3 + 0.45 * h.scale.y + 0.13 * s, z);
-      this.group.add(roof);
     }
   }
 }
