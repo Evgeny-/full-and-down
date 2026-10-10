@@ -242,10 +242,73 @@ function pillow(a: number, b: number, c: number, pinch = 0.5): THREE.BufferGeome
     const y = pos.getY(i);
     const z = pos.getZ(i);
     const e = Math.max(Math.abs(x), Math.abs(z));
-    pos.setXYZ(i, a * x * (1 - 0.1 * z * z), b * y * (1 - pinch * e * e), c * z * (1 - 0.1 * x * x));
+    pos.setXYZ(i, a * x * (1 - 0.1 * z * z) * (1 - 0.13 * y * y), b * y * (1 - pinch * e * e), c * z * (1 - 0.1 * x * x) * (1 - 0.13 * y * y));
   }
   g.computeVertexNormals();
   return g;
+}
+
+/** The soft sides of a woven big bag: rounded corners, a full belly and gathered shoulders. */
+function bigBag(a: number, b: number, c: number): THREE.BufferGeometry {
+  const corners: [number, number][] = [
+    [-0.78, -1], [0, -1], [0.78, -1], [1, -0.72], [1, 0], [1, 0.72],
+    [0.78, 1], [0, 1], [-0.78, 1], [-1, 0.72], [-1, 0], [-1, -0.72],
+  ];
+  const courses = [[-1, 0.86], [-0.65, 1], [0.25, 1.02], [0.78, 0.93], [1, 0.70]];
+  const pos: number[] = [];
+  for (const [y, scale] of courses) {
+    corners.forEach(([x, z], i) => {
+      // A recessed fold down the middle of each panel catches light at game scale.
+      const crease = i % 3 === 1 ? 0.94 : 1;
+      pos.push(x * a * scale * crease, y * b, z * c * scale * crease);
+    });
+  }
+  const idx: number[] = [];
+  const n = corners.length;
+  for (let j = 0; j < courses.length - 1; j++) {
+    for (let i = 0; i < n; i++) {
+      const k = (i + 1) % n;
+      idx.push(j * n + i, (j + 1) * n + i, j * n + k, j * n + k, (j + 1) * n + i, (j + 1) * n + k);
+    }
+  }
+  // Closed floor, and sloping cloth drawn into the filling neck.
+  const bottom = pos.length / 3;
+  pos.push(0, -b, 0);
+  const top = pos.length / 3;
+  pos.push(0, b * 1.12, 0);
+  for (let i = 0; i < n; i++) {
+    const k = (i + 1) % n;
+    idx.push(bottom, i, k, top, (courses.length - 1) * n + k, (courses.length - 1) * n + i);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
+
+/** A flat webbing lifting loop, thick enough to stay readable on a phone. */
+function liftingLoop(): THREE.BufferGeometry {
+  const shape = new THREE.Shape();
+  shape.moveTo(-0.043, 0);
+  shape.lineTo(-0.048, 0.043);
+  shape.lineTo(-0.026, 0.077);
+  shape.lineTo(0.024, 0.077);
+  shape.lineTo(0.048, 0.043);
+  shape.lineTo(0.043, 0);
+  shape.lineTo(0.025, 0);
+  shape.lineTo(0.030, 0.038);
+  shape.lineTo(0.016, 0.060);
+  shape.lineTo(-0.016, 0.060);
+  shape.lineTo(-0.030, 0.038);
+  shape.lineTo(-0.025, 0);
+  shape.closePath();
+  return new THREE.ExtrudeGeometry(shape, { depth: 0.009, bevelEnabled: false, curveSegments: 1 }).translate(0, 0, -0.0045);
+}
+
+/** Sewn edges use the existing matte material and merge into the commodity mesh. */
+function seam(p: Parts, points: THREE.Vector3[], color: string, m: THREE.Matrix4, radius = 0.003): void {
+  p.add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(points), points.length - 1, radius, 3, false), MATTE, color, { m });
 }
 
 /** Concentric flat bands of a disc, facing +z, centred at the origin. */
@@ -322,8 +385,8 @@ function buildBin(p: Parts, fill: string): void {
 // ───────────────────────────── the commodities ─────────────────────────────
 
 function buildGrain(p: Parts): void {
-  const hp = heap(p.rng, { rings: 7, segs: 24, p: 1.9, q: 0.9, noise: 0.012, hnoise: 0.008 });
-  const col = ramp('#c28a22', '#f5d56a');
+  const hp = heap(p.rng, { rings: 5, segs: 20, h: CARGO_H - 0.024, p: 1.65, q: 0.9, noise: 0.035, hnoise: 0.04 });
+  const col = ramp('#b1802b', '#ead078');
   p.add(
     hp.geo,
     MATTE,
@@ -334,8 +397,19 @@ function buildGrain(p: Parts): void {
       // ripples of grain flowing down the slope
       return col((v.y - BIN_H) / CARGO_H * 0.8 + 0.1 + Math.sin(r * 26) * 0.07);
     },
-    { jitter: 0.02 },
+    { jitter: 0.045 },
   );
+  // A few visible kernels catch the light; the heap still reads as thousands of grains.
+  for (let i = 0; i < 64; i++) {
+    const r = p.rng;
+    const a = r.next() * Math.PI * 2;
+    const d = Math.sqrt(r.next()) * 0.94;
+    const x = Math.cos(a) * FX * d;
+    const z = -0.015 + Math.sin(a) * FZ * d;
+    const size = r.range(0.006, 0.011);
+    const g = xf(new THREE.OctahedronGeometry(size), [x, hp.at(x, z) + size * 0.2, z], [0, r.next() * Math.PI, 0], [1.5, 0.4, 0.7]);
+    p.add(g, MATTE, r.pick(['#eed98d', '#cda34b', '#dec068']), { flat: true, jitter: 0.04 });
+  }
   buildBin(p, '#8a6420');
 }
 
@@ -343,8 +417,8 @@ function buildCoal(p: Parts): void {
   const hp = heap(p.rng, { rings: 4, segs: 13, p: 1.1, q: 1.0, noise: 0.1, hnoise: 0.3 });
   const col = ramp('#1d2024', '#454b54');
   p.add(hp.geo, MATTE, (v) => col((v.y - BIN_H) / CARGO_H), { flat: true, jitter: 0.32 });
-  for (let i = 0; i < 9; i++) lump(p, hp, p.rng.range(0.035, 0.065), p.rng.chance(0.5) ? '#2a2e34' : '#16181c');
-  for (let i = 0; i < 5; i++) lump(p, hp, p.rng.range(0.025, 0.045), '#606873', METAL, 0.8);
+  for (let i = 0; i < 14; i++) lump(p, hp, p.rng.range(0.026, 0.065), p.rng.chance(0.5) ? '#2a2e34' : '#16181c');
+  for (let i = 0; i < 5; i++) lump(p, hp, p.rng.range(0.019, 0.036), '#606873', METAL, 0.8);
   buildBin(p, '#15171a');
 }
 
@@ -352,7 +426,7 @@ function buildOre(p: Parts): void {
   const hp = heap(p.rng, { rings: 4, segs: 12, p: 1.0, q: 1.0, noise: 0.12, hnoise: 0.28 });
   const col = ramp('#7d2b14', '#b84c27');
   p.add(hp.geo, MATTE, (v) => col((v.y - BIN_H) / CARGO_H + 0.1), { flat: true, jitter: 0.26 });
-  for (let i = 0; i < 8; i++) lump(p, hp, p.rng.range(0.05, 0.085), p.rng.chance(0.6) ? '#a23b1f' : '#6b2512');
+  for (let i = 0; i < 12; i++) lump(p, hp, p.rng.range(0.033, 0.072), p.rng.chance(0.6) ? '#a23b1f' : '#6b2512');
   for (let i = 0; i < 3; i++) lump(p, hp, p.rng.range(0.03, 0.05), '#8b3f2a', METAL, 0.85);
   buildBin(p, '#4e1c0e');
 }
@@ -406,50 +480,82 @@ function buildSugar(p: Parts): void {
       }
       const g = pillow(ax, th, az, 0.55);
       const along = c.along;
+      const m = new THREE.Matrix4().compose(new THREE.Vector3(x + rng.range(-0.008, 0.008), y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, rng.range(-0.06, 0.06), 0)), new THREE.Vector3(1, 1, 1));
       p.add(
         g,
         MATTE,
         (v) => {
           const u = along === 'x' ? v.x / ax : v.z / az;
           if (Math.abs(u) > 0.86) return new THREE.Color('#cfc7b2'); // sewn ends
-          if (Math.abs(u) < 0.2) return new THREE.Color('#c4452f'); // printed band
+          if (Math.abs(u) < 0.34) return new THREE.Color('#b94d35'); // printed band
           return white(v.y / th * 0.5 + 0.5);
         },
-        { jitter: 0.03, m: new THREE.Matrix4().compose(new THREE.Vector3(x + rng.range(-0.012, 0.012), y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, rng.range(-0.07, 0.07), 0)), new THREE.Vector3(1, 1, 1)) },
+        { jitter: 0.015, m },
       );
+      for (const e of [-1, 1]) {
+        const points = Array.from({ length: 5 }, (_, i) => {
+          const t = i / 2 - 1;
+          return along === 'x'
+            ? new THREE.Vector3(e * ax * (1 - 0.1 * t * t) * 0.87, th * 0.45 + 0.002, t * az * 0.783)
+            : new THREE.Vector3(t * ax * 0.783, th * 0.45 + 0.002, e * az * (1 - 0.1 * t * t) * 0.87);
+        });
+        seam(p, points, '#b7ad91', m);
+      }
     }
   });
   buildBin(p, '#d6cfbc');
 }
 
 function buildFertiliser(p: Parts): void {
-  // two big bags with yellow lifting loops
+  // Two woven bulk bags, each with a gathered filling neck and four webbing loops.
   const rng = p.rng;
-  const a = 0.168;
-  const b = 0.122;
-  const c = 0.2;
-  const col = ramp('#8197ab', '#c5d3df');
+  const a = 0.158;
+  const b = 0.118;
+  const c = 0.185;
+  const col = ramp('#b3b6a8', '#f0efdf');
   for (const sx of [-1, 1]) {
     const x = sx * 0.175;
-    const y = BIN_H + 0.006 + b * 0.98;
+    const y = BIN_H + 0.006 + b;
+    const m = new THREE.Matrix4().compose(new THREE.Vector3(x, y, -0.015), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, rng.range(-0.035, 0.035), 0)), new THREE.Vector3(1, 1, 1));
     p.add(
-      pillow(a, b, c, 0.16),
+      bigBag(a, b, c),
       MATTE,
-      (v) => {
-        if (Math.abs(v.z) < 0.075 || (Math.abs(v.y / b - 0.05) < 0.22 && v.z > 0)) return new THREE.Color('#2fa062'); // the band, over the top and round the front
-        return col(v.y / b * 0.5 + 0.5);
-      },
-      { jitter: 0.03, m: new THREE.Matrix4().compose(new THREE.Vector3(x, y, -0.015), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, rng.range(-0.05, 0.05), 0)), new THREE.Vector3(1, 1, 1)) },
+      (v) => col(v.y / b * 0.5 + 0.5),
+      { jitter: 0.012, m },
     );
+    // The printed green patch follows the cloth's central crease with a crisp edge.
+    const patch = new THREE.BufferGeometry();
+    const patchPos: number[] = [];
+    const front = (px: number, py: number): [number, number, number] => {
+      const scale = 1 + 0.02 * (py / b + 0.65) / 0.9;
+      const crease = 0.94 + 0.06 * Math.abs(px) / (a * scale * 0.78);
+      return [px, py, c * scale * crease + 0.0015];
+    };
+    for (const e of [-1, 1]) {
+      const l = e < 0 ? -0.061 : 0;
+      const r = e < 0 ? 0 : 0.061;
+      patchPos.push(...front(l, -0.028), ...front(r, -0.028), ...front(r, 0.022), ...front(l, -0.028), ...front(r, 0.022), ...front(l, 0.022));
+    }
+    patch.setAttribute('position', new THREE.Float32BufferAttribute(patchPos, 3));
+    p.add(patch, MATTE, '#467e60', { m });
+    // Corner piping follows the swollen bag instead of suggesting a rigid crate.
     for (const lx of [-1, 1]) {
       for (const lz of [-1, 1]) {
-        const loop = new THREE.TorusGeometry(0.05, 0.011, 4, 8, Math.PI);
-        xf(loop, [x + lx * (a - 0.05), y + b * 0.62, -0.015 + lz * (c - 0.06)], [0, Math.PI / 4 * lx * lz + (lx > 0 ? 0 : Math.PI / 2), 0]);
-        p.add(loop, MATTE, '#f0a21a', { flat: true });
+        seam(p, [
+          new THREE.Vector3(lx * a * 0.84, -b * 0.88, lz * c * 0.69),
+          new THREE.Vector3(lx * a, -b * 0.4, lz * c * 0.72),
+          new THREE.Vector3(lx * a * 0.98, b * 0.35, lz * c * 0.72),
+          new THREE.Vector3(lx * a * 0.80, b * 0.80, lz * c * 0.60),
+        ], '#e8dfc7', m, 0.004);
+        const loop = liftingLoop();
+        xf(loop, [lx * a * 0.64, b * 0.72, lz * c * 0.65], [0, lx * lz * 0.35, 0]);
+        p.add(loop, MATTE, '#d49a28', { flat: true, m });
       }
     }
+    p.add(xf(new THREE.CylinderGeometry(0.027, 0.045, 0.028, 7), [0, b * 1.20, 0]), MATTE, '#e6e2cc', { flat: true, m });
+    p.add(xf(new THREE.CylinderGeometry(0.03, 0.03, 0.007, 7), [0, b * 1.25, 0]), MATTE, '#527664', { flat: true, m });
   }
-  buildBin(p, '#6d7f8d');
+  buildBin(p, '#989e8e');
 }
 
 function buildTimber(p: Parts): void {
@@ -457,7 +563,7 @@ function buildTimber(p: Parts): void {
   const r = 0.052;
   const dy = r * Math.sqrt(3);
   const rows = [4, 3, 2];
-  const bark = ramp('#5e3d22', '#85603a');
+  const bark = ramp('#493524', '#826041');
   const centres: [number, number][] = [];
   rows.forEach((n, row) => {
     for (let k = 0; k < n; k++) {
@@ -467,13 +573,13 @@ function buildTimber(p: Parts): void {
       const len = 0.7 + rng.range(-0.06, 0.02);
       const x = rng.range(-0.025, 0.025);
       const rr = r * rng.range(0.94, 1.0);
-      const side = new THREE.CylinderGeometry(rr, rr, len, 9, 1, true);
+      const side = new THREE.CylinderGeometry(rr * 0.96, rr, len, 9, 2, true);
       side.rotateZ(Math.PI / 2);
       side.rotateX(rng.next() * 6);
       xf(side, [x, y, z]);
-      p.add(side, MATTE, (v) => bark(0.5 + Math.sin(v.y * 90 + v.z * 70) * 0.3), { flat: true, jitter: 0.14 });
+      p.add(side, MATTE, (v, n) => bark(0.48 + Math.sin(Math.atan2(n.y, n.z) * 5) * 0.22 + Math.sin(v.x * 21) * 0.07), { flat: true, jitter: 0.06 });
       // end grain: concentric rings of pale wood
-      const heart = ['#a9783d', '#dcbb7f', '#c79b5c', '#e6cb92', '#c99f62'];
+      const heart = ['#b08950', '#d2b477', '#b99357', '#d8ba7e', '#b68c4d'];
       for (const e of [-1, 1]) {
         for (const band of discBands(0, rr * 0.98, heart, 9)) {
           const g = band.g;
@@ -481,6 +587,17 @@ function buildTimber(p: Parts): void {
           xf(g, [x + e * (len / 2 + 0.0015), y, z]);
           p.add(g, MATTE, band.c, { flat: true, jitter: 0.03 });
         }
+        const split = new THREE.BoxGeometry(0.003, rr * 0.85, 0.0035);
+        split.rotateX(rng.range(-1.2, 1.2));
+        xf(split, [x + e * (len / 2 + 0.003), y + rr * 0.12, z]);
+        p.add(split, MATTE, '#725332');
+      }
+      // Broken ridges run along the bark, rather than looking like painted smooth dowels.
+      for (const a of [-0.6, 1.4]) {
+        const ridge = new THREE.BoxGeometry(len * rng.range(0.65, 0.85), 0.004, 0.006);
+        ridge.rotateX(a);
+        xf(ridge, [x, y + Math.cos(a) * rr * 0.97, z + Math.sin(a) * rr * 0.97]);
+        p.add(ridge, MATTE, '#4c3828');
       }
     }
   });
@@ -495,6 +612,8 @@ function buildTimber(p: Parts): void {
     g.rotateY(-Math.PI / 2);
     xf(g, [sx + 0.02, 0, 0]);
     p.add(g, MATTE, '#e7a91c', { flat: true, jitter: 0.04 });
+    const top = Math.max(...outer.map(([, y]) => y));
+    p.add(xf(new THREE.BoxGeometry(0.055, 0.009, 0.036), [sx, top + 0.003, -0.015]), MATTE, '#58636b', { flat: true });
   }
   // dunnage under the bundle
   for (const x of [-0.24, 0.24]) p.add(new THREE.BoxGeometry(0.06, 0.02, 0.48), MATTE, '#7a5a37', { m: new THREE.Matrix4().makeTranslation(x, BIN_H + 0.008, -0.015) });

@@ -14,6 +14,7 @@ import type { FlagId } from '../src/render/flags';
 const q = new URLSearchParams(location.search);
 const view = q.get('v') ?? 'all';
 const set = Number(q.get('set') ?? 1);
+const focus = COMMODITIES.find((c) => c === q.get('commodity'));
 
 const SETS: Commodity[][] = [
   ['grain', 'coal', 'ore', 'steel'],
@@ -85,21 +86,32 @@ for (const c of feeder.cranes) c.update(0, true);
 // every commodity on the quay
 const tags: { el: HTMLElement; at: THREE.Vector3 }[] = [];
 const ROW_Z = 7.0;
+const parcels: THREE.Mesh[] = [];
 COMMODITIES.forEach((c, i) => {
   const m = makeParcel({ color: PORT_COLORS[i % PORT_COLORS.length], weight: WEIGHTS[i], commodity: c, destCode: CODES[i % CODES.length] });
   const x = (i - (COMMODITIES.length - 1) / 2) * 1.2;
   m.position.set(x, QUAY_TOP + BOX_H / 2, ROW_Z);
   scene.add(m);
+  parcels.push(m);
   const el = document.createElement('div');
   el.className = 'tag';
   el.textContent = c;
   if (q.get('labels') !== '0') document.body.appendChild(el);
   tags.push({ el, at: new THREE.Vector3(x, QUAY_TOP - 0.02, ROW_Z + 0.5) });
+  if (focus && focus !== c) {
+    m.visible = false;
+    el.hidden = true;
+  }
 });
 // a container beside the row for scale
 const box = makeBox({ color: PORT_COLORS[1], weight: 4, flag: 'B' });
 box.position.set((COMMODITIES.length / 2 + 0.3) * 1.2 + 0.2, QUAY_TOP + BOX_H / 2, ROW_Z);
 scene.add(box);
+if (focus) {
+  bulker.group.visible = false;
+  feeder.group.visible = false;
+  box.visible = false;
+}
 
 if (q.get('bounds')) {
   const lim = new THREE.Vector3(BOX_LEN / 2, BOX_H / 2, BOX_W / 2);
@@ -122,6 +134,7 @@ const VIEWS: Record<string, { at: [number, number, number]; span: number }> = {
   feeder: { at: [1.0, 1.5, -4.6], span: 10.5 },
   crane: { at: [2.1, 2.3, 1.2], span: 4.2 },
 };
+if (focus) VIEWS[view] = { at: [parcels[COMMODITIES.indexOf(focus)].position.x, 1.15, ROW_Z], span: 1.8 };
 function layout(): void {
   const w = window.innerWidth;
   const h = window.innerHeight;
@@ -143,6 +156,9 @@ function layout(): void {
 }
 window.addEventListener('resize', layout);
 layout();
+
+// Read-only inspection handles for finite geometry, bounds, materials and renderer checks.
+Object.assign(window, { bulkReview: { parcels, renderer, camera, scene, bulker, limits: { BOX_LEN, BOX_H, BOX_W } } });
 
 let clock = 0;
 renderer.setAnimationLoop(() => {
