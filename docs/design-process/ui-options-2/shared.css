@@ -1,0 +1,100 @@
+/* Full & Down — HUD concepts, round 2. Shared: tokens, the phone frame, the title row and profit rule
+   (kept as they are in the game), and the dock. Each concept file adds only its own two parts. */
+:root {
+  --num: 'Oswald', 'Arial Narrow', sans-serif;
+  --font: 'Sofia Sans', system-ui, sans-serif;
+  --enamel: #f8f7f2;
+  --enamel-2: #ecebe4;
+  --enamel-3: #dedcd3;
+  --navy: #1f2e4d;
+  --navy-2: #33456b;
+  --ink: #1b2436;
+  --ink-2: #5c6779;
+  --ink-3: #8a93a3;
+  --rule: rgba(31, 46, 77, 0.16);
+  --red: #d62f2b;
+  --yellow: #f5c518;
+  --blue: #1e4fa3;
+  --black: #15181e;
+  --fuel: #ee8b1e;
+  --fuel-2: #c96d0e;
+  --fuel-soft: #fbe6cc;
+  --ok: #2f8a72;
+  --hull-red: #b9412f;
+  --sea: #2a7fb8;
+  --shadow-sm: 0 2px 6px rgba(18, 30, 52, 0.2);
+  --hazard: repeating-linear-gradient(-45deg, #15181e 0 6px, #f5c518 6px 12px);
+  --p-kel: #5b6472;
+  --p-lbc: #2c5da8;
+  --p-cph: #2f8a72;
+  --p-got: #7b3f6e;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: #172238; font-family: var(--font); color: var(--ink); -webkit-font-smoothing: antialiased; }
+
+/* ── the sheet: a concept name, then the phones side by side ── */
+.sheet { padding: 22px 24px 26px; }
+.sheet > header { display: flex; align-items: baseline; gap: 14px; height: 44px; color: #f8f7f2; }
+.sheet > header b { font: 600 26px/1 var(--num); letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
+.sheet > header span { font: 500 15px/1.3 var(--font); color: #b9c4d6; }
+.phones { display: flex; gap: 24px; }
+.cap { height: 30px; display: flex; align-items: center; gap: 8px; color: #dfe6f0; font: 700 13px/1 var(--font); letter-spacing: 0.12em; text-transform: uppercase; }
+.cap i { width: 9px; height: 9px; border-radius: 50%; background: var(--red); }
+.cap i.ok { background: #49b293; }
+.cap i.touch { background: var(--yellow); }
+
+/* the scene: a crop of the real game (level 12 at Kiel, the 3 t Copenhagen box aboard). A concept whose
+   top block is shorter shifts it up (--shift), as the game's framing would; more quay shows below. */
+.phone { position: relative; width: 390px; height: 844px; overflow: hidden; border-radius: 4px; background: url(assets/bg.png) 0 var(--shift, 0px) / 390px 844px no-repeat, url(assets/quay.png) 0 100% / 390px 194px no-repeat, #e9e4da; }
+.phone > * { position: absolute; }
+
+/* ── enamel plate and buttons (as in the game) ── */
+.plate { background: var(--enamel); border-radius: 7px; box-shadow: inset 0 0 0 2px rgba(31, 46, 77, 0.12), var(--shadow-sm); color: var(--ink); }
+.num { font-family: var(--num); font-variant-numeric: tabular-nums; }
+.caps { font: 700 12px/1 var(--font); letter-spacing: 0.12em; text-transform: uppercase; }
+.btn { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 0; border-radius: 7px; background: var(--enamel); color: var(--navy); font: 600 17px/1 var(--num); letter-spacing: 0.06em; text-transform: uppercase; box-shadow: inset 0 0 0 2px rgba(31, 46, 77, 0.14), 0 3px 0 rgba(31, 46, 77, 0.28), var(--shadow-sm); }
+.btn.sq { width: 44px; min-width: 44px; padding: 0; }
+.btn.fuel { background: var(--fuel); color: #fff; box-shadow: 0 3px 0 var(--fuel-2), var(--shadow-sm); }
+.btn.ok { background: var(--ok); color: #fff; box-shadow: 0 3px 0 #1f6553, var(--shadow-sm); }
+.btn .sub { display: block; margin-top: 3px; font: 700 12px/1 var(--font); letter-spacing: 0.02em; text-transform: none; opacity: 0.95; }
+.btn .two { display: flex; flex-direction: column; align-items: center; }
+svg.g { display: block; flex: none; }
+
+/* ── title row and profit rule (unchanged from the game) ── */
+.hud-top { left: 10px; right: 10px; top: 8px; height: 44px; display: flex; gap: 8px; }
+.hud-top .pause { width: 46px; height: 44px; }
+.title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 6px; height: 44px; }
+.title .lv { display: grid; place-items: center; min-width: 34px; height: 32px; padding: 0 6px; border-radius: 5px; background: var(--navy); color: #f8f7f2; font: 600 18px/1 var(--num); }
+.title .tt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.title .tt b { font: 600 17px/1 var(--num); letter-spacing: 0.03em; text-transform: uppercase; }
+.title .tt small { font: 700 9.5px/1 var(--font); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-2); }
+.title .best { display: flex; gap: 1px; color: var(--ink-2); }
+.rule { left: 10px; right: 10px; top: 58px; height: 46px; display: flex; align-items: center; gap: 12px; padding: 0 12px 0 10px; }
+.rule .money { display: flex; flex-direction: column; align-items: flex-end; min-width: 58px; font: 600 26px/1 var(--num); color: var(--navy); }
+.rule .money .cap2 { font: 700 8.5px/1 var(--font); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 1px; }
+.rule .money small { font-size: 15px; margin-right: 1px; vertical-align: 4px; }
+.rule .rcol { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.rule .track { position: relative; height: 8px; border-radius: 4px; background: var(--enamel-3); }
+.rule .mark { position: absolute; top: -3px; width: 3px; height: 14px; margin-left: -1.5px; border-radius: 1px; background: var(--ink-2); }
+.rule .mark i { position: absolute; bottom: calc(100% + 1px); left: 50%; transform: translateX(-50%); font: 900 9px/1 var(--font); font-style: normal; letter-spacing: -1px; color: var(--ink-2); }
+.rule .legend { display: flex; justify-content: space-between; color: var(--ink-2); }
+.rule .legend span { display: inline-flex; align-items: center; white-space: nowrap; }
+.rule .legend b { margin-left: 4px; font: 600 13px/1 var(--num); }
+
+/* ── the dock: undo, hint, SAIL (Blue Peter) ── */
+.dock { left: 10px; right: 10px; bottom: 12px; height: 52px; display: flex; gap: 8px; }
+.dock .btn { min-height: 52px; height: 52px; }
+.dock .undo { width: 52px; min-width: 52px; padding: 0; }
+.dock .hint { flex: 1; }
+.dock .hint::after { content: '3'; position: absolute; top: -7px; right: -5px; display: grid; place-items: center; min-width: 22px; height: 22px; border-radius: 11px; background: var(--yellow); color: var(--black); font: 600 13px/1 var(--num); box-shadow: 0 0 0 2px var(--enamel); }
+.dock .sail { flex: 1.6; min-width: 0; background: var(--blue); color: #fff; justify-content: flex-start; padding: 0 14px; gap: 12px; }
+.dock .sail .flagsw { width: 26px; height: 18px; border-radius: 2px; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.8); background: var(--blue); position: relative; flex: none; }
+.dock .sail .flagsw::after { content: ''; position: absolute; inset: 32% 32%; background: #fff; }
+.dock .sail .lbl { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.dock .sail .lbl b { font: 600 19px/1 var(--num); letter-spacing: 0.06em; }
+.dock .sail .lbl small { font: 700 12px/1 var(--font); letter-spacing: 0.03em; text-transform: none; white-space: nowrap; }
+.dock .sail.blocked { background: #7c8798; }
+.dock .sail.blocked .flagsw { opacity: 0.6; }
+
+/* ── flags ── */
+.flag { display: block; border-radius: 1.5px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.22); flex: none; }

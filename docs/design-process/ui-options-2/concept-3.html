@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>The Slip</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Sofia+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+/* Concept 3 — the Chief Officer's slip. No bars and no chips: the bunker sum as a mate writes it.
+   Fuel aboard, minus each leg's burn (with the band that sets it), equals ROB at the next port that
+   sells bunkers. The rotation is one typeset line at the top. */
+.phone { --shift: -52px; }
+.rot { left: 10px; right: 10px; top: 110px; height: 42px; display: flex; align-items: flex-start; padding: 7px 12px 0; }
+.rot .p { display: flex; flex-direction: column; align-items: center; gap: 4px; white-space: nowrap; }
+.rot .p b { font: 600 14px/1 var(--num); letter-spacing: 0.06em; color: var(--ink); }
+.rot .p small { font: 700 12px/1 var(--font); color: var(--ink-2); }
+.rot .p small.dry { color: var(--red); }
+.rot .p.here b { color: #fff; background: var(--navy); padding: 2px 6px 1px; margin: -2px 0 -1px; border-radius: 3px; }
+.rot .p.later { opacity: 0.55; }
+.rot .l { flex: 1; min-width: 18px; position: relative; height: 14px; margin: 0 5px; }
+.rot .l::before { content: ''; position: absolute; left: 0; right: 0; top: 7px; border-top: 1.5px solid #b8bcc6; }
+.rot .l span { position: absolute; left: 50%; top: 16px; transform: translateX(-50%); font: 600 12px/1 var(--num); color: var(--ink-3); white-space: nowrap; }
+
+.slip { left: 10px; right: 10px; top: 599px; height: 173px; padding: 9px 14px 0; }
+.slip .row { position: relative; display: flex; align-items: baseline; height: 20px; gap: 8px; padding-right: 54px; white-space: nowrap; }
+.slip .row .k { font: 600 14.5px/1 var(--font); color: var(--ink); }
+.slip .row .note { font: 600 12px/1 var(--font); color: var(--ink-2); }
+.slip .row .band { font: 800 12px/1 var(--font); letter-spacing: 0.1em; }
+.slip .row .v { position: absolute; right: 0; bottom: 3px; font: 600 18px/1 var(--num); color: var(--ink); min-width: 46px; text-align: right; }
+.slip .row .v small { font-size: 14px; margin-left: 2px; }
+.slip .row.aboard .v { color: var(--fuel-2); }
+.slip .row.leg .v { color: var(--ink-2); }
+.slip .sum { height: 0; border-top: 2px solid var(--navy); margin: 2px 0 5px 0; }
+.slip .row.res { height: 24px; }
+.slip .row.res .k { font-weight: 800; }
+.slip .row.res .v { font-size: 24px; }
+.slip .row.res.bad .v { color: var(--red); }
+.slip .row.res.on .v { color: var(--ok); }
+.slip .row.res .stamp { margin-left: 4px; padding: 3px 6px 2px; border: 2px solid currentColor; border-radius: 3px; font: 800 12px/1 var(--font); letter-spacing: 0.12em; text-transform: uppercase; transform: rotate(-3deg); }
+.slip .row.res.bad .stamp { color: var(--red); }
+.slip .row.res.on .stamp { color: var(--ok); }
+.slip .foot { position: absolute; left: 12px; right: 12px; bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.slip .foot::before { content: ''; position: absolute; left: 2px; right: 2px; top: -8px; border-top: 1px dashed rgba(31,46,77,.22); }
+.dwt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding-left: 2px; }
+.dwt span { font: 700 12px/1 var(--font); letter-spacing: 0.12em; color: var(--ink-2); }
+.dwt b { font: 600 24px/1 var(--num); color: var(--navy); white-space: nowrap; }
+.dwt b small { font-size: 15px; color: var(--ink-2); margin-left: 1px; }
+.slip .buy { min-width: 112px; }
+.slip .buy .two b { font: 600 18px/1 var(--num); letter-spacing: 0.05em; }
+.slip .buy.done { background: transparent; color: var(--ok); box-shadow: inset 0 0 0 2px rgba(47, 138, 114, 0.5); }
+.slip .buy.done .two b { display: flex; align-items: center; gap: 4px; }
+.slip .buy.done .sub { color: var(--ink-2); }
+</style></head>
+<body>
+<div class="sheet">
+  <header><b>3 · The slip</b><span>The bunker sum as a mate writes it: aboard, minus each leg, equals ROB at the next pump.</span></header>
+  <div class="phones">
+    <div><div class="cap"><i></i>Mid-plan · Kiel · 1 t short</div><div class="phone" id="p1"></div></div>
+    <div><div class="cap"><i class="ok"></i>Ready to sail</div><div class="phone" id="p2"></div></div>
+  </div>
+</div>
+<script src="shared.js"></script>
+<script>
+const BANDTXT = ['#4f7fb3', '#4a6fa5', '#1f2e4d'];
+function rot(s) {
+  let h = '';
+  LV.ports.forEach((p, i) => {
+    const pump = p.final ? 'final' : p.price === null ? 'no fuel' : `$${p.price}/t`;
+    h += `<div class="p ${i === 0 ? 'here' : ''} ${i > s.until ? 'later' : ''}"><b>${p.name.toUpperCase()}</b><small class="${p.price === null && !p.final ? 'dry' : ''}">${pump}</small></div>`;
+    if (i < LV.legs.length) h += `<div class="l"><span>${LV.legs[i].days} d</span></div>`;
+  });
+  return `<div class="rot plate">${h}</div>`;
+}
+function slip(s) {
+  let h = `<div class="row aboard"><span class="k">Bunkers aboard</span><span class="note">+${s.bought} t at $${LV.ports[0].price}</span><span class="v">${s.fuel}<small>t</small></span></div>`;
+  for (let i = 0; i < s.until; i++) {
+    const L = s.legs[i];
+    h += `<div class="row leg"><span class="k">${LV.ports[i].name} – ${LV.ports[i + 1].name}</span><span class="note">${L.days} d · at ${L.w} t</span><span class="band" style="color:${BANDTXT[L.band]}">${LV.ship.bands[L.band].name}</span><span class="v">−${L.burn}<small>t</small></span></div>`;
+  }
+  const rob = s.legs[s.until - 1].in;
+  const bad = rob < LV.reserve, on = rob === LV.reserve;
+  h += `<div class="sum"></div>`;
+  h += `<div class="row res ${bad ? 'bad' : on ? 'on' : ''}"><span class="k">ROB at ${LV.ports[s.until].name}</span>${on ? '' : `<span class="note">min ${LV.reserve} t</span>`}${bad ? '<span class="stamp">Short</span>' : on ? '<span class="stamp">On the reserve</span>' : ''}<span class="v">${rob}<small>t</small></span></div>`;
+  const buy = s.buy > 0
+    ? `<div class="btn fuel buy"><span class="two"><b>Buy ${s.buy} t</b><span class="sub">$${s.buy * LV.ports[0].price}</span></span></div>`
+    : `<div class="btn buy done"><span class="two"><b>${glyph('check', 16, 2.6)}Enough</b></span></div>`;
+  h += `<div class="foot"><div class="dwt"><span>DWT · ${LV.ship.bands[s.band].name}</span><b>${s.weight}<small>/${LV.ship.capacity} t</small></b></div><div class="btn sq">${glyph('minus', 18)}</div><div class="btn sq">${glyph('plus', 18)}</div>${buy}</div>`;
+  return `<div class="slip plate">${h}</div>`;
+}
+function phone(el, s) {
+  el.innerHTML = headHtml(s.profit) + rot(s) + slip(s) + dockHtml(s.buy > 0 ? { blocked: true, sub: `buy ${s.buy} t first` } : { blocked: false, sub: 'to Lübeck' });
+}
+phone(document.getElementById('p1'), MID);
+phone(document.getElementById('p2'), READY);
+</script>
+</body></html>

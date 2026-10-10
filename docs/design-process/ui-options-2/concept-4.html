@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Quiet Until Touched</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Sofia+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+/* Concept 4 — quiet until touched. At rest the HUD says two things: how heavy she sails (and so how
+   hungry), and whether her fuel reaches the next pump. The route is a thin line of ports. Put a thumb on
+   the fuel and the working opens under it: her deadweight with the bands, the fuel as a level you drag,
+   and each leg's burn, all updating as you move. Lift the thumb and it folds away. */
+.pass { left: 10px; right: 10px; top: 110px; height: 36px; display: flex; align-items: center; padding: 0 12px; }
+.pass .p { display: flex; align-items: center; gap: 5px; font: 600 15px/1 var(--num); letter-spacing: 0.05em; color: var(--ink); white-space: nowrap; position: relative; }
+.pass .p.here { color: #fff; background: var(--navy); padding: 4px 7px 4px 5px; margin: 0 -2px; border-radius: 4px; }
+.pass .p.later { opacity: 0.5; }
+.pass .p.bad::after { content: ''; position: absolute; right: -6px; top: -5px; width: 9px; height: 9px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 2px var(--enamel); }
+.pass .p .nf { display: inline-block; margin-left: -1px; color: var(--red); }
+.pass .l { flex: 1; height: 0; border-top: 2px solid #c3c6ce; margin: 0 8px; position: relative; }
+.pass .l.bad { border-top: 4px solid transparent; border-image: var(--hazard) 4; }
+
+/* at rest: one plate */
+.rest { left: 10px; right: 10px; top: 712px; height: 60px; display: flex; align-items: center; gap: 0; padding: 0 8px 0 12px; }
+.rest .a, .rest .b { display: flex; flex-direction: column; gap: 5px; white-space: nowrap; }
+.rest .a { width: 98px; }
+.rest .big { font: 600 25px/1 var(--num); color: var(--navy); }
+.rest .big small { font-size: 15px; color: var(--ink-2); margin-left: 1px; }
+.rest .lbl { font: 800 12px/1 var(--font); letter-spacing: 0.1em; color: #fff; padding: 3px 5px 2px; border-radius: 3px; align-self: flex-start; }
+.rest .lbl i { font-style: normal; font-weight: 700; letter-spacing: 0.02em; }
+.rest .vr { width: 1px; align-self: stretch; margin: 10px 12px; background: var(--rule); }
+.rest .b { flex: 1; min-width: 0; }
+.rest .b .big { color: var(--fuel-2); display: flex; align-items: baseline; gap: 6px; }
+.rest .b .big .to { font: 700 13px/1 var(--font); color: var(--ink-2); letter-spacing: 0.02em; }
+.rest .b .st { font: 700 12.5px/1 var(--font); color: var(--ink-2); }
+.rest .b .st.bad { color: var(--red); }
+.rest .b .st.ok { color: var(--ok); }
+.rest .buy { min-width: 98px; height: 46px !important; min-height: 46px !important; }
+.rest .buy .two b { font: 600 18px/1 var(--num); letter-spacing: 0.05em; }
+.rest .buy.done { background: transparent; color: var(--ok); box-shadow: inset 0 0 0 2px rgba(47, 138, 114, 0.5); }
+.rest .buy.done .two b { display: flex; align-items: center; gap: 4px; font-size: 16px; }
+.rest.touch .b { background: rgba(238, 139, 30, 0.12); border-radius: 6px; margin: 5px 0; padding: 6px 8px; box-shadow: inset 0 0 0 2px var(--fuel); }
+
+/* touched: the working opens over the quay */
+.sheet2 { left: 10px; right: 10px; top: 506px; height: 200px; padding: 12px 14px 0; }
+.sheet2 h4 { display: flex; justify-content: space-between; font: 700 12px/1 var(--font); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-2); }
+.sheet2 h4 b { color: var(--ink); }
+.dw { position: relative; height: 92px; margin-top: 10px; }
+.dw > * { position: absolute; }
+.dw .zone { top: 0; height: 22px; display: flex; align-items: center; justify-content: center; gap: 4px; border-radius: 3px; background: var(--zb); color: var(--zt); font: 800 12px/1 var(--font); letter-spacing: 0.08em; white-space: nowrap; }
+.dw .zone i { font-style: normal; font-weight: 700; letter-spacing: 0.01em; }
+.dw .zone.on { box-shadow: inset 0 0 0 2px var(--navy); }
+.dw .bar { top: 30px; height: 30px; border-radius: 4px; background: var(--enamel-3); }
+.dw .seg { top: 30px; height: 30px; display: grid; place-items: center; color: #fff; font: 600 15px/1 var(--num); }
+.dw .seg.c { background: var(--p-cph); border-radius: 4px 0 0 4px; }
+.dw .seg.f { background: var(--fuel); }
+.dw .need { top: 26px; height: 38px; border: 2px dashed var(--fuel-2); border-left: 0; border-radius: 0 4px 4px 0; background: repeating-linear-gradient(-45deg, rgba(238,139,30,.35) 0 3px, transparent 3px 7px); }
+.dw .knob { top: 27px; width: 36px; height: 36px; margin-left: -18px; border-radius: 50%; background: #fff; border: 3px solid var(--fuel-2); box-shadow: 0 3px 8px rgba(0,0,0,.28); display: grid; place-items: center; font: 600 17px/1 var(--num); color: var(--fuel-2); }
+.dw .ring { top: 19px; width: 52px; height: 52px; margin-left: -26px; border-radius: 50%; background: rgba(238, 139, 30, 0.16); }
+.dw .needl { top: 30px; height: 30px; width: 0; border-left: 2px dashed var(--fuel-2); margin-left: -1px; }
+.dw .needm { top: 64px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 2px; font: 700 12px/1 var(--font); color: var(--fuel-2); white-space: nowrap; }
+.dw .needm i { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 6px solid var(--fuel-2); }
+.dw .mk { top: 26px; width: 3px; height: 38px; margin-left: -1.5px; background: var(--red); border-radius: 1px; }
+.dw .thumb { top: 40px; width: 64px; height: 70px; margin-left: -14px; border-radius: 32px 32px 26px 26px; background: rgba(214, 160, 120, 0.55); filter: blur(0.4px); transform: rotate(-18deg); }
+.dw .marks { top: 68px; left: 0; right: 0; height: 18px; }
+.dw .marks span { position: absolute; transform: translateX(-50%); font: 600 12.5px/1 var(--num); color: var(--ink-3); }
+.dw .marks span:first-child { transform: none; }
+.dw .marks span.m { transform: translateX(-100%); }
+.dw .marks span.m { color: var(--red); }
+.legs { margin-top: 2px; border-top: 1px solid var(--rule); }
+.legs .r { display: flex; align-items: baseline; gap: 8px; height: 25px; padding-top: 7px; white-space: nowrap; border-bottom: 1px solid var(--rule); }
+.legs .r .k { font: 600 14px/1 var(--font); width: 152px; }
+.legs .r .bd { font: 800 12px/1 var(--font); letter-spacing: 0.08em; width: 64px; }
+.legs .r .bu { font: 600 16px/1 var(--num); color: var(--fuel-2); width: 36px; text-align: right; }
+.legs .r .rb { margin-left: auto; font: 600 16px/1 var(--num); color: var(--ink); }
+.legs .r .rb small { font: 700 12px/1 var(--font); color: var(--ink-2); margin-right: 4px; letter-spacing: 0.04em; }
+.legs .r.bad .rb { color: var(--red); }
+.legs .r.bad .rb small { color: var(--red); }
+</style></head>
+<body>
+<div class="sheet">
+  <header><b>4 · Quiet until touched</b><span>At rest, two numbers. A thumb on the fuel opens the working under it.</span></header>
+  <div class="phones">
+    <div><div class="cap"><i></i>Mid-plan · at rest</div><div class="phone" id="p1"></div></div>
+    <div><div class="cap"><i class="touch"></i>Mid-plan · thumb on the fuel</div><div class="phone" id="p2"></div></div>
+    <div><div class="cap"><i class="ok"></i>Ready to sail</div><div class="phone" id="p3"></div></div>
+  </div>
+</div>
+<script src="shared.js"></script>
+<script>
+const BANDTXT = ['#4f7fb3', '#4a6fa5', '#1f2e4d'];
+function pass(s) {
+  let h = '';
+  LV.ports.forEach((p, i) => {
+    const bad = s.short === i;
+    h += `<div class="p ${i === 0 ? 'here' : ''} ${i > s.until ? 'later' : ''} ${bad ? 'bad' : ''}">${flagSvg(p.cc, 18, 12)}${p.code}${p.price === null && !p.final ? `<span class="nf">${glyph('nofuel', 15, 2.2)}</span>` : ''}</div>`;
+    if (i < LV.legs.length) h += `<div class="l ${s.short === i + 1 ? 'bad' : ''}"></div>`;
+  });
+  return `<div class="pass plate">${h}</div>`;
+}
+function rest(s, touch) {
+  const b = LV.ship.bands[s.band];
+  const rob = s.legs[s.until - 1].in;
+  const to = LV.ports[s.until];
+  const bad = rob < LV.reserve;
+  const st = bad ? `<span class="st bad">short for ${to.code}</span>` : `<span class="st ok">${to.code} on the reserve</span>`;
+  const buy = s.buy > 0
+    ? `<div class="btn fuel buy"><span class="two"><b>Buy ${s.buy} t</b><span class="sub">$${s.buy * LV.ports[0].price}</span></span></div>`
+    : `<div class="btn buy done"><span class="two"><b>${glyph('check', 16, 2.6)}Enough</b></span></div>`;
+  return `<div class="rest plate ${touch ? 'touch' : ''}"><div class="a"><span class="big">${s.weight}<small>/${LV.ship.capacity} t</small></span><span class="lbl" style="background:${BAND_COL[s.band]}">${b.name} <i>${b.rate} t/day</i></span></div><div class="vr"></div>
+    <div class="b"><span class="big">${glyph('fuel', 18)}${s.fuel}<small> t</small><span class="to">aboard</span></span>${st}</div>${buy}</div>`;
+}
+function working(s) {
+  const C = LV.ship.capacity;
+  const L0 = 2, L1 = 340; // px span of 0 … 17 t
+  const x = (w) => L0 + (w / C) * (L1 - L0);
+  let h = `<h4><span>Deadweight and bunkers at <b>Kiel</b></span><span>$${LV.ports[0].price}<span style="text-transform:none">/t</span></span></h4><div class="dw">`;
+  let lo = 0;
+  LV.ship.bands.forEach((b, i) => {
+    h += `<div class="zone ${s.band === i ? 'on' : ''}" style="left:${x(lo) + (i ? 2 : 0)}px;width:${x(b.upTo) - x(lo) - (i ? 2 : 0)}px;--zb:${i === s.band ? BAND_COL[i] : '#e7e5de'};--zt:${i === s.band ? '#fff' : BANDTXT[i]}">${b.name} <i>${b.rate} t/day</i></div>`;
+    lo = b.upTo;
+  });
+  h += `<div class="bar" style="left:${x(0)}px;width:${x(C) - x(0)}px"></div>`;
+  h += `<div class="seg c" style="left:${x(0)}px;width:${x(s.cargoW) - x(0)}px">${s.cargoW}</div>`;
+  h += `<div class="seg f" style="left:${x(s.cargoW)}px;width:${x(s.weight) - x(s.cargoW)}px">${s.fuel} t</div>`;
+  h += `<div class="ring" style="left:${x(s.weight)}px"></div><div class="knob" style="left:${x(s.weight)}px">${s.weight}</div>`;
+  h += `<div class="marks">${[0, 5, 11].map((w) => `<span style="left:${x(w)}px">${w}</span>`).join('')}<span class="m" style="left:${x(17)}px">17</span></div>`;
+  if (s.buy > 0) h += `<div class="needl" style="left:${x(s.weight + s.buy)}px"></div><div class="needm" style="left:${x(s.weight + s.buy)}px"><i></i>need</div>`;
+  h += `<div class="mk" style="left:${x(17)}px"></div></div>`;
+  h += `<div class="legs">`;
+  for (let i = 0; i < s.until; i++) {
+    const L = s.legs[i];
+    const bad = L.in < LV.reserve;
+    h += `<div class="r ${bad ? 'bad' : ''}"><span class="k">${LV.ports[i].name} → ${LV.ports[i + 1].name}</span><span class="bd" style="color:${BANDTXT[L.band]}">${L.days} d ${LV.ship.bands[L.band].name}</span><span class="bu">−${L.burn}</span><span class="rb"><small>ROB</small>${L.in} t</span></div>`;
+  }
+  h += `</div>`;
+  return `<div class="sheet2 plate">${h}</div>`;
+}
+function phone(el, s, touch) {
+  el.innerHTML = headHtml(s.profit) + pass(s) + (touch ? working(s) : '') + rest(s, touch) + dockHtml(s.buy > 0 ? { blocked: true, sub: `buy ${s.buy} t first` } : { blocked: false, sub: 'to Lübeck' });
+}
+phone(document.getElementById('p1'), MID, false);
+phone(document.getElementById('p2'), MID, true);
+phone(document.getElementById('p3'), READY, false);
+</script>
+</body></html>

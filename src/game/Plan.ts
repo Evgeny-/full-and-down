@@ -207,15 +207,28 @@ export class PlanModel {
   }
 
   /**
-   * Port by port: may she sail the leg from the port she's at? Only this leg's problems count
-   * (fuel for this leg, her marks and bars here and on arrival, contract boxes here). Later legs
-   * are planned when she gets there.
+   * Port by port: may she sail the leg from the port she's at? This leg's problems count (her marks
+   * and bars here and on arrival, contract boxes here), and fuel as far as the next port that sells
+   * bunkers. Later legs are planned when she gets there.
    */
   legRefusal(): Refusal | null {
+    const lv = this.level;
     const pr = this.sim.projection;
     const here = this.port;
-    const p = pr.problems.find((x) => (x.port === here && x.code !== 'barAhead') || (x.code === 'barAhead' && x.port === here + 1));
-    return p ?? null;
+    // this call's fuel must reach the next port that sells bunkers: a leg short before it can't be
+    // fixed later (she'd be stranded at a port with no pump)
+    let until = here + 1;
+    while (until < lv.ports.length - 1 && lv.ports[until].price === null) until++;
+    const p = pr.problems.find((x) => (x.port === here && x.code !== 'barAhead') || (x.code === 'barAhead' && x.port === here + 1) || (x.code === 'short' && x.port > here && x.port < until));
+    if (!p || p.code !== 'short' || lv.ports[here]?.price == null) return p ?? null;
+    // one figure for the shortfall, the tonnes BUY adds here (more fuel makes her heavier and hungrier,
+    // so it can be more than any single leg's deficit)
+    const need = this.needTotal();
+    const n = need === null ? 0 : need - (this.sim.plan[here]?.bunker ?? 0);
+    if (n <= 0) return p;
+    const dry = lv.ports.slice(here + 1, until).map((x) => x.name);
+    const note = dry.length ? `, and ${dry.join(' and ')} sell${dry.length > 1 ? '' : 's'} no bunkers` : '';
+    return { ...p, amount: n, text: `CHIEF: ${n} t short to reach ${lv.ports[until].name} on the reserve${note}.` };
   }
 
   /** Sail to the next port (the plan for this call is locked in; undo comes back). */

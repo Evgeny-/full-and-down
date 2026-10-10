@@ -82,52 +82,48 @@ html.night .rule .money { color: var(--ink); }
 .strip.dense .leg .ltop .bn { display: none; }
 .strip.dense .port { min-width: 44px; padding-left: 2px; padding-right: 2px; }
 
-/* this call: the load bar and the fuel, one plate */
-.cargo { display: flex; flex-direction: column; padding: 7px 10px 6px; }
-.load { display: flex; flex-direction: column; gap: 4px; padding-bottom: 7px; border-bottom: 1px dashed var(--rule); }
-.lrow { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
-.lrow .eq { font-size: 9.5px; color: var(--ink-2); white-space: nowrap; }
-.lrow .eq b { font-weight: 800; }
-.lrow .eq b.c { color: var(--navy); }
-html.night .lrow .eq b.c { color: #c9d6ea; }
-.lrow .eq b.f { color: var(--fuel-2); }
-.lrow .tot { font: 600 16px/1 var(--num); }
-.lrow .tot small { font-size: 11px; color: var(--ink-2); margin-left: 1px; }
-.lrow .tot.bad { color: var(--red); }
-.lrow .lhint { margin-left: auto; font: 700 10.5px/1 var(--font); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lrow .lhint b { font-weight: 800; color: var(--ink); }
-.lrow .lhint b.bad { color: var(--red); }
-.lrow .lhint b.short { color: var(--fuel-2); }
-.lrow .lhint b.mark { color: #0f7a5c; text-transform: uppercase; letter-spacing: 0.06em; }
-.load .cells { position: relative; display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 1.5px; height: 16px; }
+/* this call: the load bar and the fuel, one plate. The load is a 2×2 grid: her weight and the room
+   left on the left, the cells and the weight bands (the one she sails in solid) on the right. */
+.cargo { display: flex; flex-direction: column; padding: 8px 10px 7px; }
+.load { display: grid; grid-template-columns: 64px minmax(0, 1fr); grid-template-rows: 20px 18px; gap: 5px 10px; padding-bottom: 8px; border-bottom: 1px dashed var(--rule); }
+.load .ltot { align-self: end; font: 600 24px/0.8 var(--num); color: var(--navy); white-space: nowrap; }
+.load .ltot small { font-size: 14px; color: var(--ink-2); margin-left: 1px; }
+.load .ltot.bad { color: var(--red); }
+html.night .load .ltot:not(.bad) { color: var(--ink); }
+.load .lsub { align-self: center; min-width: 0; overflow: hidden; text-overflow: ellipsis; font: 700 12px/1 var(--font); color: var(--ink-2); white-space: nowrap; }
+.load .lsub.bad { color: var(--red); }
+.load .lsub.mark { color: #0f7a5c; }
+.load .cells { position: relative; display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 2px; }
 .load .cells i { border-radius: 2px; }
 .load .cells i.c-fuel { background: var(--fuel); box-shadow: inset 0 -2px 0 var(--fuel-2); }
 .load .cells i.c-need { background: repeating-linear-gradient(-45deg, var(--fuel) 0 3px, transparent 3px 6px); box-shadow: inset 0 0 0 1.5px var(--fuel); animation: ghost 0.9s ease-in-out infinite alternate; }
 .load .cells i.c-free { background: var(--enamel-3); }
 .load .cells i.c-ghost { background: repeating-linear-gradient(-45deg, var(--c) 0 3px, transparent 3px 5px); box-shadow: inset 0 0 0 1.5px var(--c); animation: ghost 0.9s ease-in-out infinite alternate; }
 @keyframes ghost { to { opacity: 0.55; } }
-.load .smark { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--red); }
-.load .zones { display: flex; height: 13px; border-radius: 2px; overflow: hidden; }
-.load .zones span { display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--z); font: 700 8.5px/1 var(--font); letter-spacing: 0.06em; color: #fff; white-space: nowrap; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35); opacity: 0.38; }
-.load .zones span + span { box-shadow: inset 1.5px 0 0 var(--enamel); }
-.load .zones span.on { opacity: 1; }
+.load .smark { position: absolute; top: -4px; bottom: -4px; width: 3px; margin-left: -1.5px; border-radius: 1px; background: var(--red); }
+.load .zones { display: flex; gap: 2px; min-width: 0; }
+.load .zones span { display: flex; align-items: center; justify-content: center; gap: 4px; min-width: 0; overflow: hidden; border-radius: 3px; background: var(--zt); color: var(--z); font: 800 12px/1 var(--font); letter-spacing: 0.06em; white-space: nowrap; }
+.load .zones span i { font-style: normal; font-weight: 700; letter-spacing: 0.01em; }
+.load .zones span.on { background: var(--z); color: #fff; }
+.load .zones span.pad { background: none; }
 
-.fuel { display: flex; align-items: center; gap: 6px; padding-top: 7px; min-height: 46px; }
-.fuel .fl { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.fuel .fl .caps { font-size: 9px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.fuel .fl .caps b { color: var(--ink); font-weight: 800; }
-.fuel .fa { display: flex; align-items: baseline; gap: 4px; white-space: nowrap; min-width: 0; }
-.fuel .fa .glyph { align-self: center; }
-.fuel .fa b { font: 600 19px/1 var(--num); color: var(--fuel-2); }
-.fuel .fa small { font: 600 12px/1 var(--font); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; }
-.fuel .btn.token { width: 40px; min-width: 40px; min-height: 40px; padding: 0; }
-.fuel .buy { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 84px; min-height: 40px; background: var(--fuel); color: #fff; line-height: 1; }
+.fuel { display: flex; align-items: center; gap: 6px; padding-top: 8px; min-height: 52px; }
+.fuel .fl { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.fuel .fl .cap { font: 700 12px/1 var(--font); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fuel .fl .cap b { color: var(--ink); font-weight: 800; }
+.fuel .fa { display: flex; align-items: baseline; gap: 5px; white-space: nowrap; min-width: 0; }
+.fuel .fa b { font: 600 26px/0.8 var(--num); color: var(--fuel-2); }
+.fuel .fa b small { font-size: 16px; margin-left: 1px; }
+.fuel .fa small { font: 600 13px/1 var(--font); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; }
+.fuel .btn.token { width: 44px; min-width: 44px; min-height: 44px; padding: 0; }
+.fuel .buy { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 96px; min-height: 44px; padding: 0 10px; background: var(--fuel); color: #fff; font-size: 17px; line-height: 1; }
+.fuel .buy .u { text-transform: none; }
 .fuel .buy .ck { display: inline-flex; align-items: center; gap: 3px; }
-.fuel .buy small { font: 700 10px/1 var(--font); letter-spacing: 0.04em; opacity: 0.92; text-transform: none; }
+.fuel .buy small { font: 700 12px/1 var(--font); letter-spacing: 0.02em; opacity: 0.95; text-transform: none; }
 .fuel .buy.ok { background: var(--ok); }
 .fuel .buy.ok:disabled { opacity: 1; filter: none; }
 .fuel .buy:disabled { opacity: 0.8; filter: none; }
-.fuel .nf { font-size: 9px; color: var(--ink-2); text-align: right; line-height: 1.25; }
+.fuel .nf { font: 700 12px/1.25 var(--font); color: var(--ink-2); text-align: right; }
 html.night .load .cells i.c-free { background: #3d5078; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14); }
 
 /* freight tags under the quay boxes */
@@ -148,7 +144,7 @@ html.night .load .cells i.c-free { background: #3d5078; box-shadow: inset 0 0 0 
 .dock .sail { flex: 1.6; min-width: 0; font-size: 20px; }
 .dock .sail .lbl { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; overflow: hidden; line-height: 1; }
 .dock .sail .lbl .to { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.dock .sail .lbl small { font: 700 10.5px/1 var(--font); letter-spacing: 0.06em; text-transform: none; opacity: 0.95; white-space: nowrap; }
+.dock .sail .lbl small { font: 700 12px/1 var(--font); letter-spacing: 0.06em; text-transform: none; opacity: 0.95; white-space: nowrap; }
 .dock .sail .lbl small:empty { display: none; }
 .dock .sail.blocked { background: #7c8798; color: #f3f5f8; }
 .dock .sail.blocked .flagsw { opacity: 0.6; }
@@ -175,9 +171,10 @@ html.night .load .cells i.c-free { background: #3d5078; box-shadow: inset 0 0 0 
 .compact .strip .leg { padding-top: 4px; }
 .compact .hud-foot { bottom: calc(8px + var(--safe-bottom)); gap: 6px; }
 .compact .cargo { padding: 5px 8px 4px; }
-.compact .load { gap: 3px; padding-bottom: 5px; }
-.compact .load .cells { height: 13px; }
+.compact .load { grid-template-rows: 16px 16px; gap: 4px 8px; padding-bottom: 5px; }
+.compact .load .ltot { font-size: 21px; }
 .compact .fuel { padding-top: 5px; min-height: 40px; }
+.compact .fuel .fa b { font-size: 22px; }
 .compact .fuel .btn.token { width: 36px; min-width: 36px; min-height: 36px; }
 .compact .fuel .buy { min-height: 36px; }
 .compact .dock .btn { min-height: 46px; }
@@ -191,7 +188,8 @@ html.night .strip .leg .burn { color: #f3a54a; }
 html.night .strip .arr.ok { color: #f3a54a; }
 html.night .rule .track { background: #3d5078; }
 html.night .title .lv { background: #3b5687; }
-html.night .load .zones span { color: #15181e; text-shadow: none; }
+html.night .load .zones span.on { color: #15181e; }
+html.night .fuel .fa b { color: #f3a54a; }
 
 /* transient overlays never take a tap (they sit above the 3D view) */
 #ui > .pop, #ui > .toast, #ui > .banner, #ui > .coach { pointer-events: none; }

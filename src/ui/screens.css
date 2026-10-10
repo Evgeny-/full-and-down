@@ -109,9 +109,11 @@ html.night .report { filter: brightness(0.92); }
 .landscape .strip { padding: 10px 3px 2px; }
 .landscape .strip .port { padding: 2px 3px; gap: 1px; }
 .landscape .cargo { padding: 4px 8px 3px; }
-.landscape .load { gap: 3px; padding-bottom: 4px; }
-.landscape .load .cells { height: 12px; }
+.landscape .load { grid-template-rows: 14px 15px; gap: 3px 8px; padding-bottom: 4px; }
+.landscape .load .ltot { font-size: 19px; }
+.landscape .load .ltot small { font-size: 12px; }
 .landscape .fuel { padding-top: 4px; min-height: 38px; }
+.landscape .fuel .fa b { font-size: 21px; }
 .landscape .fuel .btn.token { width: 34px; min-width: 34px; min-height: 34px; }
 .landscape .fuel .buy { min-height: 34px; }
 .landscape .dock .btn { min-height: 42px; }

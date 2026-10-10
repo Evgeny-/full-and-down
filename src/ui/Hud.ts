@@ -26,6 +26,14 @@ function bandName(level: Level, b: number): string {
 }
 
 const BAND_NIGHT = ['#8fb3d9', '#6d8fc4', '#c9d6ea'];
+/** The load bar's band zones: darker than the strip's legs so white text reads on the band she's in. */
+const ZONE_COLORS = ['#4f7fb8', '#34558c', '#1f2e4d'];
+
+function zoneColor(level: Level, b: number): string {
+  const cols = document.documentElement.classList.contains('night') ? BAND_NIGHT : ZONE_COLORS;
+  if (level.ship.bands.length === 2) return [cols[0], cols[2]][b];
+  return cols[b];
+}
 
 export function bandColor(level: Level, b: number): string {
   const cols = document.documentElement.classList.contains('night') ? BAND_NIGHT : BAND_COLORS;
@@ -130,7 +138,9 @@ export class Hud {
     this.sailBtn.classList.toggle('blocked', !!refusal);
     const next = lv.ports[Math.min(lv.ports.length - 1, m.port + 1)];
     this.sailBtn.querySelector('.to')!.textContent = 'Sail';
-    this.sailBtn.querySelector('small')!.textContent = refusal ? shortReason(lv, refusal) : `to ${next.name}${m.port + 1 === lv.ports.length - 1 ? ' · final' : ''}`;
+    // a fuel shortfall says what BUY says: one figure, the tonnes to take on here
+    const buy = refusal?.code === 'short' && lv.ports[m.port].price !== null && !lv.auto ? this.missingFuel(m) : 0;
+    this.sailBtn.querySelector('small')!.textContent = refusal ? (buy > 0 ? `buy ${buy} t first` : shortReason(lv, refusal)) : `to ${next.name}${m.port + 1 === lv.ports.length - 1 ? ' · final' : ''}`;
     this.undoBtn.disabled = !m.canUndo;
   }
 
@@ -213,6 +223,9 @@ export class Hud {
     this.strip.classList.toggle('dense', P >= 5 || (P >= 4 && this.strip.clientWidth < 360));
     const until = this.reach(m);
     const dests = new Set(lv.boxes.map((b) => b.to));
+    // one shortfall figure: the first short port shows what BUY adds; a later one only says short
+    const fix = this.missingFuel(m);
+    let shortShown = false;
     const parts: string[] = [];
     for (let i = 0; i < P; i++) {
       const p = lv.ports[i];
@@ -226,7 +239,9 @@ export class Hud {
       else if (i > m.port && i <= until) {
         const left = pr.calls[i].arrivalFuel;
         const short = lv.reserve - left;
-        fuel = short > 0 ? `<span class="arr bad num">${short} t short</span>` : `<span class="arr ok num">${glyph('fuel', 10)}${left} t</span>`;
+        const label = short > 0 && !shortShown && fix > 0 ? `${fix} t short` : 'short';
+        if (short > 0) shortShown = true;
+        fuel = short > 0 ? `<span class="arr bad num">${label}</span>` : `<span class="arr ok num">${glyph('fuel', 10)}${left} t</span>`;
       }
       parts.push(`
         <button class="port ${state} ${last ? 'last' : ''}" data-port="${i}">
@@ -299,28 +314,49 @@ export class Hud {
     const n = Math.max(C, total);
     // cells past her marks are drawn over the red line
     const over = Math.max(0, used - C);
-    let hint: string;
-    if (pv) hint = used > C ? `<b class="bad">+${pv.weight} t → ${used - C} t over</b>` : `<b>+${pv.weight} t → ${used}/${C} t</b>`;
-    else if (over) hint = `<b class="bad">${over} t too heavy</b>`;
-    else if (missing && total > C) hint = `<b class="bad">no room for ${missing} t fuel</b>`;
-    else if (missing) hint = `<b class="short">needs ${missing} t more fuel</b>`;
-    else if (used === C) hint = '<b class="mark">on her marks</b>';
-    else hint = `${C - used} t spare`;
+    // under the weight: room left, or what's wrong (the fuel she needs is said once, on BUY)
+    let sub: string;
+    if (pv) sub = used > C ? `<span class="lsub bad">${used - C} t over</span>` : `<span class="lsub">+${pv.weight} t</span>`;
+    else if (over) sub = `<span class="lsub bad">${over} t over</span>`;
+    else if (missing && total > C) sub = '<span class="lsub bad">no room</span>';
+    else if (used === C) sub = '<span class="lsub mark">on marks</span>';
+    else sub = `<span class="lsub">${C - used} t spare</span>`;
     let prev = 0;
     const bands = lv.ship.bands;
     const sailBand = bandOf(lv.ship, Math.min(used + missing, C));
-    const zones = bands
-      .map((b, i) => {
-        const frac = (b.upTo - prev) / n;
-        prev = b.upTo;
-        const wide = frac > 0.24;
-        return `<span style="width:${frac * 100}%;--z:${bandColor(lv, i)}" class="${sailBand === i ? 'on' : ''}">${wide ? `${bandName(lv, i)} · ` : ''}${b.rate} t/day</span>`;
-      })
-      .join('');
+    const zone = (i: number, flex: number, label: string, alt: string) =>
+      `<span style="flex:${flex} 1 0;--z:${zoneColor(lv, i)};--zt:${zoneColor(lv, i)}29" class="${sailBand === i ? 'on' : ''}" data-alt="${alt}">${label}</span>`;
+    const zones =
+      bands.length > 1
+        ? bands
+            .map((b, i) => {
+              const frac = (b.upTo - prev) / n;
+              prev = b.upTo;
+              return zone(i, frac, `${bandName(lv, i)} <i>${b.rate} t/day</i>`, `<i>${b.rate} t/day</i>|<i>×${b.rate}</i>`);
+            })
+            .join('')
+        : zone(0, C / n, `<i>burns ${bands[0].rate} t/day</i>`, `<i>${bands[0].rate} t/day</i>`);
     this.load.innerHTML = `
-      <div class="lrow"><span class="eq caps"><b class="c">Cargo</b> ${cargo + (pv?.weight ?? 0)} t + <b class="f">fuel</b> ${fuel} t</span><span class="num tot ${over ? 'bad' : ''}">${used}<small>/${C} t</small></span><span class="lhint">${hint}</span></div>
+      <span class="ltot num ${over ? 'bad' : ''}">${used}<small>/${C} t</small></span>
       <div class="cells ${over || total > C ? 'over' : ''}" style="--n:${n}">${cells.join('')}<b class="smark" style="left:${(C / n) * 100}%"></b></div>
-      ${bands.length > 1 ? `<div class="zones">${zones}</div>` : `<div class="zones one"><span class="on" style="width:100%;--z:${bandColor(lv, 0)}">burns ${bands[0].rate} t/day</span></div>`}`;
+      ${sub}
+      <div class="zones">${zones}${n > C ? `<span class="pad" style="flex:${(n - C) / n} 1 0"></span>` : ''}</div>`;
+    this.fitZones();
+  }
+
+  /** Each zone shows the longest label that fits: LADEN 2 t/day, then 2 t/day, then ×2. */
+  private fitZones(): void {
+    this.load.querySelectorAll<HTMLElement>('.zones span[data-alt]').forEach((z) => {
+      const fits = () => {
+        const r = document.createRange();
+        r.selectNodeContents(z);
+        return r.getBoundingClientRect().width <= z.clientWidth - 8;
+      };
+      for (const alt of (z.dataset.alt ?? '').split('|')) {
+        if (fits()) break;
+        z.innerHTML = alt;
+      }
+    });
   }
 
   private fuelKey = '';
@@ -336,13 +372,13 @@ export class Hud {
       this.fuelKey = key;
       this.fuel.classList.toggle('none', p.price === null);
       if (p.price === null) {
-        this.fuel.innerHTML = `<div class="fl"><span class="caps">No fuel sold at ${p.name}</span><span class="fa">${glyph('fuel', 15)}<b class="num aboard"></b><small>aboard</small></span></div><span class="nf caps">Carry what<br>you need</span>`;
+        this.fuel.innerHTML = `<div class="fl"><span class="cap">No fuel sold at <b>${p.name}</b></span><span class="fa"><b class="num aboard"></b><small>aboard</small></span></div><span class="nf">Carry what<br>you need</span>`;
       } else if (lv.auto) {
-        this.fuel.innerHTML = `<div class="fl"><span class="caps">Fuel · $${p.price}/t at ${p.name}</span><span class="fa">${glyph('fuel', 15)}<b class="num aboard"></b><small class="bought"></small></span></div><span class="nf caps">Chief<br>orders</span>`;
+        this.fuel.innerHTML = `<div class="fl"><span class="cap">Fuel at <b>${p.name}</b> · $${p.price}/t</span><span class="fa"><b class="num aboard"></b><small class="bought"></small></span></div><span class="nf">Chief<br>orders</span>`;
       } else {
         const lot = p.lot ?? 1;
         this.fuel.innerHTML = `
-          <div class="fl"><span class="caps">Fuel · <b>$${p.price}</b>/t at ${p.name}${lot > 1 ? ` · lots of ${lot}` : ''}</span><span class="fa">${glyph('fuel', 15)}<b class="num aboard"></b><small class="bought"></small></span></div>
+          <div class="fl"><span class="cap">Fuel at <b>${p.name}</b> · $${p.price}/t${lot > 1 ? ` · lots of ${lot}` : ''}</span><span class="fa"><b class="num aboard"></b><small class="bought"></small></span></div>
           <button class="btn small token minus" aria-label="Less fuel">${glyph('minus', 18)}</button>
           <button class="btn small token plus" aria-label="More fuel">${glyph('plus', 18)}</button>
           <button class="btn small buy">Buy</button>`;
@@ -351,7 +387,7 @@ export class Hud {
         this.fuel.querySelector('.buy')!.addEventListener('click', () => this.on.onNeed());
       }
     }
-    this.fuel.querySelector('.aboard')!.textContent = `${leg.fuelOut} t`;
+    this.fuel.querySelector('.aboard')!.innerHTML = `${leg.fuelOut}<small> t</small>`;
     const small = this.fuel.querySelector('.bought');
     if (small) small.textContent = bought > 0 ? `aboard · +${bought} t $${bought * (p.price ?? 0)}` : 'aboard';
     const minus = this.fuel.querySelector<HTMLButtonElement>('.minus');
@@ -367,7 +403,7 @@ export class Hud {
         buy.innerHTML = 'Can’t<small>reach it</small>';
         buy.disabled = true;
       } else if (more > 0) {
-        buy.innerHTML = `Buy ${more} t<small>$${more * p.price}</small>`;
+        buy.innerHTML = `<span>Buy ${more} <span class="u">t</span></span><small>$${more * p.price}</small>`;
         buy.disabled = false;
       } else if (more === 0) {
         buy.innerHTML = `<span class="ck">${glyph('check', 15)}Enough</span>`;

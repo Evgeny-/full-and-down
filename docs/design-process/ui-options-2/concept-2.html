@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Fuel Ribbon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Sofia+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+/* Concept 2 — the voyage as a fuel ribbon. The route strip leaves the top; the route and the bunkers
+   become one panel under the thumb. The ribbon is the fuel aboard along the voyage, drawn against sea
+   days, so it falls by the burn on each leg and a hungrier band is a steeper fall. It must stay above
+   MIN ROB; where it can't, the missing fuel is hazard tape. One number fixes it: BUY. You can also drag
+   the ribbon's start (the knob at Kiel) up or down. */
+.phone { --shift: -100px; }
+.voy { left: 10px; right: 10px; top: 551px; height: 221px; }
+.voy > * { position: absolute; }
+.voy svg.chart { left: 0; top: 0; }
+.voy .n { font-family: var(--num); font-weight: 600; }
+.voy .t { font-family: var(--font); font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+/* leg labels, a fixed row over the chart */
+.leg { top: 9px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 2px 4px; background: var(--enamel); white-space: nowrap; }
+.leg b { font: 800 12px/1 var(--font); letter-spacing: 0.12em; }
+.leg span { font: 600 16px/1 var(--num); color: var(--fuel-2); }
+.leg b em { font: 600 13px/1 var(--num); font-style: normal; letter-spacing: 0.02em; color: var(--ink-2); margin-left: 5px; }
+.leg span small { font: 600 13px/1 var(--num); color: var(--ink-2); margin-right: 5px; }
+/* port chips under the route */
+.port { top: 127px; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.port .chip { display: flex; align-items: center; gap: 4px; height: 21px; padding: 0 6px 0 4px; border-radius: 4px; background: var(--pc); color: #fff; font: 600 15px/1 var(--num); letter-spacing: 0.04em; }
+.port .chip .flag { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5); }
+.port.here .chip { background: var(--navy); box-shadow: 0 0 0 2px var(--yellow); }
+.port .pump { font: 700 12.5px/1 var(--font); color: var(--ink-2); white-space: nowrap; }
+.port .pump.dry { color: var(--red); }
+.port.later { opacity: 0.5; }
+/* ROB on arrival */
+.rob { transform: translate(0, -100%); display: flex; flex-direction: column; align-items: flex-start; gap: 3px; white-space: nowrap; }
+.rob b { font: 600 17px/1 var(--num); color: var(--fuel-2); }
+.rob b small { font-size: 13px; margin-left: 1px; }
+.rob.bad b { color: var(--red); }
+.rob i { font: 800 12px/1 var(--font); font-style: normal; letter-spacing: 0.1em; text-transform: uppercase; }
+.rob.bad i { color: var(--red); }
+.rob.on b { color: var(--ok); display: flex; align-items: center; gap: 3px; }
+.aboard { transform: translateY(-50%); font: 600 19px/1 var(--num); color: var(--fuel-2); }
+.aboard small { font-size: 14px; margin-left: 1px; }
+.minrob { left: 0; width: 40px; transform: translateY(-50%); text-align: right; font: 700 12px/1 var(--font); color: var(--ink-2); }
+/* this call: the weight she sails at, and the one fuel action */
+.ctl { left: 12px; right: 12px; top: 169px; height: 46px; display: flex; align-items: center; gap: 10px; }
+.ctl::before { content: ''; position: absolute; left: 0; right: 0; top: -7px; border-top: 1px solid var(--rule); }
+.wt { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
+.wt .big { font: 600 30px/1 var(--num); color: var(--navy); white-space: nowrap; }
+.wt .big small { font-size: 16px; color: var(--ink-2); margin-left: 2px; }
+.wt .bl { display: flex; flex-direction: column; gap: 5px; }
+.wt .bl b { font: 700 12px/1 var(--font); letter-spacing: 0.1em; text-transform: uppercase; color: #fff; padding: 3px 6px 2px; border-radius: 3px; align-self: flex-start; white-space: nowrap; }
+.wt .bl > span { font: 600 12.5px/1 var(--font); color: var(--ink-2); white-space: nowrap; }
+.wt .bl b .rt { text-transform: none; letter-spacing: 0.02em; }
+.buy { min-width: 124px; height: 46px !important; min-height: 46px !important; }
+.buy .two b { font: 600 19px/1 var(--num); letter-spacing: 0.05em; }
+.buy.done { background: transparent; color: var(--ok); box-shadow: inset 0 0 0 2px rgba(47, 138, 114, 0.5); }
+.buy.done .two b { display: flex; align-items: center; gap: 5px; }
+.buy.done .sub { color: var(--ink-2); }
+</style></head>
+<body>
+<div class="sheet">
+  <header><b>2 · Fuel ribbon</b><span>Route and bunkers become one line under your thumb: the fuel aboard, port to port.</span></header>
+  <div class="phones">
+    <div><div class="cap"><i></i>Mid-plan · Kiel · 1 t short</div><div class="phone" id="p1"></div></div>
+    <div><div class="cap"><i class="ok"></i>Ready to sail</div><div class="phone" id="p2"></div></div>
+  </div>
+</div>
+<script src="shared.js"></script>
+<script>
+const W = 370, H = 221;
+const X0 = 46, X1 = 334; // Kiel … Gothenburg, spaced by sea days
+const BASE = 120, K = 9.4; // the route (0 t) and px per tonne: the tank (8 t) tops out under the leg labels
+const BANDTXT = ['#4f7fb3', '#4a6fa5', '#1f2e4d'];
+function ribbon(s) {
+  const days = LV.legs.map((l) => l.days);
+  const total = days.reduce((a, b) => a + b, 0);
+  const D = (X1 - X0) / total;
+  const px = [X0];
+  days.forEach((d, i) => px.push(px[i] + d * D));
+  const y = (t) => BASE - t * K;
+  const until = s.until;
+  const yRes = y(LV.reserve);
+  let o = `<defs>
+    <linearGradient id="rg${s.fuel}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#f4a246"/><stop offset="1" stop-color="#ee8b1e"/></linearGradient>
+    <pattern id="hz" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="9" height="9" fill="#f5c518"/><rect width="4.5" height="9" fill="#15181e"/></pattern>
+    <clipPath id="under${s.fuel}"><rect x="0" y="${yRes}" width="${W}" height="${BASE - yRes}"/></clipPath></defs>`;
+  // port meridians: the legs read as columns, each label over its own leg
+  for (let i = 1; i < LV.ports.length; i++) o += `<line x1="${px[i]}" x2="${px[i]}" y1="8" y2="${BASE}" stroke="#e6e3da" stroke-width="1.5"/>`;
+  // the ribbon: fuel aboard from Kiel to the next pump
+  const pts = [[px[0], y(s.legs[0].out)]];
+  for (let i = 0; i < until; i++) pts.push([px[i + 1], y(Math.max(0, s.legs[i].in))]);
+  const top = pts.map((p) => p.join(',')).join(' ');
+  o += `<polygon points="${px[0]},${BASE} ${top} ${px[until]},${BASE}" fill="url(#rg${s.fuel})"/>`;
+  // the gap: under MIN ROB, the fuel that isn't there is hazard tape
+  if (s.short !== null) {
+    o += `<g clip-path="url(#under${s.fuel})"><polygon points="${top} ${px[until]},${yRes - 20} ${px[0]},${yRes - 20}" fill="url(#hz)"/></g>`;
+  }
+  o += `<polyline points="${top}" fill="none" stroke="#c96d0e" stroke-width="2.2" stroke-linejoin="round"/>`;
+  // MIN ROB: the grey line that is empty
+  o += `<line x1="${X0}" x2="${px[until] + 18}" y1="${yRes}" y2="${yRes}" stroke="#5c6779" stroke-width="1.6" stroke-dasharray="5 3"/>`;
+  // the route: each leg in the colour of its band, faint past the next pump
+  for (let i = 0; i < LV.legs.length; i++) {
+    const on = i < until;
+    const bad = on && s.legs[i].in < LV.reserve;
+    o += `<line x1="${px[i]}" x2="${px[i + 1]}" y1="${BASE + 1.5}" y2="${BASE + 1.5}" stroke="${bad ? 'url(#hz)' : on ? BAND_COL[s.legs[i].band] : '#c9ccd3'}" stroke-width="${bad ? 7 : on ? 5 : 3}" ${on ? '' : 'stroke-dasharray="2 5"'} stroke-linecap="${bad ? 'butt' : 'round'}"/>`;
+  }
+  for (let d = 1; d < total; d++) if (!px.some((x) => Math.abs(x - (X0 + d * D)) < 1)) o += `<line x1="${X0 + d * D}" x2="${X0 + d * D}" y1="${BASE - 2}" y2="${BASE + 5}" stroke="#fff" stroke-width="2"/>`;
+  // ports on the route
+  LV.ports.forEach((p, i) => {
+    o += `<circle cx="${px[i]}" cy="${BASE + 1.5}" r="${i === 0 ? 6 : 5}" fill="${i === 0 ? '#f5c518' : '#fff'}" stroke="#1f2e4d" stroke-width="2" ${i > until ? 'opacity=".5"' : ''}/>`;
+  });
+  // the knob: drag the fuel aboard at Kiel
+  const yk = y(s.legs[0].out);
+  o += `<g transform="translate(${X0},${yk})"><rect x="-27" y="-14" width="54" height="28" rx="14" fill="#fff" stroke="#c96d0e" stroke-width="2.4"/><path d="M-19 -3l4 -4 4 4M-19 3l4 4 4 -4" fill="none" stroke="#c96d0e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>`;
+  let html = `<svg class="chart" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${o}</svg>`;
+  html += `<div class="aboard" style="left:${X0 - 8}px;top:${yk}px">${s.fuel}<small> t</small></div>`;
+  html += `<div class="minrob" style="top:${yRes}px">min ${LV.reserve}</div>`;
+  // legs: band, days and burn
+  for (let i = 0; i < until; i++) {
+    const L = s.legs[i];
+    html += `<div class="leg" style="left:${(px[i] + px[i + 1]) / 2}px"><b style="color:${BANDTXT[L.band]}">${LV.ship.bands[L.band].name}<em>${L.w} t</em></b><span><small>${L.days} d</small>−${L.burn} t</span></div>`;
+  }
+  // ROB on arrival, where this call's fuel must reach
+  for (let i = 1; i <= until; i++) {
+    const rob = s.legs[i - 1].in;
+    const bad = rob < LV.reserve, on = rob === LV.reserve && i === until;
+    const tag = i === until && bad ? '<i>short</i>' : '';
+    const yy = Math.min(y(Math.max(0, rob)), yRes) - 6;
+    const xx = px[i] + 7;
+    html += `<div class="rob ${bad ? 'bad' : on ? 'on' : ''}" style="left:${xx}px;top:${yy}px">${tag}<b>${on ? glyph('check', 15, 3) : ''}${rob}<small>t</small></b></div>`;
+  }
+  LV.ports.forEach((p, i) => {
+    const pump = p.final ? 'final' : p.price === null ? 'no fuel' : `$${p.price}/t`;
+    html += `<div class="port ${i === 0 ? 'here' : ''} ${i > until ? 'later' : ''}" style="left:${px[i]}px;--pc:${p.color}"><span class="chip">${flagSvg(p.cc, 17, 11)}${p.code}</span><span class="pump ${p.price === null && !p.final ? 'dry' : ''}">${pump}</span></div>`;
+  });
+  return html;
+}
+function panel(s) {
+  const b = LV.ship.bands[s.band];
+  const next = LV.ship.bands[s.band + 1];
+  const buy = s.buy > 0
+    ? `<div class="btn fuel buy"><span class="two"><b>Buy ${s.buy} t</b><span class="sub">$${s.buy * LV.ports[0].price} · to reach CPH</span></span></div>`
+    : `<div class="btn buy done"><span class="two"><b>${glyph('check', 17, 2.6)}Enough</b><span class="sub">on the reserve</span></span></div>`;
+  return `<div class="voy plate">${ribbon(s)}
+    <div class="ctl"><div class="wt"><span class="big">${s.weight}<small>/${LV.ship.capacity} t</small></span><span class="bl"><b style="background:${BAND_COL[s.band]}">${b.name}<span class="rt"> · ${b.rate} t/day</span></b><span>${next ? `${next.name} above ${b.upTo} t` : 'on her marks'}</span></span></div>${buy}</div></div>`;
+}
+function phone(el, s) {
+  el.innerHTML = headHtml(s.profit) + panel(s) + dockHtml(s.buy > 0 ? { blocked: true, sub: `buy ${s.buy} t first` } : { blocked: false, sub: 'to Lübeck' });
+}
+phone(document.getElementById('p1'), MID);
+phone(document.getElementById('p2'), READY);
+</script>
+</body></html>
