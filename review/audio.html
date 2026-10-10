@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Harbour Sounds</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root {
+      --bg: #e9f2f4; --card: #fbfdfd; --ink: #16303a; --muted: #5c7480; --line: #c9dbe0;
+      --accent: #d8432e; --on: #1f7a8c; --on-ink: #ffffff; --soft: #dceaee;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #0f1d23; --card: #16282f; --ink: #e3eef1; --muted: #8aa3ad; --line: #2a434c; --accent: #ff7a5c; --on: #3aa6ba; --on-ink: #06161b; --soft: #1d343c; }
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--ink); }
+    body { font: 500 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; padding: 0 16px 48px; max-width: 1100px; margin: 0 auto; }
+    header { position: sticky; top: 0; z-index: 2; background: var(--bg); padding: 14px 0 10px; display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; border-bottom: 1px solid var(--line); }
+    header h1 { margin: 0; font-size: 19px; letter-spacing: 0.01em; }
+    header .hint { color: var(--muted); font-size: 12px; flex-basis: 100%; }
+    #status { font-size: 12px; color: var(--muted); }
+    label.vol { display: flex; gap: 6px; align-items: center; color: var(--muted); }
+    label.vol input { width: 110px; accent-color: var(--on); }
+    button { font: inherit; border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 10px; padding: 7px 11px; cursor: pointer; }
+    button:hover { border-color: var(--muted); }
+    button:active { transform: translateY(1px); }
+    button.on { background: var(--on); border-color: var(--on); color: var(--on-ink); }
+    button.mute.on { background: var(--accent); border-color: var(--accent); }
+    h2 { font-size: 15px; margin: 24px 0 8px; }
+    h2 small { color: var(--muted); font-weight: 500; margin-left: 6px; }
+    .grid { display: flex; flex-wrap: wrap; gap: 6px; }
+    .grid button small { display: block; color: var(--muted); font-size: 11px; }
+    .grid button.on small { color: inherit; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+    .card b { font-size: 14px; }
+    .card .desc { color: var(--muted); font-size: 12px; }
+    .card .now { color: var(--muted); font-size: 12px; min-height: 16px; }
+    .wrap { overflow-x: auto; }
+    table { border-collapse: collapse; font-size: 12px; margin-top: 8px; background: var(--card); border-radius: 10px; overflow: hidden; }
+    td, th { padding: 4px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    td:first-child, th:first-child { text-align: left; }
+    .warn { color: var(--accent); font-weight: 700; }
+    input[type=range] { accent-color: var(--on); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Full &amp; Down · harbour sounds</h1>
+    <button class="mute" id="mute">Mute</button>
+    <label class="vol">SFX <input id="sfx" type="range" min="0" max="1" step="0.05" value="0.8"></label>
+    <label class="vol">Music <input id="music" type="range" min="0" max="1" step="0.05" value="0.5"></label>
+    <span id="status">tap anything to start audio</span>
+    <span class="hint">Everything here is synthesized in the browser. Volumes start at the game's defaults (SFX 80 %, music 50 %). Sounds with variants pick a different take each time; the horn, the win fanfare and the fail duck the music.</span>
+  </header>
+  <main id="main"></main>
+  <script type="module" src="./audio.ts"></script>
+</body>
+</html>

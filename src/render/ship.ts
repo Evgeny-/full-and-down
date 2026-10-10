@@ -11,8 +11,8 @@ export const BOX_LEN = 0.92;
 export const BOX_H = 0.56;
 export const BOX_W = 0.62;
 
-const AFT = 2.0; // superstructure + margin, stern to first bay
-const FWD = 2.45; // crane + forecastle, last bay to stem
+const AFT = 2.45; // superstructure + aft crane, stern to first bay
+const FWD = 2.3; // fore crane + forecastle, last bay to stem
 const DEPTH = 1.2;
 const BEAM = 1.55;
 
@@ -41,7 +41,7 @@ export class ShipModel {
   readonly sternX: number;
   readonly deckY: number;
   readonly manifold = new THREE.Vector3();
-  readonly crane: Crane;
+  readonly cranes: Crane[];
   private hullMat: THREE.MeshStandardMaterial;
 
   constructor(stacks: number, tiers: number, name = 'FULL & DOWN') {
@@ -86,8 +86,11 @@ export class ShipModel {
     this.buildCellGuides(cargoLen);
     this.buildSuperstructure();
     this.buildForecastle();
-    this.crane = new Crane(new THREE.Vector3(cargoLen / 2 + 0.55, this.deckY, 0));
-    this.body.add(this.crane.group);
+    this.cranes = [
+      new Crane(new THREE.Vector3(-cargoLen / 2 - 0.42, this.deckY, 0), Math.PI * 0.86),
+      new Crane(new THREE.Vector3(cargoLen / 2 + 0.5, this.deckY, 0), Math.PI * 0.14),
+    ];
+    for (const c of this.cranes) this.body.add(c.group);
   }
 
   /** Local x of the centre of bay i. */
@@ -250,7 +253,7 @@ export class ShipModel {
     this.body.add(winch);
     // breakwater plate in front of the first bay
     const bw = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.3, BEAM - 0.3), white);
-    bw.position.set(this.bayX(this.stacks - 1) + SLOT / 2 + 1.05, this.deckY + 0.15, 0);
+    bw.position.set(this.bayX(this.stacks - 1) + SLOT / 2 + 0.95, this.deckY + 0.15, 0);
     bw.castShadow = true;
     this.body.add(bw);
   }

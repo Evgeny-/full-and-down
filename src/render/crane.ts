@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { PAL } from './palette';
 import { canvas, toTexture } from './paint';
 
-const BOOM = 3.7;
+const BOOM = 3.4;
 
 /**
  * The ship's own deck crane (a geared feeder): pedestal, slewing cab, a luffing boom and a hook on a
@@ -27,7 +27,7 @@ export class Crane {
   private parkRadius: number;
   private parkHookY: number;
 
-  constructor(base: THREE.Vector3, parkAz = Math.PI * 0.82) {
+  constructor(base: THREE.Vector3, parkAz = 0) {
     this.group.position.copy(base);
     const yellow = new THREE.MeshStandardMaterial({ color: PAL.funnel, roughness: 0.45 });
     const dark = new THREE.MeshStandardMaterial({ color: '#3a3f47', roughness: 0.6 });
@@ -98,8 +98,8 @@ export class Crane {
     this.group.add(this.hook);
     this.pivot.set(0, 0.87, 0);
     this.parkAz = this.az = this.wantAz = parkAz;
-    this.parkRadius = this.radius = this.wantRadius = 1.6;
-    this.parkHookY = this.hookY = this.wantHookY = 1.4;
+    this.parkRadius = this.radius = this.wantRadius = 1.25;
+    this.parkHookY = this.hookY = this.wantHookY = 2.6;
   }
 
   /** Aim the hook at a point (local to the crane's parent). `hang` = how far the hook is above it. */

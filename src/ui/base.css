@@ -1,0 +1,170 @@
+/* Full & Down — "Signal Hoist": enamel plates, code flags, stencilled numerals. See docs/art.md. */
+:root {
+  --num: 'Oswald Variable', 'Oswald', 'Arial Narrow', sans-serif;
+  --font: 'Sofia Sans Variable', 'Sofia Sans', system-ui, sans-serif;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  --enamel: #f8f7f2;
+  --enamel-2: #ecebe4;
+  --enamel-3: #dedcd3;
+  --navy: #1f2e4d;
+  --navy-2: #33456b;
+  --ink: #1b2436;
+  --ink-2: #5c6779;
+  --rule: rgba(31, 46, 77, 0.18);
+  --red: #d62f2b;
+  --yellow: #f5c518;
+  --blue: #1e4fa3;
+  --black: #15181e;
+  --fuel: #ee8b1e;
+  --fuel-2: #c96d0e;
+  --ok: #2f8a72;
+  --sky: #bfe3f5;
+  --shadow: 0 6px 16px rgba(18, 30, 52, 0.22), 0 1px 2px rgba(18, 30, 52, 0.25);
+  --shadow-sm: 0 2px 6px rgba(18, 30, 52, 0.2);
+  --dim: rgba(14, 22, 38, 0.55);
+  --hazard: repeating-linear-gradient(-45deg, #15181e 0 7px, #f5c518 7px 14px);
+}
+
+html.night {
+  --enamel: #263552;
+  --enamel-2: #1f2c46;
+  --enamel-3: #2e3e60;
+  --ink: #eef2f8;
+  --ink-2: #aab6cb;
+  --rule: rgba(238, 242, 248, 0.16);
+  --shadow: 0 6px 16px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--sky); font-family: var(--font); color: var(--ink); overscroll-behavior: none; touch-action: none; user-select: none; -webkit-user-select: none; }
+html.night, html.night body { background: #16233a; }
+#app { position: fixed; inset: 0; }
+#stage { position: absolute; inset: 0; }
+#stage canvas { display: block; }
+#ui { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+#ui > * { pointer-events: auto; }
+#ui .passthru { pointer-events: none; }
+#ui .passthru > * { pointer-events: auto; }
+button { font: inherit; color: inherit; }
+.glyph { display: block; flex: none; }
+
+/* ── enamel plate: a flat field, a darker rim, four rivets, a soft shadow ── */
+.plate {
+  position: relative;
+  background: var(--enamel);
+  border-radius: 7px;
+  box-shadow: inset 0 0 0 2px rgba(31, 46, 77, 0.12), var(--shadow-sm);
+  color: var(--ink);
+}
+.plate.rivets::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 3px 3px, rgba(31, 46, 77, 0.35) 1.4px, transparent 1.8px) top left / 50% 50% no-repeat,
+    radial-gradient(circle at calc(100% - 3px) 3px, rgba(31, 46, 77, 0.35) 1.4px, transparent 1.8px) top right / 50% 50% no-repeat,
+    radial-gradient(circle at 3px calc(100% - 3px), rgba(31, 46, 77, 0.35) 1.4px, transparent 1.8px) bottom left / 50% 50% no-repeat,
+    radial-gradient(circle at calc(100% - 3px) calc(100% - 3px), rgba(31, 46, 77, 0.35) 1.4px, transparent 1.8px) bottom right / 50% 50% no-repeat;
+}
+.plate.navy { background: var(--navy); color: #f8f7f2; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.12), var(--shadow-sm); }
+
+/* ── buttons ── */
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--enamel);
+  color: var(--navy);
+  font: 600 17px/1 var(--num);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: inset 0 0 0 2px rgba(31, 46, 77, 0.14), 0 3px 0 rgba(31, 46, 77, 0.28), var(--shadow-sm);
+  cursor: pointer;
+  transition: transform 0.08s, box-shadow 0.08s, opacity 0.2s, filter 0.2s;
+}
+html.night .btn { color: var(--ink); }
+.btn:active:not(:disabled) { transform: translateY(2px); box-shadow: inset 0 0 0 2px rgba(31, 46, 77, 0.14), 0 1px 0 rgba(31, 46, 77, 0.28); }
+.btn:disabled { cursor: default; filter: saturate(0.25); opacity: 0.6; }
+.btn.navy { background: var(--navy); color: #f8f7f2; }
+.btn.blue { background: var(--blue); color: #fff; }
+.btn.red { background: var(--red); color: #fff; }
+.btn.small { min-height: 34px; padding: 0 12px; font-size: 14px; }
+.btn.token { width: 46px; min-width: 46px; padding: 0; }
+.btn .flagsw { width: 26px; height: 18px; border-radius: 2px; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.8); flex: none; }
+/* a code flag as a swatch (CSS only): P = Blue Peter, G = pilot */
+.flagsw.P { background: var(--blue); position: relative; }
+.flagsw.P::after { content: ''; position: absolute; inset: 32% 32%; background: #fff; }
+.flagsw.G { background: repeating-linear-gradient(90deg, var(--yellow) 0 16.66%, var(--blue) 16.66% 33.33%); }
+
+.num { font-family: var(--num); font-variant-numeric: tabular-nums; }
+.caps { font: 700 11px/1 var(--font); letter-spacing: 0.14em; text-transform: uppercase; }
+
+/* ── dialogs ── */
+.overlay { position: absolute; inset: 0; z-index: 50; display: grid; place-items: center; padding: calc(16px + var(--safe-top)) 16px calc(16px + var(--safe-bottom)); background: var(--dim); animation: fade-in 0.2s ease; }
+.overlay.out { animation: fade-out 0.18s ease forwards; }
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes fade-out { to { opacity: 0; } }
+.dialog {
+  position: relative;
+  width: min(380px, 100%);
+  max-height: 100%;
+  overflow: hidden auto;
+  padding: 0 18px 18px;
+  background: var(--enamel);
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 2px rgba(31, 46, 77, 0.14), 0 18px 40px rgba(10, 18, 34, 0.45);
+  animation: pop-in 0.32s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+@keyframes pop-in { from { transform: translateY(18px) scale(0.94); opacity: 0; } }
+.dialog-head {
+  margin: 0 -18px 16px;
+  padding: 16px 52px 14px 18px;
+  background: var(--navy);
+  color: #f8f7f2;
+  font: 600 22px/1.1 var(--num);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 10px 10px 0 0;
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.15);
+}
+.dialog-head.red { background: var(--red); }
+.dialog-head.blue { background: var(--blue); }
+.dialog-head.yellow { background: var(--yellow); color: var(--black); }
+.dialog-head.hazard { background: var(--navy); border-bottom: 8px solid transparent; border-image: var(--hazard) 8; }
+.dialog p { margin: 4px 2px 14px; font: 500 16px/1.42 var(--font); }
+.dialog p b { font-weight: 800; }
+.dialog .actions { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.dialog .actions.row { flex-direction: row; }
+.dialog .actions .btn { flex: 1; }
+.close-x { position: absolute; top: 10px; right: 10px; z-index: 2; width: 34px; min-width: 34px; min-height: 34px; padding: 0; background: rgba(255, 255, 255, 0.14); color: #fff; box-shadow: none; }
+
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: calc(150px + var(--safe-bottom));
+  z-index: 40;
+  max-width: min(360px, calc(100% - 32px));
+  padding: 10px 14px;
+  transform: translate(-50%, 12px);
+  opacity: 0;
+  pointer-events: none;
+  background: var(--navy);
+  color: #f8f7f2;
+  border-radius: 7px;
+  font: 600 14px/1.35 var(--font);
+  box-shadow: var(--shadow);
+  transition: opacity 0.2s, transform 0.2s;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast b { font: 600 13px/1 var(--num); letter-spacing: 0.08em; color: var(--yellow); margin-right: 6px; }
+
+.flag { display: inline-block; vertical-align: middle; border-radius: 1.5px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25); }
