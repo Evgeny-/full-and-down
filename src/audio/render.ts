@@ -4,7 +4,7 @@
  * OfflineAudioContext, measure it, and encode WAV.
  */
 import { AudioEngine, DEFAULT_MUSIC_VOLUME, DEFAULT_SFX_VOLUME, type PlayOpts } from './audio';
-import { bakeRate, bakeSfx, sfxKey, type SfxName } from './sfx';
+import { bakeRate, bakeSfx, MONO, sfxKey, type SfxName } from './sfx';
 
 export const RENDER_RATE = 48000;
 /**
@@ -38,7 +38,7 @@ export function bakedInfo(name: SfxName, opts: PlayOpts = {}): { seconds: number
   const b = bakeSfx(name, p, bakeRate(name), 12345 + sfxKey(name, p).length);
   let peak = 0;
   for (const ch of [b.L, b.R]) for (let i = 0; i < ch.length; i++) peak = Math.max(peak, Math.abs(ch[i]));
-  return { seconds: b.L.length / b.sr, peak, sr: b.sr, bytes: b.L.length * 8 };
+  return { seconds: b.L.length / b.sr, peak, sr: b.sr, bytes: b.L.length * (MONO.has(name) ? 4 : 8) };
 }
 
 /** Render `seconds` of a region's music (from the start) at the default (or given) music volume. */
@@ -101,6 +101,8 @@ export interface Metrics {
   lufs: number;
   /** loudest momentary (400 ms) loudness, LUFS */
   momentaryMax: number;
+  /** K-weighted loudness without gating (adds up across stems), LUFS */
+  ungated: number;
   /** largest DC offset over 100 ms windows */
   dc: number;
   /** largest sample-to-sample jump (clicks show up here) */
@@ -210,6 +212,7 @@ export function measure(b: AudioBuffer): Metrics {
     l50Db: dbOf(Math.sqrt(l50)),
     lufs: gated.length ? L(mean(gated)) : -120,
     momentaryMax: L(Math.max(...z)),
+    ungated: L(mean(z)),
     dc,
     maxStep,
     highShare: bandShare(mono, sr, 4000, true),

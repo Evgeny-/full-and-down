@@ -56,8 +56,9 @@ html.night .rule .money { color: var(--ink); }
 .strip .leg .burn { font: 600 11px/1 var(--num); color: var(--fuel-2); }
 .strip .leg .burn small { margin-left: 3px; color: var(--blue); }
 .strip .leg.shortleg .burn { color: var(--red); }
-.strip .leg .zone, .strip .leg .bridge { position: absolute; top: -2px; right: 0; padding: 1px 3px; border-radius: 3px; font: 700 9px/1.1 var(--num); background: #dbe8f5; color: var(--navy); }
-.strip .leg .bridge { right: auto; left: 0; background: #e8dccb; }
+.strip .leg .legsigns { display: flex; gap: 3px; }
+.strip .leg .zone, .strip .leg .bridge { padding: 1px 4px; border-radius: 3px; font: 600 9.5px/1.2 var(--num); background: #dbe8f5; color: var(--navy); white-space: nowrap; }
+.strip .leg .bridge { background: #eadcc4; }
 
 /* the deadweight bar, under the waterline */
 .dwt { position: absolute; left: 12px; right: 12px; padding: 6px 8px 5px; background: rgba(248, 247, 242, 0.93); border-radius: 7px; box-shadow: var(--shadow-sm); pointer-events: none; }
@@ -89,9 +90,9 @@ html.night .dwt { background: rgba(38, 53, 82, 0.93); }
 /* freight tags under the quay boxes */
 #ui .tags { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 #ui .tags > * { pointer-events: none; }
-.tag { position: absolute; left: 0; top: 0; display: flex; align-items: baseline; gap: 4px; padding: 3px 6px 3px; border-radius: 4px; background: #c9a24a; background: linear-gradient(#e2bd62, #c79c3e); color: #2a1d05; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25); transition: opacity 0.15s; white-space: nowrap; }
+.tag { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 38px; padding: 3px 5px 3px; border-radius: 4px; background: #c9a24a; background: linear-gradient(#e2bd62, #c79c3e); color: #2a1d05; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25); transition: opacity 0.15s; white-space: nowrap; }
 .tag b { font: 600 15px/1 var(--num); }
-.tag .caps { font-size: 9px; font-weight: 800; filter: brightness(0.6); }
+.tag .caps { padding: 1px 3px; border-radius: 2px; background: var(--pc); color: #fff; font-size: 8.5px; font-weight: 800; letter-spacing: 0.08em; }
 .tag.held { opacity: 0; }
 
 /* bunkers */
@@ -100,6 +101,7 @@ html.night .dwt { background: rgba(38, 53, 82, 0.93); }
 .bunker .bk-l .caps { font-size: 9px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bunker .bk-l b { display: flex; align-items: center; gap: 4px; font: 700 15px/1 var(--font); }
 .bunker .bk-l b .num { font: 600 16px/1 var(--num); }
+.bunker .bk-l b .lot { margin-left: 4px; padding: 2px 5px; border-radius: 3px; background: var(--fuel); color: #fff; font: 600 11px/1 var(--num); font-style: normal; letter-spacing: 0.04em; }
 .bunker .bk-r { font-size: 9px; color: var(--ink-2); text-align: right; }
 .bunker .bk-r.auto { padding: 4px 6px; border-radius: 4px; background: var(--fuel); color: #fff; line-height: 1.1; }
 .bunker .stepper { display: flex; align-items: center; gap: 4px; }

@@ -128,8 +128,33 @@ export class App {
     audio.play('pipe');
     if (DEBUG) (window as unknown as { game: unknown }).game = this;
     const intro = level.intro ? NOTICES[level.intro] : undefined;
-    if (intro && !this.save.seen.includes(level.intro!) && !params.has('nointro')) this.showNotice(level, () => this.startCoach(level));
-    else this.startCoach(level);
+    const go = () => {
+      if (intro && !this.save.seen.includes(level.intro!) && !params.has('nointro')) this.showNotice(level, () => this.startCoach(level));
+      else this.startCoach(level);
+    };
+    const area = areaOf(level);
+    const firstOfArea = this.levels.filter((l) => areaOf(l) === area)[0]?.n === level.n;
+    if (firstOfArea && !this.save.levels[level.n] && !params.has('nointro')) this.showArea(level, go);
+    else go();
+  }
+
+  /** New waters: the sea area's name card, once, on its first voyage. */
+  private showArea(level: Level, then: () => void): void {
+    const area = areaOf(level);
+    const idx = Math.max(1, level.chapter || 1);
+    const el = h('div', { class: 'area-card', html: `<div class="ac-in"><span class="caps">Sea area ${idx} of 8</span><b>${escapeHtml(area.name)}</b><small>${escapeHtml(area.blurb)}</small></div>` });
+    this.ui.append(el);
+    audio.play('bell');
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      el.classList.add('out');
+      setTimeout(() => el.remove(), 400);
+      then();
+    };
+    el.addEventListener('pointerdown', finish);
+    setTimeout(finish, 2200);
   }
 
   private showNotice(level: Level, then: () => void): void {
@@ -214,9 +239,20 @@ export class App {
     const m = this.model;
     if (!m || this.mode !== 'plan' || p === m.port) return;
     this.release();
+    const from = m.port;
     m.select(p);
     audio.play('button');
-    this.view.sync(p, m.baysAt(p), m.quayAt(p), 'tab');
+    const delivered = m.sim.projection.calls[p].delivered;
+    if (p === from + 1 && delivered.length) {
+      // show her arriving: this port's boxes come off with their freight, then this call's loads
+      this.view.sync(p, m.baysAt(from), m.quayAt(p), 'tab');
+      const dur = this.view.discharge(delivered, (id, at) => this.pop(`+$${m.level.boxes[id].freight}`, at.x, at.y), 0.1);
+      this.view.tweens.after(Math.min(dur, 0.9), () => {
+        if (this.model === m && m.port === p && this.mode === 'plan') this.view.sync(p, m.baysAt(p), m.quayAt(p), 'edit');
+      });
+    } else {
+      this.view.sync(p, m.baysAt(p), m.quayAt(p), 'tab');
+    }
     this.lastWeight = -1;
     this.refresh();
     this.coachEvent('tab');
@@ -508,7 +544,7 @@ export class App {
       const s = this.view.boxScreen(id);
       if (!s) continue;
       const b = m.level.boxes[id];
-      items.push({ id, x: s.x, y: s.y + 0.26 * this.view.unitPx + 4, freight: b.freight, to: b.to, held: this.held === id });
+      items.push({ id, x: s.x, y: s.y + 0.26 * this.view.unitPx + 8, freight: b.freight, to: b.to, held: this.held === id });
     }
     this.hud.placeTags(items);
   }

@@ -48,9 +48,15 @@ export const WOBBLE: Partial<Record<BakeName, number>> = {
   horn: 0.004, toot: 0.01, whistle: 0.01, invalid: 0.003, gull: 0.04, gullFar: 0.04,
 };
 
-/** Bake rate per sound: low, dark sounds need fewer samples (and less memory on phones). */
+/**
+ * Bake rate per sound: dark sounds (nothing above ~3 kHz) need fewer samples, and less memory on
+ * phones. `minRate` is the lowest rate the context accepts for buffers (16 kHz nearly everywhere).
+ */
 const LOW_RATE = new Set<BakeName>(['horn', 'toot', 'drop', 'glug', 'crane', 'sputter', 'fail', 'win', 'slap', 'creak', 'buoy']);
-export const bakeRate = (name: BakeName): number => (LOW_RATE.has(name) ? 22050 : 24000);
+export const bakeRate = (name: BakeName, minRate = 16000): number => (LOW_RATE.has(name) ? Math.max(16000, minRate) : 24000);
+
+/** Short, nearly dry sounds are kept mono (their little room adds no width worth the memory). */
+export const MONO = new Set<BakeName>(['button', 'pick', 'drop', 'crane', 'glug', 'cell', 'drain', 'ratchet', 'stamp', 'invalid', 'undo', 'slap', 'creak']);
 
 export interface SfxParams {
   pitch?: number;

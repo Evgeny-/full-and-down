@@ -213,6 +213,11 @@ const hamming = (a: number, b: number) => {
   return n;
 };
 
+/** The natural starts that make sense on a level (myopic needs more than one leg). */
+export function naturalKinds(level: Level): NaturalKind[] {
+  return level.ports.length > 2 ? NATURAL_KINDS : NATURAL_KINDS.filter((k) => k !== 'myopic');
+}
+
 /** Everything the generator, the build and the audit read about a level. Null if nothing can sail. */
 export function measure(level: Level, o: MeasureOptions): Metrics | null {
   const land = new Landscape(level);
@@ -226,7 +231,9 @@ export function measure(level: Level, o: MeasureOptions): Metrics | null {
   const stow = land.table.stow(opt.mask);
   const best = stow ? toPlan(level, fuel, stow) : [];
 
-  const naturals = NATURAL_KINDS.map((k) => playNatural(level, k, land));
+  // on a single leg the myopic player's per-call search is the optimum itself: not an instinct
+  const kinds = naturalKinds(level);
+  const naturals = kinds.map((k) => playNatural(level, k, land));
   const legal = naturals.filter((p) => p.legal);
   const top = legal.length ? legal.reduce((a, b) => (b.profit > a.profit ? b : a)) : null;
   const greedyBest = top ? top.profit : Math.floor(vstar / 2) - 1;
@@ -252,7 +259,7 @@ export function measure(level: Level, o: MeasureOptions): Metrics | null {
 
   // the strong editor: pure starts and jittered ones (two per kind)
   const starts: { kind: NaturalKind; mask: number; noisy: boolean }[] = naturals.map((p) => ({ kind: p.kind, mask: p.mask, noisy: false }));
-  for (const k of NATURAL_KINDS) {
+  for (const k of kinds) {
     if (k === 'myopic') continue;
     for (let j = 0; j < 2; j++) starts.push({ kind: k, mask: playNatural(level, k, land, new Rng(rng.int(1, 1e9))).mask, noisy: true });
   }
@@ -277,8 +284,9 @@ export function measure(level: Level, o: MeasureOptions): Metrics | null {
 
   const sim = simulate(level, best).projection;
   const prof = land.profile(opt.mask);
-  const nearest = top ? Math.min(...optimal.map((m) => hamming(m, top.mask))) : 0;
-  const sacrifice = top ? optimal.length ? Math.min(...optimal.map((m) => hamming(top.mask & ~m, 0))) : 0 : 0;
+  const nearestOpt = top ? optimal.reduce((a, b) => (hamming(b, top.mask) < hamming(a, top.mask) ? b : a)) : opt.mask;
+  const nearest = top ? hamming(nearestOpt, top.mask) : 0;
+  const sacrifice = top ? hamming(top.mask & ~nearestOpt, 0) : 0;
   return {
     vstar,
     bestMask: opt.mask,

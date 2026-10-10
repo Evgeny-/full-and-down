@@ -17,7 +17,7 @@ import { BedBuffers, DieselRun, SeaBed } from './beds';
 import { clamp, Rng } from './dsp';
 import { Band, Resources } from './instruments';
 import { SONGS } from './music';
-import { bakeRate, bakeSfx, type BakeName, type BedSound, RATE, SFX_NAMES, sfxKey, type SfxName, type SfxParams, VARIANTS, WOBBLE } from './sfx';
+import { bakeRate, bakeSfx, type BakeName, type BedSound, MONO, RATE, SFX_NAMES, sfxKey, type SfxName, type SfxParams, VARIANTS, WOBBLE } from './sfx';
 import { Song } from './song';
 
 export type { SfxName } from './sfx';
@@ -60,6 +60,8 @@ const ENGINE_GAIN = 0.22;
 const MASTER_GAIN = 0.9;
 /** Undoes the compressor's automatic makeup gain (+3.55 dB, measured in Chrome), so levels below its knee pass unchanged. */
 const COMPRESSOR_TRIM = 0.665;
+/** Baked SFX kept at most (bytes); the least recently played sounds are dropped and rebaked on demand. */
+const SFX_BUDGET = 14 * 1024 * 1024;
 /** Seconds of music scheduled ahead of the clock (bars are scheduled whole). */
 const LOOKAHEAD = 0.5;
 
@@ -101,6 +103,8 @@ export class AudioEngine implements Audio {
   private duckGain: GainNode | null = null;
   private reverb: ConvolverNode | null = null;
   private sfxCache = new Map<string, AudioBuffer[]>();
+  private sfxBytes = 0;
+  private minRate = 16000;
   private pending = new Set<string>();
   private lastVariant = new Map<string, number>();
   private last = new Map<SfxName, number>();
@@ -174,6 +178,13 @@ export class AudioEngine implements Audio {
   attach(ctx: BaseAudioContext, out: AudioNode = ctx.destination): void {
     this.ctx = ctx;
     this.res = new Resources(ctx);
+    // a few old engines only take buffers at 22.05 kHz and up
+    try {
+      ctx.createBuffer(1, 1, 16000);
+      this.minRate = 16000;
+    } catch {
+      this.minRate = 22050;
+    }
     this.beds = new BedBuffers(ctx);
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -16;
@@ -494,6 +505,9 @@ export class AudioEngine implements Audio {
     const key = sfxKey(name, p);
     const list = this.sfxCache.get(key);
     if (!list || !list.length) return this.variant(name, p, 0);
+    // most recently played last (LRU order for the memory budget)
+    this.sfxCache.delete(key);
+    this.sfxCache.set(key, list);
     const want = VARIANTS[name] ?? 3;
     if (list.length < want && this.ctx === this.live) {
       const v = list.length;
@@ -519,19 +533,36 @@ export class AudioEngine implements Audio {
     let list = this.sfxCache.get(key);
     if (!list) this.sfxCache.set(key, (list = []));
     if (list[v]) return list[v];
-    const b = bakeSfx(name, p, bakeRate(name), hash(key) + v * 7919);
-    const buf = ctx.createBuffer(2, b.L.length, b.sr);
-    buf.getChannelData(0).set(b.L);
-    buf.getChannelData(1).set(b.R);
+    const b = bakeSfx(name, p, bakeRate(name, this.minRate), hash(key) + v * 7919);
+    let buf: AudioBuffer;
+    if (MONO.has(name)) {
+      buf = ctx.createBuffer(1, b.L.length, b.sr);
+      const m = buf.getChannelData(0);
+      for (let i = 0; i < m.length; i++) m[i] = (b.L[i] + b.R[i]) * 0.5;
+    } else {
+      buf = ctx.createBuffer(2, b.L.length, b.sr);
+      buf.getChannelData(0).set(b.L);
+      buf.getChannelData(1).set(b.R);
+    }
     list[v] = buf;
+    this.sfxBytes += buf.length * buf.numberOfChannels * 4;
+    this.evict(key);
     return buf;
+  }
+
+  /** Keep the baked SFX under budget: drop the least recently played sounds (never `keep`). */
+  private evict(keep: string): void {
+    for (const [k, list] of this.sfxCache) {
+      if (this.sfxBytes <= SFX_BUDGET) return;
+      if (k === keep) continue;
+      for (const b of list) if (b) this.sfxBytes -= b.length * b.numberOfChannels * 4;
+      this.sfxCache.delete(k);
+    }
   }
 
   /** Bytes held in baked SFX buffers (audition page). */
   cacheBytes(): number {
-    let n = 0;
-    for (const list of this.sfxCache.values()) for (const b of list) if (b) n += b.length * b.numberOfChannels * 4;
-    return n;
+    return this.sfxBytes;
   }
 
   // ---------------------------------------------------------------- idle-time work

@@ -196,7 +196,7 @@ export class Hud {
             <span class="arrow"></span>
             <span class="cells">${cells.join('')}</span>
             <span class="burn num">−${leg.burn}${leg.reefers ? `<small>❄${leg.reefers}</small>` : ''}</span>
-            ${zone}${bridge}
+            ${zone || bridge ? `<span class="legsigns">${zone}${bridge}</span>` : ''}
           </div>`);
       }
     }
@@ -272,7 +272,7 @@ export class Hud {
       } else {
         const lot = p.lot ?? 1;
         this.bunker.innerHTML = `
-          <span class="bk-l"><span class="caps">Bunkers · ${p.name} · $${p.price}/t${lot > 1 ? ` · lots of ${lot}` : ''}</span><b>${glyph('fuel', 14)} <span class="num aboard"></span> aboard</b></span>
+          <span class="bk-l"><span class="caps">Bunkers · ${p.name} · $${p.price}/t</span><b>${glyph('fuel', 14)} <span class="num aboard"></span> aboard${lot > 1 ? ` <em class="lot">lots of ${lot}</em>` : ''}</b></span>
           <span class="stepper"><button class="btn small token minus" aria-label="Less fuel">${glyph('minus', 18)}</button><span class="num amt"></span><button class="btn small token plus" aria-label="More fuel">${glyph('plus', 18)}</button></span>
           <button class="btn small need">Need</button>`;
         holdRepeat(this.bunker.querySelector<HTMLButtonElement>('.minus')!, () => this.on.onBunker(-1));
@@ -298,7 +298,7 @@ export class Hud {
       let el = this.tagEls.get(it.id);
       if (!el) {
         const port = this.level.ports[it.to];
-        el = h('div', { class: 'tag', html: `<b class="num">$${it.freight}</b><span class="caps" style="color:${portColor(it.to)}">→${port.code}</span>` });
+        el = h('div', { class: 'tag', html: `<b class="num">$${it.freight}</b><span class="caps" style="--pc:${portColor(it.to)}">${port.code}</span>` });
         this.tags.append(el);
         this.tagEls.set(it.id, el);
       }

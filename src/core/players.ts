@@ -461,7 +461,7 @@ function subsetsOf<T>(xs: T[]): T[][] {
   return out;
 }
 
-/** The myopic player: at each call, the load that pays best against this call's bunkers, ignoring what comes later. */
+/** The myopic player: at each call, the load that pays best against this call's stem, ignoring what comes later (pickups, later legs' fuel). */
 function myopicPlay(level: Level, land: Landscape | undefined): Call[] {
   const rule = ruleFor(level, 'myopic');
   const P = level.ports.length;
@@ -493,7 +493,8 @@ function myopicPlay(level: Level, land: Landscape | undefined): Call[] {
       const j = judge(level, t2, i);
       if (j.bad > base.bad && sub.length) continue;
       const freight = chosen.reduce((s, b) => s + b.freight, 0);
-      const fuel = rule === 'auto' ? j.sim.projection.fuelCost : t2[i].bunker * (level.ports[i].price ?? 0);
+      // this call's stem only: the fuel for later legs is a later call's problem
+      const fuel = t2[i].bunker * (level.ports[i].price ?? 0);
       const score = freight - fuel - (j.bad > base.bad ? 1000 : 0);
       if (score > bestScore || (score === bestScore && chosen.length < bestN)) {
         bestScore = score;

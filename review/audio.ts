@@ -326,10 +326,10 @@ window.audit = {
   /** Loudness of each instrument of a theme, soloed (balance check). */
   async stems(i: number, seconds: number) {
     const names = ['organ', 'drone', 'flute', 'concertina', 'harmonium', 'bass', 'guitar', 'harp', 'tanpura', 'tabla', 'bell', 'brush', 'brushTap', 'block', 'knock', 'oceanDrum', 'frame', 'ge'];
-    const out: Record<string, number> = { all: measure(await renderMusic(i, seconds)).lufs };
+    const out: Record<string, number> = { all: measure(await renderMusic(i, seconds)).ungated };
     for (const n of names) {
       const m = measure(await renderMusic(i, seconds, { solo: [n] }));
-      if (m.lufs > -100) out[n] = m.lufs;
+      if (m.ungated > -100) out[n] = m.ungated;
     }
     return out;
   },
