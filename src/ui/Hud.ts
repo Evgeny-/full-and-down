@@ -190,8 +190,8 @@ export class Hud {
         const short = Math.max(0, lv.reserve - leg.fuelIn);
         const cells: string[] = [];
         for (let k = 0; k < leg.burn; k++) cells.push(`<i class="${k >= leg.burn - short ? 'short' : ''}"></i>`);
-        const zone = L.zone && lv.mechanics.includes('zone') ? `<span class="zone" title="Winter zone">W≤${L.zone.limit}</span>` : '';
-        const bridge = L.bridge && lv.mechanics.includes('bridge') ? `<span class="bridge" title="Low bridge">⌒≥${L.bridge.min}</span>` : '';
+        const zone = L.zone && lv.mechanics.includes('zone') ? `<span class="zone" title="Winter zone: after ${L.zone.at} day(s) she must weigh at most ${L.zone.limit} t">W≤${L.zone.limit}<small> @${L.zone.at}d</small></span>` : '';
+        const bridge = L.bridge && lv.mechanics.includes('bridge') ? `<span class="bridge" title="Low bridge: she must weigh at least ${L.bridge.min} t when she sails">⌒≥${L.bridge.min}</span>` : '';
         parts.push(`
           <div class="leg ${short ? 'shortleg' : ''}" style="--band:${bandColor(lv, leg.band)}">
             <span class="ltop caps">${L.days}d<span class="bn"> · ${bandName(lv, leg.band)}</span></span>

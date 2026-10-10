@@ -382,10 +382,17 @@ export class App {
   // ───────────────────────────── the pilot (hints) ─────────────────────────────
 
   private bestPlan: Call[] | null = null;
+  private lastHint: { key: string; msg: string; port: number; box?: BoxId; ashore?: boolean } | null = null;
 
   private hint(): void {
     const m = this.model;
     if (!m || this.mode !== 'plan') return;
+    const key = JSON.stringify(m.plan);
+    if (this.lastHint && this.lastHint.key === key) {
+      // the same advice again is free
+      this.showHint(this.lastHint);
+      return;
+    }
     if (this.save.pilots <= 0 && !DEBUG) {
       toast(this.ui, 'PILOT: no pilots left. Earn one with every new ★★★.');
       return;
@@ -406,16 +413,21 @@ export class App {
     };
     let msg = '';
     let port = m.port;
+    let box: BoxId | undefined;
+    let ashore = false;
     // 1) a box that shouldn't sail
     const extra = lv.boxes.filter((b) => mine & (1 << b.id) && !(ideal & (1 << b.id)));
     const missing = lv.boxes.filter((b) => ideal & (1 << b.id) && !(mine & (1 << b.id)));
     if (extra.length) {
       const b = extra.sort((x, y) => (x.from === m.port ? -1 : 0) - (y.from === m.port ? -1 : 0))[0];
       port = b.from;
+      box = b.id;
+      ashore = true;
       msg = `PILOT: leave ${name(b.id)} ashore at ${lv.ports[b.from].name}.`;
     } else if (missing.length) {
       const b = missing.sort((x, y) => (x.from === m.port ? -1 : 0) - (y.from === m.port ? -1 : 0))[0];
       port = b.from;
+      box = b.id;
       const bay = best[b.from].loads.find((l) => l.box === b.id)?.bay;
       msg = `PILOT: ship ${name(b.id)} from ${lv.ports[b.from].name}${bay !== undefined && lv.ship.tiers > 1 ? `, stack ${bay + 1}` : ''}.`;
     } else {
@@ -430,9 +442,19 @@ export class App {
     if (!DEBUG) this.save.pilots--;
     writeSave(this.save);
     this.updatePilots();
-    if (port !== m.port && port < m.calls) this.selectPort(port);
+    this.lastHint = { key, msg, port, box, ashore };
+    this.showHint(this.lastHint);
+  }
+
+  private showHint(hint: { msg: string; port: number; box?: BoxId; ashore?: boolean }): void {
+    const m = this.model!;
+    if (hint.port !== m.port && hint.port < m.calls) this.selectPort(hint.port);
     audio.play('bell');
-    toast(this.ui, msg, 4200);
+    toast(this.ui, hint.msg, 4200);
+    if (hint.box === undefined) return;
+    const where = m.whereAt(m.port, hint.box);
+    if (!hint.ashore && where.at === 'quay') this.view.tweens.after(0.35, () => this.mode === 'plan' && this.hold(hint.box!));
+    else this.view.tweens.after(0.35, () => this.view.wiggle(hint.box!));
   }
 
   private updatePilots(): void {

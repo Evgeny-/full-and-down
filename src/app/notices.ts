@@ -119,8 +119,8 @@ export const NOTICES: Partial<Record<Mechanic, Notice>> = {
     kind: 'NOTICE TO MARINERS',
     title: 'Winter zone',
     lines: [
-      'Partway along a leg she crosses into a winter zone, where her mark is lower: <b>W ≤ t</b>.',
-      'She may leave deeper, if she burns down to the winter mark by the line.',
+      'Partway along a leg she crosses into a winter zone, where her mark is lower: <b>W ≤ t</b>. The <b>@d</b> says after how many days.',
+      'She may leave deeper, if she burns down to the winter mark by the line: the fuel she burns before it counts.',
     ],
     art: svg(210, 80, `<rect x="0" y="10" width="105" height="60" fill="#cfe6f2"/><rect x="105" y="10" width="105" height="60" fill="#a9c9e6"/><path d="M105 6v68" stroke="#1e4fa3" stroke-width="3" stroke-dasharray="6 5"/><text x="52" y="30" font-family="Oswald Variable, Oswald, sans-serif" font-size="13" text-anchor="middle" fill="#1f2e4d">SUMMER</text><text x="158" y="30" font-family="Oswald Variable, Oswald, sans-serif" font-size="13" text-anchor="middle" fill="#1f2e4d">WINTER ≤ t</text><path d="M30 52h60" stroke="#1f2e4d" stroke-width="4"/><path d="M90 46l10 6-10 6z" fill="#1f2e4d"/>`),
   },

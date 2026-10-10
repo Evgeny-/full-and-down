@@ -59,6 +59,7 @@ html.night .rule .money { color: var(--ink); }
 .strip .leg .legsigns { display: flex; gap: 3px; }
 .strip .leg .zone, .strip .leg .bridge { padding: 1px 4px; border-radius: 3px; font: 600 9.5px/1.2 var(--num); background: #dbe8f5; color: var(--navy); white-space: nowrap; }
 .strip .leg .bridge { background: #eadcc4; }
+.strip .leg .zone small { font-size: 8px; opacity: 0.75; }
 
 /* the deadweight bar, under the waterline */
 .dwt { position: absolute; left: 12px; right: 12px; padding: 6px 8px 5px; background: rgba(248, 247, 242, 0.93); border-radius: 7px; box-shadow: var(--shadow-sm); pointer-events: none; }

@@ -95,7 +95,8 @@ export function toast(root: HTMLElement, text: string, ms = 2400): void {
   if (!toastEl) toastEl = h('div', { class: 'toast' });
   if (toastEl.parentElement !== root) root.append(toastEl);
   const m = /^([A-Z][A-Z ]+):\s*(.*)$/.exec(text);
-  toastEl.innerHTML = m ? `<b>${m[1]}</b>${escapeHtml(m[2])}` : escapeHtml(text);
+  const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+  toastEl.innerHTML = m ? `<b>${m[1]}</b>${escapeHtml(cap(m[2]))}` : escapeHtml(text);
   toastEl.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => toastEl?.classList.remove('show'), ms);

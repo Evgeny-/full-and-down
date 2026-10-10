@@ -150,11 +150,12 @@ html.night .btn { color: var(--ink); }
 .toast {
   position: absolute;
   left: 50%;
-  bottom: calc(150px + var(--safe-bottom));
+  top: calc(222px + var(--safe-top));
   z-index: 40;
-  max-width: min(360px, calc(100% - 32px));
+  width: max-content;
+  max-width: min(366px, calc(100% - 24px));
   padding: 10px 14px;
-  transform: translate(-50%, 12px);
+  transform: translate(-50%, -8px);
   opacity: 0;
   pointer-events: none;
   background: var(--navy);
