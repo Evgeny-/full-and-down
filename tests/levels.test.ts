@@ -52,8 +52,11 @@ describe.each(levels.map((l) => [l.n, l] as const))('L%i', (_n, l) => {
       expect(a).toBeLessThan(b);
       expect(b).toBeLessThan(c);
     }
-    // ★ is above every instinctive plan from L2 on
+    // ★ and ★★ differ whenever the range allows (playtest 30)
+    if (l.band !== 'T0' && c - a >= 2) expect(a).toBeLessThan(b);
+    // ★ is above every instinctive plan from L2 on (and above the sensible human's on generated levels)
     if (l.n >= 2) expect(a).toBeGreaterThan(Number(l.stats!.greedy));
+    if (l.n >= 2 && !l.stats!.authored) expect(a).toBeGreaterThan(Number(l.stats!.g_sensible));
   });
 
   it('has a title, a logbook line and stats', () => {

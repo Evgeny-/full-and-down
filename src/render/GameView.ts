@@ -184,7 +184,9 @@ export class GameView {
   private makeSign(): THREE.Mesh {
     const [c] = canvas(512, 128);
     const tex = toTexture(c);
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.6), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.5 }));
+    const geo = new THREE.PlaneGeometry(2.4, 0.6);
+    geo.translate(0, 0.3, 0);
+    const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.5 }));
     m.castShadow = true;
     return m;
   }
@@ -315,7 +317,7 @@ export class GameView {
     // portrait: let the bow and stern run a little off the edges so the boxes get the pixels
     // the ship fills a phone-width column; wider screens see more harbour around it
     const right = this.insets.right ?? 0;
-    const col = Math.min(w - right - (right ? 16 : 0), 640);
+    const col = Math.min(w - right - (right ? 16 : 0), w >= 1200 ? 900 : 640);
     const span = portrait ? Math.max(8.4, this.ship.length - 0.5) : this.ship.length + 1.2;
     let unit = col / span;
     // keep her (and the quay below) inside the free height
@@ -342,7 +344,11 @@ export class GameView {
     // never let the ship's mast run under the top block
     const shipAbove = (this.ship.deckY + this.level.ship.tiers * BOX_H + 0.9) * c * u;
     waterPx = Math.max(waterPx, this.insets.top + shipAbove * 0.8);
-    const waterPoint = new THREE.Vector3(right / 2 / u, 0, sideZ);
+    // when she doesn't fit, let the bow run off the edge, never the bridge
+    const room = (w - right) / u;
+    const mid = (this.ship.bowX + this.ship.sternX) / 2;
+    const cx = this.ship.length + 0.4 > room ? this.ship.sternX - 0.25 + room / 2 : mid;
+    const waterPoint = new THREE.Vector3(right / 2 / u + cx, 0, sideZ);
     this.look.copy(waterPoint).addScaledVector(up, (waterPx - h / 2) / u);
     this.camera.position.copy(this.look).addScaledVector(dir, -40);
     this.camera.up.set(0, 1, 0);
@@ -358,8 +364,8 @@ export class GameView {
     this.water.uniforms.uQuayZ.value = quayEdge;
     this.quaySpacing = Math.min(1.4, (viewW - 0.8) / 5);
     this.sign.visible = !portrait;
-    this.sign.position.set(-viewW / 2 + 1.45, QUAY_Y + 0.05, this.quayZ + 1.35);
-    this.sign.rotation.x = -Math.PI / 2 + 0.25;
+    this.sign.position.set(-viewW / 2 + 1.45, QUAY_Y + 0.01, this.quayZ + 1.35);
+    this.sign.rotation.x = -0.35;
     const sun = this.lights.sun;
     sun.target.position.copy(this.look);
     sun.position.copy(this.look).add(new THREE.Vector3(-7, 16, 9));
@@ -550,7 +556,11 @@ export class GameView {
       if (place.at === 'quay') {
         const to = this.quayPos(place.slot);
         const from = prev.position.clone();
-        this.tweens.add(0.2, (k) => prev.position.lerpVectors(from, to, k), { tag: prev, ease: ease.outQuad });
+        const s0 = prev.scale.x;
+        this.tweens.add(0.2, (k) => {
+          prev.position.lerpVectors(from, to, k);
+          prev.scale.setScalar(s0 + (1 - s0) * k);
+        }, { tag: prev, ease: ease.outQuad });
       }
     }
     this.held = box;
@@ -564,8 +574,12 @@ export class GameView {
       const base = this.quayPos(place.slot);
       this.tweens.cancel(mesh);
       const from = mesh.position.clone();
-      const to = base.clone().add(new THREE.Vector3(0, 0.55, 0));
-      this.tweens.add(0.22, (k) => mesh.position.lerpVectors(from, to, k), { tag: mesh, ease: ease.outBack });
+      const to = base.clone().add(new THREE.Vector3(0, 0.2, 0.5));
+      this.tweens.add(0.22, (k) => {
+        mesh.position.lerpVectors(from, to, k);
+        mesh.scale.setScalar(1 + 0.08 * k);
+      }, { tag: mesh, ease: ease.outBack });
+      this.crane.target = mesh.position;
     }
     // ghosts on legal stacks
     const b = this.level.boxes[box];
@@ -760,8 +774,8 @@ export class GameView {
 
   /** Dress overall and fire flag confetti (three-star arrival). */
   celebrate(): void {
-    const p = this.ship.body.localToWorld(new THREE.Vector3(0, this.ship.deckY + 2.5, 0.5));
-    this.fx.confetti(p, 90, this.ship.length * 0.6);
+    const p = this.ship.body.localToWorld(new THREE.Vector3(0, this.ship.deckY + 1.2, 1.2));
+    this.fx.confetti(p, 70, this.ship.length * 0.5);
     this.onMarkGlint();
     if (!this.dress) {
       const sh = this.ship;
@@ -819,9 +833,10 @@ export class GameView {
       this.water.uniforms.uSea.value = sea;
       const span = 39;
       for (const b of this.buoys) {
-        b.visible = sea > 0.25;
-        if (!b.visible) continue;
         const x = (((b.userData.offset - this.scroll * 1.0) % span) + span) % span - span / 2;
+        const onQuay = b.userData.z > 0 && Math.abs(x - this.world.position.x) < qw + 0.6;
+        b.visible = sea > 0.25 && !onQuay;
+        if (!b.visible) continue;
         b.position.set(x, Math.sin(t * 1.7 + b.userData.offset) * 0.03 - 0.05, b.userData.z);
         b.rotation.z = Math.sin(t * 1.3 + b.userData.offset) * 0.08;
       }

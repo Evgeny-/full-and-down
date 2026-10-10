@@ -201,6 +201,7 @@ export class App {
     if (!steps || (this.save.levels[level.n]?.stars ?? 0) > 0) return;
     const el = h('div', { class: 'coach' });
     this.ui.append(el);
+    this.ui.classList.add('has-coach');
     this.coach = { steps, i: 0, el };
     this.showCoach();
   }
@@ -228,6 +229,7 @@ export class App {
   private clearCoach(): void {
     this.coach?.el.remove();
     this.coach = null;
+    this.ui.classList.remove('has-coach');
   }
 
   // ───────────────────────────── planning ─────────────────────────────
@@ -556,7 +558,7 @@ export class App {
       this.view.insets.top = this.hud.topHeight() + 6;
       // dock 66, voice 48, bunker 58, quay tags 32, quay boxes ~30, deadweight bar 58
       // dock 66 + voice 50 + bunker 62 + freight tags 34 (from the bottom of the screen)
-      this.view.insets.bottom = compact ? 58 + 40 + 52 + 30 : 66 + 50 + 62 + 34;
+      this.view.insets.bottom = compact ? 58 + 40 + 52 + 30 + 14 : 66 + 50 + 62 + 34 + 14;
     }
     this.view.resize(w, hgt);
     this.anchors = this.view.layout();
@@ -752,7 +754,7 @@ export class App {
     const d = openDialog({
       title: `${lv.n} · ${lv.title}`,
       onClose: () => undefined,
-      body: [h('p', { html: `${escapeHtml(areaOf(lv).name)}. ★ $${lv.stars[0]} · ★★ $${lv.stars[1]} · ★★★ $${lv.stars[2]}` })],
+      body: [h('p', { text: areaOf(lv).name }), h('div', { class: 'par-chips', html: [...new Set(lv.stars)].map((t) => `<span>${starSvg(true, 13).repeat(lv.stars.lastIndexOf(t) + 1)} $${t}</span>`).join('') })],
       buttons: [
         { label: 'Resume', cls: 'blue', onClick: () => undefined },
         { label: 'Clear the plan', onClick: () => this.clearPlan() },
@@ -820,9 +822,22 @@ export class App {
       ],
       buttons: [
         { label: 'Reset progress', cls: 'red small', onClick: () => {
-          resetSave();
-          this.save = loadSave();
-          this.showMap();
+          openDialog({
+            title: 'Reset all 72 voyages?',
+            head: 'red',
+            body: ['Your stars and pilots go overboard. This cannot be undone.'],
+            row: true,
+            buttons: [
+              { label: 'Keep', onClick: () => undefined },
+              { label: 'Reset', cls: 'red', onClick: () => {
+                closeAllDialogs();
+                resetSave();
+                this.save = loadSave();
+                this.showMap();
+              } },
+            ],
+          });
+          return false;
         } },
       ],
     });

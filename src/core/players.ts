@@ -515,7 +515,9 @@ function sealedFirst(level: Level, rule: BunkerRule, land: Landscape | undefined
 // ---------------------------------------------------------------------------------------------
 // Natural starts
 
-export type NaturalKind = 'freight' | 'density' | 'tank' | 'myopic';
+/** The instinctive players, and the sensible human (instinct + 1-exchange repair, the ★ baseline). */
+export type NaturalKind = 'freight' | 'density' | 'tank' | 'myopic' | 'sensible';
+/** The instinctive players (the sensible human is built from two of them, `sensiblePlay`). */
 export const NATURAL_KINDS: NaturalKind[] = ['freight', 'density', 'tank', 'myopic'];
 
 export interface Played {
@@ -642,6 +644,32 @@ function repair(level: Level, plan: Call[], rule: BunkerRule, land: Landscape): 
   return null;
 }
 
+/**
+ * The sensible human (playtest 30): the greedy-by-density and greedy-by-freight loads, each improved
+ * by single changes — add a box, land one, swap one for one — until no single change pays more.
+ * Fuel is valued both ways a player might (NEED at every pump, or the cheapest plan the projection
+ * leads to) and the better result is kept; the plan sails with the cheapest bunkers for its boxes.
+ */
+export function sensiblePlay(level: Level, land: Landscape, starts: Played[]): Played | null {
+  const tables = level.auto ? [land.ub] : [land.ub, land.gasUb()];
+  let best: { mask: number; value: number } | null = null;
+  for (const st of starts) {
+    if (st.kind !== 'density' && st.kind !== 'freight') continue;
+    for (const ub of tables) {
+      const end = climbManifest(land, st.mask, kExchange(1), { ub, maxEdits: 40 });
+      const v = land.value(end.mask);
+      if (v > NEG && (!best || v > best.value || (v === best.value && end.mask < best.mask))) best = { mask: end.mask, value: v };
+    }
+  }
+  if (!best) return null;
+  const fuel = land.fuelOf(best.mask);
+  const stow = land.table.stow(best.mask);
+  if (!fuel || !stow) return null;
+  const plan = level.ports.slice(0, -1).map((_, i) => ({ loads: stow.loads[i].slice(), bunker: fuel.buy[i] }));
+  const j = judge(level, plan);
+  return { kind: 'sensible', plan, profit: j.sim.projection.profit, legal: j.legal, mask: maskOf(plan) };
+}
+
 /** One natural start, as a full plan evaluated by `simulate()`. `noise` jitters the preferences (±18%). */
 export function playNatural(level: Level, kind: NaturalKind, land?: Landscape, noise?: Rng): Played {
   let plan = kind === 'myopic' ? myopicPlay(level, land) : greedyPlay(level, kind === 'tank' ? 'tank' : kind, land, noise);
@@ -760,7 +788,7 @@ export function randomMaximal(land: Landscape, rng: Rng): number {
 }
 
 /** The share of natural starts the strong player begins from (doc 13 §2.1). */
-export const STRONG_START_WEIGHTS: Record<NaturalKind, number> = { density: 0.4, freight: 0.3, tank: 0.15, myopic: 0.15 };
+export const STRONG_START_WEIGHTS: Record<NaturalKind, number> = { density: 0.4, freight: 0.3, tank: 0.15, myopic: 0.15, sensible: 0 };
 
 export interface StrongResult {
   values: number[];

@@ -51,14 +51,14 @@ function setBands(level: Level, count: number, rng: Rng): void {
   const C = level.ship.capacity;
   if (count === 1) level.ship.bands = [{ upTo: C, rate: 1 }];
   else if (count === 2) {
-    const e = Math.max(2, Math.min(C - 2, Math.round(C * rng.range(0.45, 0.7))));
+    const e = Math.max(PALETTE.minFirstBand, Math.min(C - PALETTE.minBandWidth, Math.round(C * rng.range(0.45, 0.7))));
     level.ship.bands = [
       { upTo: e, rate: 1 },
       { upTo: C, rate: 2 },
     ];
   } else {
-    const e1 = Math.max(2, Math.round(C * rng.range(0.3, 0.48)));
-    const e2 = Math.max(e1 + 2, Math.min(C - 2, Math.round(C * rng.range(0.6, 0.82))));
+    const e1 = Math.max(PALETTE.minFirstBand, Math.round(C * rng.range(0.3, 0.48)));
+    const e2 = Math.max(e1 + PALETTE.minBandWidth, Math.min(C - PALETTE.minBandWidth, Math.round(C * rng.range(0.6, 0.82))));
     level.ship.bands = [
       { upTo: e1, rate: 1 },
       { upTo: e2, rate: 2 },
@@ -71,7 +71,8 @@ function setBands(level: Level, count: number, rng: Rng): void {
 export function draft(row: LadderRow, rng: Rng): Level {
   const P = row.ports;
   const names = flagsFor(rng.shuffle(AREA_PORTS[row.area].slice()).slice(0, P));
-  const flat = rng.pick(row.area <= 1 ? [1, 1, 2] : [1, 1, 2, 2, 3]);
+  // where the bands must shape the load, bunkers are dear enough to count
+  const flat = rng.pick(row.fuelMatters ? [2, 3] : row.area <= 1 ? [1, 1, 2] : [1, 1, 2, 2, 3]);
   const ports: Port[] = names.map((p, i) => ({ name: p.name, code: p.code, flag: p.flag, price: i === P - 1 ? null : flat }));
   if (has(row, 'prices')) {
     for (let i = 0; i < P - 1; i++) ports[i].price = rng.int(1, 3);
@@ -169,8 +170,9 @@ export function draft(row: LadderRow, rng: Rng): Level {
   }
   if (has(row, 'zone')) {
     const l = rng.int(0, P - 2);
+    // the winter line lies at sea, after 1..days−1 days of the leg (at its end it would be a bar)
     legs[l].days = Math.max(legs[l].days, 2);
-    legs[l].zone = { at: rng.int(1, legs[l].days), limit: Math.round(C2 * rng.range(0.55, 0.85)) };
+    legs[l].zone = { at: rng.int(1, legs[l].days - 1), limit: Math.round(C2 * rng.range(0.55, 0.85)) };
   }
   if (has(row, 'bridge')) {
     const l = rng.int(0, P - 2);
@@ -304,8 +306,8 @@ const MUTATIONS: { name: string; w: number; when?: (row: LadderRow) => boolean; 
       const bands = L.ship.bands;
       const i = rng.int(0, bands.length - 2);
       const v = bands[i].upTo + (rng.chance(0.5) ? 1 : -1);
-      const lo = i ? bands[i - 1].upTo + 1 : 1;
-      const hi = bands[i + 1].upTo - 1;
+      const lo = i ? bands[i - 1].upTo + PALETTE.minBandWidth : PALETTE.minFirstBand;
+      const hi = bands[i + 1].upTo - PALETTE.minBandWidth;
       if (v < lo || v > hi) return false;
       bands[i].upTo = v;
       return true;
@@ -318,7 +320,7 @@ const MUTATIONS: { name: string; w: number; when?: (row: LadderRow) => boolean; 
       const s = L.ship;
       const v = s.capacity + (rng.chance(0.5) ? 1 : -1);
       if (v < row.capacity[0] || v > row.capacity[1]) return false;
-      if (s.bands.length >= 2 && v <= s.bands[s.bands.length - 2].upTo) return false;
+      if (s.bands.length >= 2 && v < s.bands[s.bands.length - 2].upTo + PALETTE.minBandWidth) return false;
       s.capacity = v;
       s.bands[s.bands.length - 1].upTo = v;
       return true;
@@ -358,7 +360,7 @@ const MUTATIONS: { name: string; w: number; when?: (row: LadderRow) => boolean; 
       const leg = rng.pick(L.legs);
       const v = clampInt(leg.days + (rng.chance(0.5) ? 1 : -1), 1, row.area < 2 ? 2 : 3);
       if (v === leg.days) return false;
-      if (leg.zone && leg.zone.at > v) return false;
+      if (leg.zone && leg.zone.at >= v) return false;
       leg.days = v;
       return true;
     },
@@ -400,11 +402,11 @@ const MUTATIONS: { name: string; w: number; when?: (row: LadderRow) => boolean; 
         z.limit = v;
       } else if (r === 1) {
         const v = z.at + (rng.chance(0.5) ? 1 : -1);
-        if (v < 1 || v > L.legs[l].days) return false;
+        if (v < 1 || v >= L.legs[l].days) return false;
         z.at = v;
       } else {
         const k = rng.int(0, L.legs.length - 1);
-        if (k === l || L.legs[k].days < z.at) return false;
+        if (k === l || L.legs[k].days <= z.at) return false;
         L.legs[k].zone = z;
         delete L.legs[l].zone;
       }
@@ -543,7 +545,7 @@ const MUTATIONS: { name: string; w: number; when?: (row: LadderRow) => boolean; 
       const w = rng.pick(legs).weight;
       const s = L.ship;
       if (w === s.capacity || w < row.capacity[0] || w > row.capacity[1]) return false;
-      if (s.bands.length >= 2 && w <= s.bands[s.bands.length - 2].upTo) return false;
+      if (s.bands.length >= 2 && w < s.bands[s.bands.length - 2].upTo + PALETTE.minBandWidth) return false;
       s.capacity = w;
       s.bands[s.bands.length - 1].upTo = w;
       for (const p of L.ports) if (p.bar !== undefined && p.bar >= w) delete p.bar;
@@ -713,6 +715,10 @@ export function logbookFor(L: Level, m: Metrics): string {
   if (L.format === 'exact') {
     const legs = opt.legs.map((l, i) => (l.weight === L.ship.capacity ? i : -1)).filter((i) => i >= 0);
     const at = legs.length ? L.ports[legs[0]].name : L.ports[0].name;
+    const dry = L.ports.findIndex((p, i) => i > 0 && i < last && p.price === null);
+    if (dry > 0) {
+      return `No barge at ${L.ports[dry].name}, so ${L.ports[0].name} stemmed the fuel for every leg: ${listing(L, ids(m.bestMask, n))} and ${fuelT(m.best)} t of bunkers put her on the mark at ${at}, and she berthed at ${L.ports[last].name} on the reserve.`;
+    }
     return `One load and no other: ${listing(L, ids(m.bestMask, n))} with ${fuelT(m.best)} t of bunkers put her on the mark at ${at}, and she berthed at ${L.ports[last].name} on the reserve.`;
   }
   if (!g) return `Par is $${m.vstar}; the obvious loads don't sail at all.`;

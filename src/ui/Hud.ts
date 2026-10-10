@@ -26,9 +26,12 @@ function bandName(level: Level, b: number): string {
   return BAND_NAMES[b] ?? 'DEEP';
 }
 
+const BAND_NIGHT = ['#8fb3d9', '#6d8fc4', '#c9d6ea'];
+
 export function bandColor(level: Level, b: number): string {
-  if (level.ship.bands.length === 2) return [BAND_COLORS[0], BAND_COLORS[2]][b];
-  return BAND_COLORS[b];
+  const cols = document.documentElement.classList.contains('night') ? BAND_NIGHT : BAND_COLORS;
+  if (level.ship.bands.length === 2) return [cols[0], cols[2]][b];
+  return cols[b];
 }
 
 /**
@@ -136,23 +139,45 @@ export class Hud {
 
   private renderRule(profit: number, bad: boolean): void {
     const [t1, t2, t3] = this.level.stars;
-    const lo = Math.min(0, profit);
-    const max = Math.max(t3 * 1.1, t3 + 3);
-    const pos = (v: number) => `${Math.max(0, Math.min(100, ((v - lo) / (max - lo)) * 100))}%`;
+    // the track spans a window around the thresholds so the marks spread out
+    const spread = Math.max(4, t3 - t1);
+    const lo = Math.max(0, t1 - spread * 1.6);
+    const hi = t3 + Math.max(2, spread * 0.25);
+    const pos = (v: number) => `${Math.max(0, Math.min(100, ((v - lo) / (hi - lo)) * 100))}%`;
     const bump = profit !== this.lastProfit;
     this.lastProfit = profit;
     const money = profit < 0 ? `−<small>$</small>${-profit}` : `<small>$</small>${profit}`;
+    const marks = [t1, t2, t3]
+      .map((t, i) => ({ t, i }))
+      .filter((x, k, arr) => arr.findIndex((y) => y.t === x.t) === k || true)
+      .map(({ t, i }) => `<div class="mark ${profit >= t ? 'on' : ''}" style="left:${pos(t)}"><i>${'•'.repeat(i + 1)}</i></div>`)
+      .join('');
     this.rule.innerHTML = `
       <div class="money num ${bad || profit < 0 ? 'bad' : ''} ${bump ? 'bump' : ''}">${money}</div>
       <div class="rcol">
         <div class="track">
           <div class="fill ${bad ? 'bad' : ''}" style="width:${pos(Math.max(lo, profit))}"></div>
-          ${[t1, t2, t3].map((t) => `<div class="mark ${profit >= t ? 'on' : ''}" style="left:${pos(t)}"></div>`).join('')}
+          ${marks}
         </div>
-        <div class="legend">${[t1, t2, t3]
-          .map((t, i) => `<span class="${profit >= t ? 'on' : ''}">${starSvg(profit >= t, 13)}${i ? starSvg(profit >= t, 13) : ''}${i > 1 ? starSvg(profit >= t, 13) : ''}<b class="num">$${t}</b></span>`)
-          .join('')}</div>
+        <div class="legend">${this.legend(profit)}</div>
       </div>`;
+  }
+
+  /** Star labels; equal thresholds share one label. */
+  private legend(profit: number): string {
+    const [t1, t2, t3] = this.level.stars;
+    const groups: { t: number; n: number }[] = [];
+    [t1, t2, t3].forEach((t, i) => {
+      const g = groups.find((x) => x.t === t);
+      if (g) g.n = i + 1;
+      else groups.push({ t, n: i + 1 });
+    });
+    return groups
+      .map((g) => {
+        const on = profit >= g.t;
+        return `<span class="${on ? 'on' : ''}">${starSvg(on, 12).repeat(g.n)}<b class="num">$${g.t}</b></span>`;
+      })
+      .join('');
   }
 
   private renderStrip(m: PlanModel, pr: Projection): void {
@@ -174,14 +199,13 @@ export class Hud {
       const arrive = i > 0 ? pr.calls[i].arrivalFuel : null;
       const robOk = arrive === null || arrive >= lv.reserve;
       const pump = p.price === null ? `<span class="pump none">no fuel</span>` : `<span class="pump">${glyph('fuel', 11)}$${p.price}${p.lot && p.lot > 1 ? `<i>×${p.lot}</i>` : ''}</span>`;
-      const bar = p.bar !== undefined ? `<span class="barsign" title="Harbour bar">≤${p.bar}t</span>` : '';
+      const bar = p.bar !== undefined ? `<span class="barsign" title="Harbour bar: at most ${p.bar} t aboard here">≤${p.bar}</span>` : '';
       const dot = m.bouncedPorts.has(i) || problemPorts.has(i) ? '<i class="dot"></i>' : '';
       parts.push(`
         <button class="port ${sel ? 'sel' : ''} ${last ? 'last' : ''}" data-port="${i}" ${last ? 'disabled' : ''}>
-          <span class="pflag">${flagSvg(p.flag as FlagId, 24, 16)}${dot}</span>
+          <span class="pflag">${flagSvg(p.flag as FlagId, 24, 16)}${dot}${bar}</span>
           <span class="code num">${p.code}</span>
           ${last ? '<span class="pump fin">final</span>' : pump}
-          ${bar}
           ${arrive !== null ? `<span class="rob num ${robOk ? '' : 'bad'}">ROB ${arrive}</span>` : `<span class="rob num start">ROB ${lv.startFuel}</span>`}
         </button>`);
       if (!last) {
@@ -244,13 +268,13 @@ export class Hud {
       .join('');
     const band = bandOf(lv.ship, used);
     const nextUp = lv.ship.bands[band].upTo;
-    const hint = pv ? `<b class="pv">+${pv.weight} t</b> ${used > C ? `<b class="over">${over} t over</b>` : used === C ? '<b class="mark">on the mark</b>' : `${C - used} t to spare`}` : used > C ? `<b class="over">${over} t over</b>` : used === C ? `<b class="mark">ON THE MARK</b>` : band < lv.ship.bands.length - 1 ? `▲${nextUp - used + 1} t to ${bandName(lv, band + 1)}` : `▲${C - used} t to the mark`;
+    const hint = pv ? `<b class="pv">+${pv.weight} t</b> → ${used > C ? `<b class="over">${over} t over</b>` : used === C ? '<b class="mark">on the mark</b>' : `${C - used} t spare`}` : used > C ? `<b class="over">${over} t over</b>` : used === C ? `<b class="mark">ON THE MARK</b>` : band < lv.ship.bands.length - 1 ? `▲${nextUp - used + 1} t to ${bandName(lv, band + 1)}` : `▲${C - used} t to the mark`;
     this.dwt.innerHTML = `
       <div class="dwt-row"><span class="caps">Deadweight</span><span class="num tot ${over ? 'bad' : ''}">${used}<small>/${C} t</small></span><span class="hint caps">${hint}</span></div>
       <div class="cells ${over ? 'over' : ''}" style="--n:${Math.max(C, used)}">${cells.join('')}<b class="smark" style="left:${(C / Math.max(C, used)) * 100}%">S</b></div>
       <div class="zones">${zones}</div>`;
     if (a) {
-      this.dwt.style.top = `${Math.round(a.waterY + 6)}px`;
+      this.dwt.style.top = `${Math.round(a.waterY + 11)}px`;
       const land = this.root.parentElement?.classList.contains('landscape');
       this.dwt.style.left = '12px';
       this.dwt.style.right = land ? '388px' : '12px';
@@ -271,11 +295,11 @@ export class Hud {
       if (p.price === null) {
         this.bunker.innerHTML = `<span class="bk-l"><span class="caps">Bunkers</span><b>No bunkers at ${p.name}</b></span><span class="bk-r caps"><span class="aboard"></span></span>`;
       } else if (lv.auto) {
-        this.bunker.innerHTML = `<span class="bk-l"><span class="caps">Bunkers · ${p.name} · $${p.price}/t</span><b>${glyph('fuel', 14)} Chief orders <span class="num amt"></span></b></span><span class="bk-r caps auto">Auto<br>valve</span>`;
+        this.bunker.innerHTML = `<span class="bk-l"><span class="caps">Bunkers $${p.price}/t · ${p.name}</span><b>${glyph('fuel', 14)} Chief orders <span class="num amt"></span></b></span><span class="bk-r caps auto">Auto<br>valve</span>`;
       } else {
         const lot = p.lot ?? 1;
         this.bunker.innerHTML = `
-          <span class="bk-l"><span class="caps">Bunkers · ${p.name} · $${p.price}/t</span><b>${glyph('fuel', 14)} <span class="num aboard"></span> aboard${lot > 1 ? ` <em class="lot">lots of ${lot}</em>` : ''}</b></span>
+          <span class="bk-l"><span class="caps">Bunkers $${p.price}/t · ${p.name}</span><b>${glyph('fuel', 14)} <span class="num aboard"></span> aboard${lot > 1 ? ` <em class="lot">lots of ${lot}</em>` : ''}</b></span>
           <span class="stepper"><button class="btn small token minus" aria-label="Less fuel">${glyph('minus', 18)}</button><span class="num amt"></span><button class="btn small token plus" aria-label="More fuel">${glyph('plus', 18)}</button></span>
           <button class="btn small need">Need</button>`;
         holdRepeat(this.bunker.querySelector<HTMLButtonElement>('.minus')!, () => this.on.onBunker(-1));

@@ -15,7 +15,7 @@ export interface SaveData {
 }
 
 function fresh(): SaveData {
-  return { levels: {}, pilots: 3, seen: [], settings: { sfx: 0.9, music: 0.5, night: 'off' } };
+  return { levels: {}, pilots: 3, seen: [], settings: { sfx: 0.9, music: 0.5, night: 'auto' } };
 }
 
 export function loadSave(): SaveData {

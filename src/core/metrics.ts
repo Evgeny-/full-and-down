@@ -4,7 +4,6 @@
  * ablation of every mechanic present, the arrival remarks and the difficulty index
  * DI = 40(1−S★) + 30(1−S★★★) + 30(1−C★★★).
  */
-import { isLesson } from './progression';
 import { simulate } from './rules';
 import { fuelDP, ManifestTable, toPlan } from './solver';
 import { Rng } from './rng';
@@ -19,6 +18,7 @@ import {
   NEG,
   playNatural,
   quickStow,
+  sensiblePlay,
   strongPlayer,
   tinkerer,
   type NaturalKind,
@@ -63,6 +63,8 @@ export interface Metrics {
   /** remarks of the optimum: on the mark at some departure; ROB on the reserve at the last berth */
   onMark: boolean;
   onReserve: boolean;
+  /** with one flat burn the optimum would carry other boxes (the bands shape the load) */
+  fuelShapes: boolean;
   /** heaviest leg's cargo / deadweight, for the optimum */
   cargoFill: number;
   /** boxes in the optimum */
@@ -80,33 +82,35 @@ export interface MeasureOptions {
   seed: number;
   /** mechanics to ablate (default: all present) */
   ablate?: Mechanic[];
+  /**
+   * What ★ must beat: 'sensible' (default) — every natural start including the sensible human's
+   * repaired plan; 'instinct' — the instinctive plans only (the authored tutorials, whose lesson is
+   * the one change the sensible human makes).
+   */
+  baseline?: 'instinct' | 'sensible';
 }
 
 export const FULL: Omit<MeasureOptions, 'seed'> = { strongRuns: 64, carefulRandom: 6, tinkerRuns: 200 };
 export const QUICK: Omit<MeasureOptions, 'seed'> = { strongRuns: 40, carefulRandom: 4, tinkerRuns: 30 };
 
 /**
- * Star thresholds (doc 13 §3.2, critic 20's separation rule): T3 = V*; T1 = the best natural start
- * + 1; T2 = the best decoy + 1 if that is above T1, else the midpoint; each at least 2 above the one
- * below. When the range is too narrow for that, lesson levels (T0, B1, B2) let ★ and ★★ (or all
- * three) coincide; other levels keep them strictly increasing as far as the range allows.
+ * Star thresholds (doc 13 §3.2, critic 20's separation rule, playtest 30): T3 = V*; T1 = the best
+ * natural start (instinct, and the sensible human's repaired plan) + 1; T2 = the best decoy + 1 if
+ * that is above T1, else the midpoint, at least 2 above T1 and 2 below T3. When the range is too
+ * narrow for that, ★★ sits 1 above ★ (★★★ stays 2 clear when the range is 3). With no room at all
+ * (only lesson levels may ship that way) ★ rises to ★★ or all three coincide.
  */
-export function thresholds(vstar: number, greedyBest: number, bestDecoy: number | null, lesson = true): [number, number, number] {
+export function thresholds(vstar: number, baseline: number, bestDecoy: number | null): [number, number, number] {
   const T3 = vstar;
-  let T1 = Math.min(greedyBest + 1, T3);
-  const aim = (lo: number, hi: number) => {
+  const T1 = Math.min(baseline + 1, T3);
+  const range = T3 - T1;
+  if (range >= 4) {
     const t = bestDecoy !== null && bestDecoy + 1 > T1 ? bestDecoy + 1 : Math.round((T1 + T3) / 2);
-    return Math.max(lo, Math.min(hi, t));
-  };
-  let T2: number;
-  if (T3 - T1 >= 4) T2 = aim(T1 + 2, T3 - 2);
-  // too narrow for both gaps: keep ★★★ two clear of ★★ (never "★★★ by one coin") where it fits
-  else if (T3 - T1 >= 2) T2 = lesson ? T1 : T3 - T1 >= 3 ? T1 + 1 : aim(T1 + 1, T3 - 1);
-  else {
-    T1 = T3;
-    T2 = T3;
+    return [T1, Math.max(T1 + 2, Math.min(T3 - 2, t)), T3];
   }
-  return [T1, T2, T3];
+  if (range >= 2) return [T1, T1 + 1, T3];
+  if (range === 1) return [T1, T3, T3];
+  return [T3, T3, T3];
 }
 
 export const difficultyIndex = (s1: number, s3: number, c3: number) => 40 * (1 - s1) + 30 * (1 - s3) + 30 * (1 - c3);
@@ -201,6 +205,11 @@ function fuelLowerBound(L: Level): number {
  * the per-mask weight profiles are the base landscape's.
  */
 function relaxedVstar(base: Landscape, L: Level, floor: number, ignoreStow: boolean): number {
+  return relaxedBest(base, L, floor, ignoreStow).value;
+}
+
+/** `relaxedVstar` with the manifest that beats the floor (mask −1 when none does). */
+function relaxedBest(base: Landscape, L: Level, floor: number, ignoreStow: boolean): { value: number; mask: number } {
   const { ship } = L;
   const legs = base.legs;
   const reeferRule = L.mechanics.includes('reefer');
@@ -219,6 +228,7 @@ function relaxedVstar(base: Landscape, L: Level, floor: number, ignoreStow: bool
     return c;
   };
   let best = floor;
+  let bestMask = -1;
   for (const m of base.byFreight()) {
     const f = base.freight[m];
     if (f - lb <= best) break;
@@ -250,8 +260,21 @@ function relaxedVstar(base: Landscape, L: Level, floor: number, ignoreStow: bool
     if (!slotsOk) continue;
     if (table && !(ship.tiers === 1 && !reeferRule) && !quickStow(L, m) && !table.stow(m)) continue;
     best = v;
+    bestMask = m;
   }
-  return best;
+  return { value: best, mask: bestMask };
+}
+
+/**
+ * Does the burn-band rule decide which boxes sail? True when, with one flat burn at the lowest
+ * rate, the optimum would carry a different set of boxes (fuel then shapes the load, not just the
+ * bill: playtest 30 on "pure knapsack" levels).
+ */
+export function fuelShapesLoad(level: Level, land: Landscape, opt: { value: number; mask: number }): boolean {
+  if (!level.mechanics.includes('bands')) return false;
+  const r = relax(level, 'bands')!;
+  const rb = relaxedBest(land, r.level, opt.value, false);
+  return rb.mask >= 0 && land.canonical(rb.mask) !== land.canonical(opt.mask);
 }
 
 /** ΔV* when the rule is switched off (see `Metrics.ablation`). */
@@ -328,20 +351,23 @@ export function measure(level: Level, o: MeasureOptions): Metrics | null {
 
   // on a single leg the myopic player's per-call search is the optimum itself: not an instinct
   const kinds = naturalKinds(level);
-  const naturals = kinds.map((k) => playNatural(level, k, land));
-  const legal = naturals.filter((p) => p.legal);
+  const instinct = kinds.map((k) => playNatural(level, k, land));
+  // ★ must beat the sensible human too: instinct, then single changes until none pays
+  const sensible = sensiblePlay(level, land, instinct);
+  const naturals = sensible ? [...instinct, sensible] : instinct;
+  const legal = (o.baseline === 'instinct' ? instinct : naturals).filter((p) => p.legal);
   const top = legal.length ? legal.reduce((a, b) => (b.profit > a.profit ? b : a)) : null;
   const greedyBest = top ? top.profit : Math.floor(vstar / 2) - 1;
 
   const decoys = decoysOf(land, vstar, Math.ceil(0.9 * vstar));
   const bestDecoy = decoys.length ? decoys[0].value : null;
-  const stars = thresholds(vstar, greedyBest, bestDecoy, isLesson(level.band));
+  const stars = thresholds(vstar, greedyBest, bestDecoy);
 
   const optimal = land.masksWorth(vstar);
   const omega = new Set(optimal.map((m) => land.canonical(m))).size;
 
   // exchange depth from the natural starts
-  const startMasks = naturals.map((p) => p.mask);
+  const startMasks = instinct.map((p) => p.mask);
   let depth = 4;
   for (let k = 1; k <= 3; k++) {
     const moves = kExchange(k);
@@ -353,7 +379,7 @@ export function measure(level: Level, o: MeasureOptions): Metrics | null {
   }
 
   // the strong editor: pure starts and jittered ones (two per kind)
-  const starts: { kind: NaturalKind; mask: number; noisy: boolean }[] = naturals.map((p) => ({ kind: p.kind, mask: p.mask, noisy: false }));
+  const starts: { kind: NaturalKind; mask: number; noisy: boolean }[] = instinct.map((p) => ({ kind: p.kind, mask: p.mask, noisy: false }));
   for (const k of kinds) {
     if (k === 'myopic') continue;
     for (let j = 0; j < 2; j++) starts.push({ kind: k, mask: playNatural(level, k, land, new Rng(rng.int(1, 1e9))).mask, noisy: true });
@@ -406,6 +432,7 @@ export function measure(level: Level, o: MeasureOptions): Metrics | null {
     ablation: abl,
     onMark: sim.onMark.some((x) => x),
     onReserve: sim.finalRob === level.reserve,
+    fuelShapes: fuelShapesLoad(level, land, opt),
     cargoFill: Math.max(...prof.legW) / level.ship.capacity,
     optBoxes: hamming(opt.mask, 0),
     trap: nearest,
@@ -439,6 +466,7 @@ export function statsRecord(m: Metrics, extra: Record<string, number | string> =
     onMark: m.onMark ? 1 : 0,
     onReserve: m.onReserve ? 1 : 0,
     fill: r2(m.cargoFill),
+    fuelShapes: m.fuelShapes ? 1 : 0,
   };
   for (const p of m.naturals) out['g_' + p.kind] = p.legal ? p.profit : -1;
   for (const [k, v] of Object.entries(m.ablation)) out['abl_' + k] = v!;

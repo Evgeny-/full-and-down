@@ -10,6 +10,7 @@ import {
   NEG,
   playNatural,
   quickStow,
+  sensiblePlay,
   strongPlayer,
   tinkerer,
 } from '../src/core/players';
@@ -132,15 +133,26 @@ describe('editors and the tinkerer', () => {
 });
 
 describe('metrics', () => {
-  it('stars: separation of 2 where the range allows, coinciding on narrow ranges', () => {
+  it('stars: separation of 2 where the range allows, ★ and ★★ apart whenever they can be', () => {
     expect(thresholds(30, 20, 26)).toEqual([21, 27, 30]);
     expect(thresholds(30, 20, null)).toEqual([21, 26, 30]);
     expect(thresholds(30, 20, 29)).toEqual([21, 28, 30]);
-    expect(thresholds(30, 27, null)).toEqual([28, 28, 30]);
+    expect(thresholds(30, 26, null)).toEqual([27, 28, 30]);
+    expect(thresholds(30, 27, null)).toEqual([28, 29, 30]);
+    expect(thresholds(30, 28, null)).toEqual([29, 30, 30]);
     expect(thresholds(30, 29, null)).toEqual([30, 30, 30]);
   });
+  it('the sensible human repairs the instinctive load with single changes', () => {
+    const land = new Landscape(B3);
+    const inst = (['freight', 'density'] as const).map((k) => playNatural(B3, k, land));
+    const s = sensiblePlay(B3, land, inst)!;
+    expect(s.legal).toBe(true);
+    expect(s.profit).toBeGreaterThanOrEqual(Math.max(...inst.map((p) => p.profit)));
+    expect(s.profit).toBeLessThanOrEqual(solve(B3)!.value);
+    expect(simulate(B3, s.plan).projection.profit).toBe(s.profit);
+  });
   it('the tutorials teach what they say', () => {
-    const l2 = measure(AUTHORED[2].level, { strongRuns: 16, carefulRandom: 2, tinkerRuns: 10, seed: 1 })!;
+    const l2 = measure(AUTHORED[2].level, { strongRuns: 16, carefulRandom: 2, tinkerRuns: 10, seed: 1, baseline: 'instinct' })!;
     // every instinctive load takes the 4 t box and goes LADEN; par leaves it ashore
     expect(l2.greedyBest).toBeLessThan(l2.stars[0]);
     expect(l2.bestMask & 1).toBe(0);
@@ -148,7 +160,7 @@ describe('metrics', () => {
     const l1 = measure(AUTHORED[1].level, { strongRuns: 8, carefulRandom: 0, tinkerRuns: 0, seed: 1 })!;
     expect(l1.onMark && l1.onReserve).toBe(true);
     expect(l1.ablation.weight).toBeGreaterThan(0);
-    const l3 = measure(AUTHORED[3].level, { strongRuns: 16, carefulRandom: 2, tinkerRuns: 10, seed: 1 })!;
+    const l3 = measure(AUTHORED[3].level, { strongRuns: 16, carefulRandom: 2, tinkerRuns: 10, seed: 1, baseline: 'instinct' })!;
     expect(l3.greedyBest).toBeLessThan(l3.stars[0]);
     expect(l3.ablation.calls).toBeGreaterThan(0);
   });

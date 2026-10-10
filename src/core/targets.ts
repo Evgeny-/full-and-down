@@ -37,6 +37,10 @@ export interface Target {
   intro?: Mechanic;
   mechanics: Mechanic[];
   ports: number;
+  /** the burn bands must decide which boxes sail (playtest 30: L7, L51) */
+  fuelShapes: boolean;
+  /** V*(one flat band) − V*, at least (where bands are present) */
+  minBandsDelta: number;
 }
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -55,6 +59,8 @@ const DI: Record<BandId, [[number, number], [number, number]]> = {
 export function targetFor(row: LadderRow): Target {
   const t = row.area / 7;
   const base = {
+    fuelShapes: !!row.fuelMatters,
+    minBandsDelta: row.mechanics.includes('bands') ? (row.fuelMatters ? 4 : 2) : 0,
     di: slide(DI[row.band][0], DI[row.band][1], t), band: row.band, intro: row.intro, mechanics: row.mechanics, ports: row.ports, exact: false, minFill: 0.45 };
   switch (row.band) {
     case 'T0':
@@ -66,11 +72,11 @@ export function targetFor(row: LadderRow): Target {
     case 'B3':
       return { ...base, s1: slide([0.6, 0.9], [0.5, 0.75], t), s3: slide([0.15, 0.45], [0.1, 0.3], t), c3: [0.75, 1], depth: [2, 3], minDecoys: 1, minGap: 0.07, minSpread: 4, separation: true, maxT1: 0.5, maxT3: 0.1, maxOmega: 2 };
     case 'B4':
-      return { ...base, s1: slide([0.45, 0.75], [0.35, 0.6], t), s3: slide([0.08, 0.3], [0.05, 0.2], t), c3: [0.6, 1], depth: [2, 3], minDecoys: 2, minGap: 0.08, minSpread: 4, separation: true, maxT1: 0.5, maxT3: 0.08, maxOmega: 1 };
+      return { ...base, s1: slide([0.45, 0.75], [0.35, 0.6], t), s3: slide([0.08, 0.3], [0.05, 0.2], t), c3: [0.6, 1], depth: [2, 4], minDecoys: 3, minGap: 0.08, minSpread: 4, separation: true, maxT1: 0.5, maxT3: 0.08, maxOmega: 1 };
     case 'B5':
-      return { ...base, s1: slide([0.25, 0.55], [0.2, 0.45], t), s3: [0, lerp(0.15, 0.1, t)], c3: [0.35, 0.75], depth: [3, 4], minDecoys: 3, minGap: 0.1, minSpread: 5, separation: true, maxT1: 0.4, maxT3: 0.05, maxOmega: 1 };
+      return { ...base, s1: slide([0.25, 0.55], [0.2, 0.45], t), s3: [0, lerp(0.15, 0.1, t)], c3: [0.35, 0.75], depth: [3, 4], minDecoys: 4, minGap: 0.1, minSpread: 5, separation: true, maxT1: 0.4, maxT3: 0.05, maxOmega: 1 };
     case 'B6':
-      return { ...base, s1: slide([0.15, 0.45], [0.1, 0.35], t), s3: [0, lerp(0.08, 0.05, t)], c3: [0.25, 0.6], depth: [3, 4], minDecoys: 4, minGap: 0.1, minSpread: 5, separation: true, maxT1: 0.35, maxT3: 0.05, maxOmega: 1 };
+      return { ...base, s1: slide([0.15, 0.45], [0.1, 0.35], t), s3: [0, lerp(0.08, 0.05, t)], c3: [0.25, 0.6], depth: [3, 4], minDecoys: 5, minGap: 0.1, minSpread: 5, separation: true, maxT1: 0.35, maxT3: 0.05, maxOmega: 1 };
   }
 }
 
@@ -98,13 +104,19 @@ export function shortfall(m: Metrics, t: Target): Shortfall {
   add(2 * linBand(m.s1, t.s1), `S★ ${pct(m.s1)}`);
   add(2 * linBand(m.s3, t.s3), `S★★★ ${pct(m.s3)}`);
   add(1 * linBand(m.c3, t.c3), `C★★★ ${pct(m.c3)}`);
-  add(0.25 * linBand(m.depth, t.depth), `X ${m.depth}`);
-  add(0.15 * Math.max(0, t.minDecoys - m.decoys), `decoys ${m.decoys}`);
+  const hard = t.band === 'B4' || t.band === 'B5' || t.band === 'B6';
+  add((hard ? 0.5 : 0.25) * linBand(m.depth, t.depth), `X ${m.depth}`);
+  add((hard ? 0.25 : 0.15) * Math.max(0, t.minDecoys - m.decoys), `decoys ${m.decoys}`);
   add(4 * Math.max(0, t.minGap - m.gap), `gap ${pct(m.gap)}`);
   const [T1, T2, T3] = m.stars;
   add(0.25 * Math.max(0, t.minSpread - (T3 - T1)), `spread ${T3 - T1}`);
   if (t.separation) add(0.2 * (Math.max(0, 2 - (T2 - T1)) + Math.max(0, 2 - (T3 - T2))), `stars ${T1}/${T2}/${T3}`);
   if (!isLesson(t.band) && !(T1 < T2 && T2 < T3)) add(2, 'stars collapse');
+  // lesson levels may let the stars coincide, but ★ and ★★ should differ where the range allows
+  if (isLesson(t.band) && t.band !== 'T0' && T2 === T1) add(1, `★ = ★★ (${T1})`);
+  if (t.fuelShapes && !m.fuelShapes) add(1.5, 'bands do not change the load');
+  const bandsDelta = m.ablation.bands;
+  if (bandsDelta !== undefined) add(0.15 * Math.max(0, t.minBandsDelta - bandsDelta), `bands Δ${bandsDelta}`);
   add(1.5 * Math.max(0, m.t1 - t.maxT1), `T★ ${pct(m.t1)}`);
   add(3 * Math.max(0, m.t3 - t.maxT3), `T★★★ ${pct(m.t3)}`);
   add(0.5 * Math.max(0, m.omega - t.maxOmega), `ω ${m.omega}`);

@@ -63,7 +63,9 @@ export function openDialog(opts: DialogOptions): DialogHandle {
     });
     dlg.append(x);
   }
-  for (const b of opts.body ?? []) dlg.append(typeof b === 'string' ? h('p', { html: b }) : b);
+  const body = h('div', { class: 'dlg-body' });
+  for (const b of opts.body ?? []) body.append(typeof b === 'string' ? h('p', { html: b }) : b);
+  dlg.append(body);
   if (opts.buttons?.length) {
     const actions = h('div', { class: 'actions' + (opts.row ? ' row' : '') });
     for (const b of opts.buttons) {

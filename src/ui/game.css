@@ -24,24 +24,26 @@ html.night .rule .money { color: var(--ink); }
 .rule .mark { position: absolute; top: -3px; width: 3px; height: 14px; margin-left: -1.5px; border-radius: 1px; background: var(--ink-2); }
 .rule .mark.on { background: #e0ae00; }
 .rule .legend { display: flex; justify-content: space-between; color: var(--ink-2); }
-.rule .legend span { display: inline-flex; align-items: center; gap: 0; }
+.rule .legend span { display: inline-flex; align-items: center; gap: 0; white-space: nowrap; }
+.rule .mark i { position: absolute; bottom: calc(100% + 1px); left: 50%; transform: translateX(-50%); font: 900 9px/1 var(--font); font-style: normal; letter-spacing: -1px; color: var(--ink-2); }
+.rule .mark.on i { color: #c99a00; }
 .rule .legend b { margin-left: 4px; font: 600 13px/1 var(--num); }
 .rule .legend span.on { color: #b88a00; }
 
 /* the route strip: port tabs and legs */
 .strip { position: absolute; top: calc(112px + var(--safe-top)); left: 10px; right: 10px; display: grid; align-items: start; gap: 0; padding: 6px 6px 6px; min-height: 96px; }
-.strip .port { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 50px; padding: 5px 4px 4px; border: 0; border-radius: 6px; background: transparent; cursor: pointer; }
+.strip .port { position: relative; display: grid; grid-template-rows: 16px 16px 13px 17px; justify-items: center; align-items: center; gap: 3px; min-width: 50px; padding: 5px 4px 4px; border: 0; border-radius: 6px; background: transparent; cursor: pointer; }
 .strip .port.sel { background: var(--navy); color: #f8f7f2; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25); }
 .strip .port.last { cursor: default; opacity: 0.92; }
 .strip .port:disabled { color: inherit; }
 .strip .pflag { position: relative; height: 16px; }
-.strip .pflag .dot { position: absolute; top: -4px; right: -6px; width: 9px; height: 9px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 2px var(--enamel); }
+.strip .pflag .dot { position: absolute; top: -4px; left: -7px; width: 9px; height: 9px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 2px var(--enamel); }
 .strip .code { font: 600 15px/1 var(--num); letter-spacing: 0.04em; }
 .strip .pump { display: inline-flex; align-items: center; gap: 2px; font: 700 10.5px/1 var(--font); letter-spacing: 0.04em; }
 .strip .pump i { font-style: normal; opacity: 0.7; margin-left: 1px; }
 .strip .pump.none { text-decoration: line-through; opacity: 0.6; text-transform: uppercase; font-size: 9px; }
 .strip .pump.fin { text-transform: uppercase; font-size: 9px; opacity: 0.6; }
-.strip .barsign { padding: 1px 4px; border-radius: 3px; background: var(--yellow); color: var(--black); font: 700 9.5px/1.2 var(--num); letter-spacing: 0.04em; }
+.strip .barsign { position: absolute; top: -6px; left: calc(100% - 2px); padding: 1px 3px; border-radius: 3px; background: var(--yellow); color: var(--black); font: 700 9px/1.15 var(--num); letter-spacing: 0.02em; box-shadow: 0 0 0 1.5px var(--enamel); white-space: nowrap; }
 .strip .rob { margin-top: 1px; padding: 2px 5px; border-radius: 3px; background: rgba(47, 138, 114, 0.14); color: var(--ok); font-size: 10.5px; line-height: 1; white-space: nowrap; }
 .strip .port.sel .rob { background: rgba(255, 255, 255, 0.16); color: #bdf0de; }
 .strip .rob.start { background: transparent; color: inherit; opacity: 0.55; }
@@ -69,7 +71,7 @@ html.night .dwt { background: rgba(38, 53, 82, 0.93); }
 .dwt-row .tot { font: 600 16px/1 var(--num); }
 .dwt-row .tot small { font-size: 11px; color: var(--ink-2); margin-left: 1px; }
 .dwt-row .tot.bad { color: var(--red); }
-.dwt-row .hint { margin-left: auto; margin-right: 8px; font-size: 9.5px; color: var(--ink-2); }
+.dwt-row .hint { margin-left: auto; margin-right: 12px; font-size: 9.5px; color: var(--ink-2); }
 .dwt-row .hint b.over { color: var(--red); }
 .dwt-row .hint b.mark { color: #0f7a5c; }
 .dwt .cells { position: relative; display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 1.5px; height: 14px; }
@@ -84,8 +86,8 @@ html.night .dwt { background: rgba(38, 53, 82, 0.93); }
 .dwt .smark { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--red); font: 700 8px/1 var(--num); color: var(--red); }
 .dwt .smark::after { content: 'S'; position: absolute; top: -10px; left: 50%; transform: translateX(-50%); font: 700 9px/1 var(--num); }
 .dwt .smark { font-size: 0; }
-.dwt .zones { display: flex; height: 9px; margin-top: 3px; border-radius: 2px; overflow: hidden; }
-.dwt .zones span { display: grid; place-items: center start; padding-left: 3px; font: 700 7.5px/1 var(--num); color: rgba(255, 255, 255, 0.92); opacity: 0.55; }
+.dwt .zones { display: flex; height: 11px; margin-top: 3px; border-radius: 2px; overflow: hidden; }
+.dwt .zones span { display: grid; place-items: center start; padding-left: 4px; font: 700 9px/1 var(--num); color: #fff; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35); opacity: 0.6; }
 .dwt .zones span.on { opacity: 1; }
 
 /* freight tags under the quay boxes */
@@ -173,3 +175,13 @@ html.night .dwt { background: rgba(38, 53, 82, 0.93); }
 .title .fmt { margin-left: 6px; padding: 1px 5px; border-radius: 3px; font-style: normal; color: #fff; letter-spacing: 0.1em; }
 .title .fmt.fd { background: #0f7a5c; }
 .title .fmt.ct { background: #b3201c; }
+
+/* night: keep every signal readable on navy enamel */
+html.night .dwt .cells i.free { background: #3d5078; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14); }
+html.night .strip .port.sel { background: #3b5687; box-shadow: inset 0 0 0 2px #8fb3d9; }
+html.night .strip .leg .burn small { color: #8fb3d9; }
+html.night .strip .rob { color: #7fe0c0; }
+html.night .strip .leg .burn { color: #f3a54a; }
+html.night .rule .track { background: #3d5078; }
+html.night .title .lv { background: #3b5687; }
+html.night .dwt .zones span { color: #15181e; text-shadow: none; }

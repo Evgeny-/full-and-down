@@ -62,6 +62,8 @@ export interface LadderRow {
   format: LevelFormat;
   /** authored by hand (src/core/authored.ts) */
   authored?: boolean;
+  /** the burn bands must decide which boxes sail, not just the bunker bill (playtest 30) */
+  fuelMatters?: boolean;
 }
 
 /** Mechanics that every voyage of the right shape has (the advanced ones ride on top). */
@@ -104,6 +106,7 @@ interface RowSpec {
   format?: LevelFormat;
   band?: BandId;
   authored?: boolean;
+  fuelMatters?: boolean;
 }
 
 const CAP: [number, number][] = [
@@ -139,7 +142,7 @@ const SPECS: RowSpec[][] = [
     { title: 'Overload', lesson: 'Three bands: pick the band first, then fill it to its top.', twist: 'three bands', ports: 3, bands: 3 },
     { title: 'Full & Down', lesson: 'Exactly one load fills her to the marks and lands her on the reserve.', ports: 2, bands: 2, format: 'exact' },
     { title: 'Leave Room', lesson: 'Free deadweight at the first call is an investment in the pickup.', intro: 'pickup', ports: 3, bands: 2, pickup: true },
-    { title: 'Coastwise', lesson: 'A box burns fuel on every leg it rides.', ports: 3, bands: 3, pickup: true },
+    { title: 'Coastwise', lesson: 'A box burns fuel on every leg it rides: the band you sail each leg in decides which boxes pay.', ports: 3, bands: 3, pickup: true, fuelMatters: true },
     { title: 'Round the Skaw', lesson: 'Two pickups compete for the same tonnes.', ports: 4, bands: 3, pickup: true },
     { title: 'The Feeder Charter', lesson: 'Every World 1 rule at once: bands on every leg, pickups, the marks.', ports: 4, bands: 3, pickup: true, boxes: [9, 10] },
   ],
@@ -197,8 +200,8 @@ const SPECS: RowSpec[][] = [
     { title: 'Madeira Fruit', lesson: 'Reefers and two prices on the island run.', adv: ['reefer', 'prices'], ports: 3, bands: 3, pickup: true },
     { title: 'Charter Party', lesson: 'Sealed reefers past a dry berth.', adv: ['reefer', 'contract', 'noPump'], ports: 4, bands: 3, pickup: true, format: 'contract' },
     { title: 'Agadir Night', lesson: 'Reefers, lots and price spreads: every tonne of bunkers has a cost.', adv: ['reefer', 'prices', 'lot'], ports: 4, bands: 3, pickup: true },
-    { title: 'Full & Down', lesson: 'One load fills her to the marks and the reserve.', ports: 3, bands: 2, format: 'exact', tiers: 1, bays: 5 },
-    { title: 'Cold Charter', lesson: 'The sealed boxes are reefers: plugs first, then the top-offs.', adv: ['reefer', 'contract'], twist: 'reefer charter', ports: 3, bands: 2, pickup: true, format: 'contract' },
+    { title: 'Fruit to the Marks', lesson: 'One load fills her to the marks and the reserve.', ports: 3, bands: 2, format: 'exact', tiers: 1, bays: 5 },
+    { title: 'Cold Charter', lesson: 'The sealed boxes are reefers: plugs first, then the top-offs, and the reefers\' burn decides the band.', adv: ['reefer', 'contract'], twist: 'reefer charter', ports: 3, bands: 2, pickup: true, format: 'contract', fuelMatters: true },
     { title: 'Casablanca Bar', lesson: 'A charter over a harbour bar.', adv: ['contract', 'bar'], ports: 3, bands: 3, pickup: true, format: 'contract' },
     { title: 'Funchal Loop', lesson: 'Reefers below heavy boxes, two prices.', adv: ['reefer', 'heavy', 'prices'], ports: 4, bands: 3, pickup: true, tiers: 3, bays: 3 },
     { title: 'The Reefer Charter', lesson: 'Sealed reefers, price spreads and the marks.', adv: ['reefer', 'contract', 'prices'], ports: 5, bands: 3, pickup: true, format: 'contract' },
@@ -221,7 +224,7 @@ const SPECS: RowSpec[][] = [
     { title: 'Biscay', lesson: 'Heavy below light, lots, and a dry berth.', adv: ['heavy', 'noPump', 'lot'], ports: 3, bands: 3, pickup: true },
     { title: 'Cape Farewell', lesson: 'Reefers across the winter line.', adv: ['reefer', 'zone'], ports: 4, bands: 3, pickup: true },
     { title: 'The Narrows', lesson: 'Down for the bridge, up for the bar, and two prices to pay for it.', adv: ['bridge', 'bar', 'prices'], ports: 4, bands: 3, pickup: true },
-    { title: 'Full and Down', lesson: 'One load. The marks. Not a tonne more.', ports: 3, bands: 3, format: 'exact' },
+    { title: 'Long Stem', lesson: 'No bunkers at the middle berth: one load and the fuel for both legs fill her to the marks, and she berths on the reserve.', adv: ['noPump'], ports: 3, bands: 3, format: 'exact' },
     { title: 'Long Charter', lesson: 'Sealed boxes, bunkers in lots.', adv: ['contract', 'lot'], ports: 3, bands: 3, pickup: true, format: 'contract' },
     { title: 'Mixed Hold', lesson: 'Heavy boxes, reefers and a dry berth in one hold.', adv: ['heavy', 'reefer', 'noPump'], ports: 4, bands: 3, pickup: true, tiers: 3, bays: 4 },
     { title: 'Westbound', lesson: 'A charter across the winter line with two prices.', adv: ['zone', 'prices', 'contract'], ports: 4, bands: 3, pickup: true, format: 'contract' },
@@ -268,6 +271,7 @@ function buildRow(area: number, local: number, s: RowSpec): LadderRow {
     auto: n < INTRO_AT.noPump,
     format: s.format ?? 'spot',
     authored: s.authored,
+    fuelMatters: s.fuelMatters,
   };
 }
 
@@ -303,6 +307,8 @@ export const PALETTE = {
   price: [1, 3] as const,
   maxLot: 4,
   reserve: 1,
+  minBandWidth: 2,
+  minFirstBand: 3,
 };
 
 /** Every way a level breaks the palette or the ladder (empty = fine). */
@@ -330,13 +336,17 @@ export function checkPalette(level: Level): string[] {
   for (const l of legs) {
     if (l.days < PALETTE.days[0] || l.days > PALETTE.days[1]) err(`days ${l.days}`);
     if (l.zone && !has('zone')) err('zone without the rule');
+    // the winter line lies at sea: after some days of the leg, never at its end (that is a bar)
+    if (l.zone && (l.zone.at < 1 || l.zone.at >= l.days)) err(`zone line at day ${l.zone.at} of ${l.days}`);
     if (l.bridge && !has('bridge')) err('bridge without the rule');
   }
   if (legs.length !== last) err('legs');
   if (ship.bands.length < 1 || ship.bands.length > PALETTE.maxBands(level.n)) err(`${ship.bands.length} bands`);
   ship.bands.forEach((b, i) => {
     if (b.rate !== i + 1) err(`band rate ${b.rate}`);
-    if (i && b.upTo <= ship.bands[i - 1].upTo) err('band edges');
+    // every band spans at least 2 t, and the first one more than the reserve alone
+    if (i && b.upTo < ship.bands[i - 1].upTo + PALETTE.minBandWidth) err('band edges');
+    if (!i && ship.bands.length > 1 && b.upTo < PALETTE.minFirstBand) err('first band too narrow');
   });
   if (ship.bands[ship.bands.length - 1].upTo !== ship.capacity) err('last band must end at the capacity');
   if (ship.bands.length >= 2 && !has('bands')) err('bands without the rule');

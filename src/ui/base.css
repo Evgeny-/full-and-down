@@ -117,7 +117,9 @@ html.night .btn { color: var(--ink); }
   position: relative;
   width: min(380px, 100%);
   max-height: 100%;
-  overflow: hidden auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   padding: 0 18px 18px;
   background: var(--enamel);
   border-radius: 10px;
@@ -125,7 +127,9 @@ html.night .btn { color: var(--ink); }
   animation: pop-in 0.32s cubic-bezier(0.2, 1.4, 0.4, 1);
 }
 @keyframes pop-in { from { transform: translateY(18px) scale(0.94); opacity: 0; } }
+.dlg-body { flex: 1 1 auto; min-height: 0; overflow: hidden auto; overscroll-behavior: contain; touch-action: pan-y; margin: 0 -6px; padding: 0 6px; }
 .dialog-head {
+  flex: none;
   margin: 0 -18px 16px;
   padding: 16px 52px 14px 18px;
   background: var(--navy);
@@ -142,7 +146,7 @@ html.night .btn { color: var(--ink); }
 .dialog-head.hazard { background: var(--navy); border-bottom: 8px solid transparent; border-image: var(--hazard) 8; }
 .dialog p { margin: 4px 2px 14px; font: 500 16px/1.42 var(--font); }
 .dialog p b { font-weight: 800; }
-.dialog .actions { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.dialog .actions { flex: none; display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
 .dialog .actions.row { flex-direction: row; }
 .dialog .actions .btn { flex: 1; }
 .close-x { position: absolute; top: 10px; right: 10px; z-index: 2; width: 34px; min-width: 34px; min-height: 34px; padding: 0; background: rgba(255, 255, 255, 0.14); color: #fff; box-shadow: none; }

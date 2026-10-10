@@ -53,6 +53,7 @@ for (const l of levels) {
   const lesson = isLesson(l.band);
   if (!(T1 <= T2 && T2 <= T3)) problems.push(`L${l.n}: stars ${l.stars} not increasing`);
   if (!lesson && !(T1 < T2 && T2 < T3)) problems.push(`L${l.n}: stars ${l.stars} not strictly increasing`);
+  if (l.band !== 'T0' && T1 === T2 && T3 - T1 >= 2) problems.push(`L${l.n}: ★ = ★★ although the range allows them apart`);
   if (!lesson && (T2 - T1 < 2 || T3 - T2 < 2)) warn.push(`L${l.n}: stars ${l.stars} closer than 2`);
   const s = solve(l);
   if (!s) {
@@ -68,7 +69,7 @@ for (const l of levels) {
     if (sim.projection.profit !== T3) problems.push(`L${l.n}: best plan earns ${sim.projection.profit}, ★★★ is ${T3}`);
   }
   // deterministic metrics must match the build
-  const m = measure(l, { strongRuns: 8, carefulRandom: 0, tinkerRuns: 0, seed: 1, ablate: [] });
+  const m = measure(l, { strongRuns: 8, carefulRandom: 0, tinkerRuns: 0, seed: 1, ablate: [], baseline: row.authored ? 'instinct' : 'sensible' });
   const st = l.stats ?? {};
   if (!m) continue;
   if (m.vstar !== st.vstar) problems.push(`L${l.n}: V* ${m.vstar} ≠ stored ${st.vstar}`);
@@ -128,6 +129,10 @@ lines.push("  each call's load against that call's stem only (multi-port levels)
 lines.push('  AUTO levels (World 1), otherwise NEED at every pump (enough to reach the next pump on the reserve — the');
 lines.push('  "gas station" habit, the trap at dry ports and price spreads). Boxes go on the stack that keeps the most');
 lines.push('  later boxes placeable.');
+lines.push('- **Sensible human** (playtest 30): the greedy-by-density and greedy-by-freight loads improved by single changes');
+lines.push('  (add a box, land one, swap one for one) until no single change pays more, with the better of NEED and the');
+lines.push('  cheapest bunkers. ★ must beat it on every generated level; the authored tutorials (whose lesson is that one');
+lines.push('  change) only ask ★ to beat the instinctive plans.');
 lines.push('- **Strong editor**: 64 games, each from a natural start (density 40%, freight 30%, tank 15%, myopic 15%; half');
 lines.push('  of them with ±18% jitter on the preferences), best improvement on the manifest landscape (exact values:');
 lines.push('  freight − the cheapest bunker plan, stowage checked) over add / drop / 1↔1 / 2↔1 / 1↔2, 5% slips, at most 20');
@@ -143,9 +148,10 @@ lines.push('');
 lines.push('## The numbers');
 lines.push('');
 lines.push('- **V\\*** — the exact optimum (`src/core/solver.ts`), = ★★★. **ω** — optimal manifests, identical boxes merged.');
-lines.push('- **Stars** — ★ = the best natural start + 1 (the instinctive plan never passes from L2 on); ★★ = the best decoy + 1');
-lines.push('  if that is above ★, else the midpoint; ★★★ = V\\*. Each at least 2 above the one below where the range allows;');
-lines.push('  on lesson levels (T0, B1, B2) ★ and ★★ (or all three) may coincide.');
+lines.push('- **Stars** — ★ = the best natural start (instinct and the sensible human) + 1, so neither passes from L2 on;');
+lines.push('  ★★ = the best decoy + 1 if that is above ★, else the midpoint; ★★★ = V\\*. Each at least 2 above the one below where');
+lines.push('  the range allows, and ★★ always above ★ when the range is 2 or more; only lesson levels (T0, B1, B2) may ship a');
+lines.push('  narrower range, where ★★ meets ★★★ (or all three coincide).');
 lines.push('- **Greedy** — the best natural start; **gap** = 1 − greedy / V\\*.');
 lines.push('- **X** — exchange depth: the smallest k whose k-exchange climb (k boxes out and k in per edit) from at least half');
 lines.push('  of the natural starts reaches V\\* (4 = none up to 3).');

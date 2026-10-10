@@ -38,20 +38,7 @@ const CACHE = join(ROOT, '.cache/levels');
  * Per-level seeds chosen after a build (a re-roll that landed closer to its band); SALT= overrides
  * them for the levels being built.
  */
-const LEVEL_SALTS: Record<number, string> = {
-  11: 'r1',
-  40: 'r3',
-  42: 'r1',
-  45: 'r1',
-  52: 'r1',
-  54: 'r2',
-  58: 'r4',
-  61: 'r1',
-  62: 'r2',
-  63: 'r3',
-  65: 'r3',
-  70: 'r3',
-};
+const LEVEL_SALTS: Record<number, string> = {};
 const saltOf = (n: number) => process.env.SALT ?? LEVEL_SALTS[n] ?? '';
 const ATTEMPTS = Number(process.env.ATTEMPTS ?? 12);
 const ITERS = Number(process.env.ITERS ?? 800);
@@ -100,7 +87,7 @@ function buildOne(n: number): Built {
   let misses = '';
   if (a) {
     const L: Level = JSON.parse(JSON.stringify(a.level));
-    const m = measure(L, { ...FULL, seed: seed ^ 0x2545f491 })!;
+    const m = measure(L, { ...FULL, seed: seed ^ 0x2545f491, baseline: 'instinct' })!;
     const short = shortfall(m, targetFor(row));
     L.stars = a.stars ?? m.stars;
     L.best = m.best;

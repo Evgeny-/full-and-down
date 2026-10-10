@@ -379,9 +379,15 @@ function paintHull(length: number, height: number, name: string): THREE.CanvasTe
   }
   // ship's name at the bow, port of registry at the stern
   g.textAlign = 'center';
-  g.font = `700 ${Math.round(0.2 * px)}px ${FONT_NUM}`;
+  let size = Math.round(0.2 * px);
+  g.font = `700 ${size}px ${FONT_NUM}`;
+  const room = W * 0.2;
+  while (g.measureText(name).width > room && size > 10) {
+    size -= 2;
+    g.font = `700 ${size}px ${FONT_NUM}`;
+  }
   g.fillStyle = PAL.white;
-  g.fillText(name, xOf(0.82), yOf(DEPTH - 0.2));
+  g.fillText(name, xOf(0.8), yOf(DEPTH - 0.2));
   g.font = `600 ${Math.round(0.12 * px)}px ${FONT_NUM}`;
   g.fillText('ROTTERDAM', xOf(0.11), yOf(DEPTH - 0.2));
   return toTexture(c);
