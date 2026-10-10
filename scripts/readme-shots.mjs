@@ -3,6 +3,7 @@
 import puppeteer from 'puppeteer-core';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
+import { updateSocialMetadata } from './social-metadata.mjs';
 
 const base = process.env.BASE ?? 'http://localhost:5200/';
 const tmp = '.shots/readme';
@@ -60,4 +61,5 @@ await browser.close();
 const jpg = (src, dst, w) => execFileSync('python3', ['-c', `from PIL import Image; im=Image.open('${src}').convert('RGB'); im=im.resize((${w}, round(im.height*${w}/im.width)), Image.LANCZOS); im.save('${dst}', quality=84, optimize=True)`]);
 for (const n of ['plan', 'sail', 'chart']) jpg(`${tmp}/${n}.png`, `docs/screens/${n}.jpg`, 540);
 jpg(`${tmp}/og.png`, 'public/og.jpg', 1200);
+updateSocialMetadata();
 console.log('done');
