@@ -4,6 +4,7 @@ import { Tweens, arc, ease, squash } from './anim';
 import { Water } from './water';
 import { ShipModel, LIGHT_Y, MARK_Y, BOX_H, BOX_W, SLOT } from './ship';
 import { Quay, Backdrop, QUAY_Y } from './harbour';
+import { buildHull } from './hull';
 import { AdaptiveRenderScale } from './AdaptiveRenderScale';
 import { FxView } from './FxView';
 import { makeBox } from './boxes';
@@ -133,7 +134,9 @@ export class GameView {
     this.places.clear();
     this.tweens.clear();
     this.held = null;
-    this.ship = new ShipModel(level.ship.bays, level.ship.tiers, level.ship.name.toUpperCase(), level.mechanics.includes('reefer') ? (level.ship.plugs ?? []) : []);
+    const regs = ['MONROVIA', 'ODESSA', 'LONDON'];
+    const reg = regs[[...level.ship.name].reduce((a, c) => a + c.charCodeAt(0), 0) % regs.length];
+    this.ship = new ShipModel(level.ship.bays, level.ship.tiers, level.ship.name.toUpperCase(), level.mechanics.includes('reefer') ? (level.ship.plugs ?? []) : [], reg);
     this.levelGroup.add(this.ship.group);
     const width = Math.max(40, this.ship.length * 4);
     this.quayWidth = width;
@@ -221,34 +224,8 @@ export class GameView {
     tex.needsUpdate = true;
   }
 
-  private buildBarge(): void {
-    const g = new THREE.Group();
-    const dark = new THREE.MeshStandardMaterial({ color: '#2b2f36', roughness: 0.7 });
-    const hull = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.42, 0.9), dark);
-    hull.position.y = 0.1;
-    g.add(hull);
-    const deck = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.04, 0.82), new THREE.MeshStandardMaterial({ color: '#8a3b2c' }));
-    deck.position.y = 0.33;
-    g.add(deck);
-    const house = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.42, 0.6), new THREE.MeshStandardMaterial({ color: PAL.superstructure }));
-    house.position.set(-0.75, 0.55, 0);
-    g.add(house);
-    const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.22), new THREE.MeshStandardMaterial({ color: PAL.flagRed, side: THREE.DoubleSide }));
-    flag.position.set(-0.6, 1.08, 0);
-    g.add(flag);
-    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.6, 5), new THREE.MeshStandardMaterial({ color: '#d7d2c6' }));
-    mast.position.set(-0.78, 1.0, 0);
-    g.add(mast);
-    const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 1.1, 12), new THREE.MeshStandardMaterial({ color: '#d7d2c6' }));
-    tank.rotation.z = Math.PI / 2;
-    tank.position.set(0.35, 0.48, 0);
-    g.add(tank);
-    g.traverse((o) => ((o as THREE.Mesh).castShadow = true));
-    g.position.set(this.ship.sternX + 1.6, 0, -1.55);
-    g.visible = false;
-    this.levelGroup.add(g);
-    this.barge = g;
-  }
+  private hose: THREE.Mesh | null = null;
+  private bargeHere = false;
 
   /** Channel buoys that drift past while she sails (red cans to port, green cones to starboard). */
   private buildBuoys(): void {
@@ -279,21 +256,104 @@ export class GameView {
     }
   }
 
-  /** Show the bunker barge and its hose (amount > 0) at this call. */
-  setBunker(amount: number, pulse = false): void {
-    if (!this.barge) return;
-    const on = amount > 0;
-    if (on && !this.barge.visible) {
-      this.barge.visible = true;
-      this.barge.position.x = this.ship.sternX - 3;
-      this.tweens.add(0.6, (k) => (this.barge!.position.x = this.ship.sternX - 3 + k * 4.6), { ease: ease.outCubic, tag: this.barge });
-    } else if (!on && this.barge.visible) {
-      this.barge.visible = false;
+  /** A small bunker tanker: lofted hull, pipes on deck, a derrick for the hose, Bravo flying. */
+  private buildBarge(): void {
+    const g = new THREE.Group();
+    const hull = buildHull({ length: 3.0, beam: 0.95, depth: 0.5, bowLen: 0.9, sternLen: 0.5, sheerBow: 0.1, rake: 0.25, bilge: 0.12 }, 30);
+    const hullMat = new THREE.MeshStandardMaterial({ color: '#3b2f2c', roughness: 0.6 });
+    hullMat.onBeforeCompile = (sh) => {
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying float vY;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvY = position.y;');
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', '#include <common>\nvarying float vY;')
+        .replace('#include <map_fragment>', '#include <map_fragment>\nif (vY < 0.24) diffuseColor.rgb = vec3(0.62, 0.2, 0.15);\nif (vY > 0.44) diffuseColor.rgb = vec3(0.93, 0.92, 0.88);');
+    };
+    const side = new THREE.Mesh(hull.side, hullMat);
+    g.add(side);
+    const deck = new THREE.Mesh(hull.deck, new THREE.MeshStandardMaterial({ color: '#6f3427', roughness: 0.8 }));
+    g.add(deck);
+    const yellow = new THREE.MeshStandardMaterial({ color: PAL.funnel, roughness: 0.45 });
+    for (const z of [-0.12, 0.12]) {
+      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 1.9, 8), yellow);
+      pipe.rotation.z = Math.PI / 2;
+      pipe.position.set(0.15, 0.58, z);
+      g.add(pipe);
     }
-    if (pulse && on) {
+    for (let k = 0; k < 3; k++) {
+      const dome = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.08, 14), new THREE.MeshStandardMaterial({ color: '#d7d2c6' }));
+      dome.position.set(-0.45 + k * 0.6, 0.55, 0);
+      g.add(dome);
+    }
+    const [wc, wg] = canvas(64, 32);
+    wg.fillStyle = PAL.superstructure;
+    wg.fillRect(0, 0, 64, 32);
+    wg.fillStyle = '#2b3a4f';
+    for (let i = 0; i < 4; i++) wg.fillRect(6 + i * 15, 8, 10, 10);
+    const white = new THREE.MeshStandardMaterial({ color: PAL.superstructure });
+    const house = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.42, 0.62), [white, white, white, white, new THREE.MeshStandardMaterial({ map: toTexture(wc) }), white]);
+    house.position.set(-1.05, 0.72, 0);
+    g.add(house);
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.7, 6), new THREE.MeshStandardMaterial({ color: '#d7d2c6' }));
+    mast.position.set(-1.05, 1.25, 0);
+    g.add(mast);
+    const bravo = new ClothFlag('B', 0.26, 0.17);
+    bravo.mesh.position.set(-1.04, 1.48, 0);
+    g.add(bravo.mesh);
+    this.cloth.push(bravo);
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.7, 8), yellow);
+    post.position.set(0.6, 0.9, 0.2);
+    g.add(post);
+    g.traverse((o) => ((o as THREE.Mesh).castShadow = true));
+    g.visible = false;
+    this.levelGroup.add(g);
+    this.barge = g;
+    this.bargeHere = false;
+    this.hose = null;
+  }
+
+  /** The bunker barge comes alongside while she takes fuel here, and leaves when she takes none. */
+  setBunker(amount: number, pulse = false): void {
+    const g = this.barge;
+    if (!g) return;
+    const want = amount > 0;
+    const berthX = (this.ship.bowX + this.ship.sternX) / 2 + 0.4;
+    const z = -1.55;
+    if (want && !this.bargeHere) {
+      this.bargeHere = true;
+      g.visible = true;
+      g.position.set(berthX + 14, 0, z);
+      this.tweens.cancel(g);
+      this.tweens.add(1.1, (k) => (g.position.x = berthX + 14 * (1 - k)), { ease: ease.outCubic, tag: g, done: () => this.showHose(true) });
+      audio.play('toot', { volume: 0.6 });
+    } else if (!want && this.bargeHere) {
+      this.bargeHere = false;
+      this.showHose(false);
+      const x0 = g.position.x;
+      this.tweens.cancel(g);
+      this.tweens.add(1.0, (k) => (g.position.x = x0 + 14 * k), { ease: ease.inQuad, tag: g, done: () => (g.visible = false) });
+    }
+    if (pulse && want) {
       this.bunkering = 0.5;
       audio.play('glug');
+      const at = this.ship.body.localToWorld(this.ship.manifold.clone());
+      this.fx.puff(at, { n: 4, color: '#ee8b1e', size: 0.12, speed: 0.3, rise: 0.4, life: 0.5 });
     }
+  }
+
+  private showHose(on: boolean): void {
+    if (this.hose) {
+      this.hose.removeFromParent();
+      this.hose = null;
+    }
+    if (!on || !this.barge) return;
+    const a = this.barge.position.clone().add(new THREE.Vector3(0.6, 1.25, 0.2));
+    const b = this.ship.body.localToWorld(new THREE.Vector3(this.ship.manifold.x + 0.8, this.ship.deckY + 0.25, -0.2));
+    const mid = a.clone().lerp(b, 0.5).add(new THREE.Vector3(0, 0.55, 0));
+    const hose = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([a, mid, b]), 24, 0.045, 6), new THREE.MeshStandardMaterial({ color: '#1f2226', roughness: 0.7 }));
+    hose.castShadow = true;
+    hose.scale.setScalar(0.001);
+    this.levelGroup.add(hose);
+    this.hose = hose;
+    this.tweens.add(0.3, (k) => hose.scale.setScalar(Math.max(0.001, k)), { ease: ease.outBack });
   }
 
   // ───────────────────────────── layout ─────────────────────────────
@@ -862,6 +922,10 @@ export class GameView {
         this.fx.puff(this.ship.body.localToWorld(new THREE.Vector3(this.ship.bowX - 0.3, 0.05, 0.75)), { n: 1, color: '#ffffff', size: 0.16, speed: 0.6, rise: 0.4, life: 0.6, alpha: 0.8 });
       }
       if (this.bunkering > 0) this.bunkering -= dt;
+      if (this.barge?.visible) {
+        this.barge.position.y = Math.sin(t * 1.4) * 0.02 - 0.12;
+        this.barge.rotation.z = Math.sin(t * 1.1) * 0.012;
+      }
       for (const f of this.cloth) if (f.mesh.visible) f.update(t, 0.6 + this.speed * 0.8);
     }
     this.water.uniforms.uTime.value = t;

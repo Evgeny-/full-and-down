@@ -44,7 +44,7 @@ export class ShipModel {
   readonly cranes: Crane[];
   private hullMat: THREE.MeshStandardMaterial;
 
-  constructor(stacks: number, tiers: number, name = 'FULL & DOWN', plugs: number[] = []) {
+  constructor(stacks: number, tiers: number, name = 'FULL & DOWN', plugs: number[] = [], registry = 'MONROVIA') {
     this.stacks = stacks;
     this.tiers = tiers;
     const cargoLen = stacks * SLOT;
@@ -71,7 +71,7 @@ export class ShipModel {
     hullGroup.position.x = midX;
     this.body.add(hullGroup);
 
-    this.hullMat = new THREE.MeshStandardMaterial({ map: paintHull(this.length, DEPTH + 0.32, name), roughness: 0.55, metalness: 0.05 });
+    this.hullMat = new THREE.MeshStandardMaterial({ map: paintHull(this.length, DEPTH + 0.32, name, registry), roughness: 0.55, metalness: 0.05 });
     addWaterline(this.hullMat);
     const side = new THREE.Mesh(this.hull.side, this.hullMat);
     side.castShadow = true;
@@ -286,7 +286,7 @@ export class ShipModel {
 }
 
 /** The hull side: antifouling red up to the summer mark, navy topsides, draft numerals, the Plimsoll disc. */
-function paintHull(length: number, height: number, name: string): THREE.CanvasTexture {
+function paintHull(length: number, height: number, name: string, registry: string): THREE.CanvasTexture {
   const W = 2048;
   const H = Math.round((W / length) * height);
   const [c, g] = canvas(W, H);
@@ -389,7 +389,7 @@ function paintHull(length: number, height: number, name: string): THREE.CanvasTe
   g.fillStyle = PAL.white;
   g.fillText(name, xOf(0.8), yOf(DEPTH - 0.2));
   g.font = `600 ${Math.round(0.12 * px)}px ${FONT_NUM}`;
-  g.fillText('ROTTERDAM', xOf(0.11), yOf(DEPTH - 0.2));
+  g.fillText(registry, xOf(0.11), yOf(DEPTH - 0.2));
   return toTexture(c);
 }
 

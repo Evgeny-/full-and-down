@@ -28,23 +28,22 @@ try {
   let shot = 0;
   const snap = async (name) => page.screenshot({ path: `${out}/${String(++shot).padStart(2, '0')}-${name}.png` });
   for (let i = 0; i < best.length; i++) {
-    if (i > 0) {
-      await page.click(`.strip .port[data-port="${i}"]`);
-      await sleep(500);
-    }
     for (const ld of best[i].loads) {
       d = await pts();
       const q = d.quay.find((x) => x.id === ld.box);
       if (!q?.p) throw new Error(`box ${ld.box} not on the quay at port ${i}`);
-      await page.mouse.click(q.p.x, q.p.y);
-      await sleep(300);
-      if (i === 0 && ld === best[i].loads[0]) await snap('held');
       const b = d.bays[ld.bay];
-      if (process.env.VERBOSE) console.log(' held', await page.evaluate(() => window.game.held), 'want', ld.box, 'pick', JSON.stringify(await page.evaluate((x, y) => window.game.view.pick(x, y), b.x, b.y)));
-      await page.mouse.click(b.x, b.y);
+      // drag it onto the exact stack of the optimal plan
+      await page.mouse.move(q.p.x, q.p.y);
+      await page.mouse.down();
+      for (let k = 1; k <= 8; k++) {
+        await page.mouse.move(q.p.x + ((b.x - q.p.x) * k) / 8, q.p.y + ((b.y - q.p.y) * k) / 8);
+        await sleep(25);
+      }
+      if (i === 0 && ld === best[i].loads[0]) await snap('drag');
+      await page.mouse.up();
       await sleep(750);
     }
-    // bunkers (manual levels): tap + until the plan matches
     for (let k = 0; k < 30; k++) {
       d = await pts();
       const cur = d.plan[i].bunker;
@@ -55,20 +54,27 @@ try {
       await page.click(sel);
       await sleep(120);
     }
+    await sleep(900);
     await snap(`port${i}`);
-    if (process.env.VERBOSE) console.log('after port', i, JSON.stringify((await pts()).plan));
+    if (process.env.VERBOSE) console.log('port', i, JSON.stringify((await pts()).plan[i]));
+    await page.click('.dock .sail');
+    if (i === best.length - 1) break;
+    // wait for her to arrive at the next port
+    for (let k = 0; k < 40; k++) {
+      await sleep(400);
+      const st = await page.evaluate(() => window.game.debugPoints());
+      if (st.mode === 'plan' && st.port === i + 1) break;
+      if (k === 4) await snap(`voyage${i}`);
+    }
   }
   const state = await page.evaluate(() => window.game.debugState());
   console.log('state', JSON.stringify(state));
-  await page.click('.dock .sail');
-  for (let k = 0; k < 6; k++) {
-    await sleep(1400);
-    await snap(`voyage${k}`);
+  for (let k = 0; k < 40; k++) {
+    await sleep(500);
+    if (await page.$('.report .stamp.slam')) break;
   }
-  await sleep(4500);
+  await sleep(1800);
   await snap('report');
-  await sleep(1500);
-  await snap('report2');
   console.log('done', errors.length ? `errors: ${errors.join(' | ')}` : 'no errors');
 } finally {
   await browser.close();

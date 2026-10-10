@@ -196,3 +196,18 @@ html.night .strip .leg .burn { color: #f3a54a; }
 html.night .rule .track { background: #3d5078; }
 html.night .title .lv { background: #3b5687; }
 html.night .dwt .zones span { color: #15181e; text-shadow: none; }
+
+/* port by port: done ✓, here, later */
+.strip .port.done { opacity: 0.55; }
+.strip .port .tick { position: absolute; top: -5px; right: -3px; display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: var(--ok); color: #fff; font: 900 9px/1 var(--font); }
+.strip .port .youare { position: absolute; top: -9px; left: 50%; transform: translateX(-50%); padding: 1px 5px; border-radius: 3px; background: var(--yellow); color: var(--black); font: 700 8.5px/1.2 var(--font); letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2); }
+.strip .port.later { cursor: help; }
+.dock .sail .lbl .to { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.dock .sail { min-width: 0; }
+.dock .sail .lbl { min-width: 0; overflow: hidden; }
+.bunker .need { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 76px; line-height: 1; }
+.bunker .need small { font: 700 10px/1 var(--font); letter-spacing: 0.04em; opacity: 0.9; }
+.bunker .need.ok { background: var(--ok); }
+.bunker .need:disabled { opacity: 0.85; filter: none; }
+.bunker .bk-l b { white-space: nowrap; }
+.bunker .bk-l b .burns { font: 600 13px/1 var(--font); font-style: normal; color: var(--ink-2); margin-left: 4px; }

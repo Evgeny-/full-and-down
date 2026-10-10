@@ -5,6 +5,7 @@ import { h, button } from '../ui/dom';
 import { glyph, starSvg } from '../ui/glyphs';
 import { openDialog, initDialogs, toast, closeAllDialogs, dialogOpen, escapeHtml } from '../ui/dialogs';
 import { MapScreen } from '../ui/MapScreen';
+import { portColor as portColorOf } from '../render/portStyle';
 import { audio } from '../audio/audio';
 import { PlanModel } from '../game/Plan';
 import { campaign } from './levels';
@@ -124,7 +125,7 @@ export class App {
     this.hud?.root.remove();
     this.hud = new Hud(this.ui, {
       onPause: () => this.openPause(),
-      onTab: (p) => this.selectPort(p),
+      onTab: (p) => this.peek(p),
       onBunker: (d) => this.bunker(d),
       onNeed: () => this.need(),
       onUndo: () => this.undo(),
@@ -234,12 +235,12 @@ export class App {
     let target: { box?: BoxId; bay?: number } | null = null;
     let pulse: Parameters<Hud['pulse']>[0] = null;
     if (this.held !== null) {
-      text = 'Now tap the ship to load it.';
+      text = 'Drop it on a stack of the ship.';
       const bays = m.baysAt(0);
       const bay = bays.findIndex((_, i) => m.canPlace(this.held!, i).ok);
       target = bay >= 0 ? { bay } : null;
     } else if (!loaded) {
-      text = 'Each box pays its freight on arrival. Tap a box to pick it up.';
+      text = 'Each box pays its freight when it gets there. Tap a box to load it.';
       target = pickable !== undefined ? { box: pickable } : null;
     } else if (over) {
       // point at a box the best voyage leaves ashore (else the last one loaded)
@@ -247,14 +248,14 @@ export class App {
       const bays = m.baysAt(0);
       const tops = new Set(bays.map((b) => b[b.length - 1]).filter((x) => x !== undefined));
       const spare = loads.find((l) => !best.includes(l.box) && tops.has(l.box)) ?? loads[loads.length - 1];
-      text = `Too heavy by ${over.amount} t: fuel weighs too! Tap a box on the ship to land it.`;
+      text = `Too heavy by ${over.amount} t: fuel weighs too! Tap a box on the ship to take it off.`;
       target = spare ? { box: spare.box } : null;
       pulse = 'dwt';
     } else if (short && m.sim.plan[0].bunker === 0) {
-      text = 'She needs fuel for the trip. Tap NEED to buy just enough.';
+      text = 'She needs fuel for the trip. Tap BUY for just enough.';
       pulse = 'need';
     } else if (short) {
-      text = 'Still short of fuel: tap NEED.';
+      text = 'Still short of fuel: tap BUY.';
       pulse = 'need';
     } else if (m.profit < lv.stars[0]) {
       const leg = pr.legs[0];
@@ -271,7 +272,7 @@ export class App {
       }
       pulse = 'rule';
     } else {
-      text = 'All clear: loaded and fuelled. Tap SAIL!';
+      text = `All clear: loaded and fuelled. Tap SAIL to ${lv.ports[1].name}!`;
       pulse = 'sail';
     }
     if (text !== t.text) {
@@ -368,34 +369,46 @@ export class App {
     this.lastWeight = leg.weight;
     this.view.setBunker(lv.ports[m.port].price !== null ? m.sim.plan[m.port].bunker : 0);
     this.hud.update(m, this.anchors);
-    this.view.setBluePeter(!m.sailRefusal());
+    this.view.setBluePeter(!m.legRefusal());
     this.tutorTick();
     if (m.sim.projection.problems.some((p) => p.code === 'overMarks')) this.coachEvent('over');
   }
 
   private lastWeight = -1;
 
-  private selectPort(p: number): void {
+  /** Show the ship at her current port (after undo across a leg). */
+  private showPort(): void {
     const m = this.model;
-    if (!m || this.mode !== 'plan' || p === m.port) return;
+    if (!m) return;
     this.release();
-    const from = m.port;
-    m.select(p);
-    audio.play('button');
-    const delivered = m.sim.projection.calls[p].delivered;
-    if (p === from + 1 && delivered.length) {
-      // show her arriving: this port's boxes come off with their freight, then this call's loads
-      this.view.sync(p, m.baysAt(from), m.quayAt(p), 'tab');
-      const dur = this.view.discharge(delivered, (id, at) => this.pop(`+$${m.level.boxes[id].freight}`, at.x, at.y), 0.1);
-      this.view.tweens.after(Math.min(dur, 0.9), () => {
-        if (this.model === m && m.port === p && this.mode === 'plan') this.view.sync(p, m.baysAt(p), m.quayAt(p), 'edit');
-      });
-    } else {
-      this.view.sync(p, m.baysAt(p), m.quayAt(p), 'tab');
-    }
+    this.view.sync(m.port, m.baysAt(m.port), m.quayAt(m.port), 'tab');
+    this.view.setPortSign(m.port);
     this.lastWeight = -1;
     this.refresh();
-    this.coachEvent('tab');
+  }
+
+  /** A later port, read-only: what she'll find there. */
+  private peek(p: number): void {
+    const m = this.model;
+    if (!m) return;
+    const lv = m.level;
+    const port = lv.ports[p];
+    if (p === m.port) return;
+    const offers = lv.boxes.filter((b) => b.from === p);
+    const rows = offers
+      .map((b) => `<li><span class="pk-box" style="--c:${portColorOf(b.to)}">${b.weight} t</span><span>to <b>${escapeHtml(lv.ports[b.to].name)}</b></span><b class="num">$${b.freight}</b></li>`)
+      .join('');
+    const past = p < m.port;
+    openDialog({
+      title: port.name,
+      onClose: () => undefined,
+      cls: 'peek',
+      body: [
+        h('p', { html: past ? 'Already called here. Tap <b>Undo</b> to go back and change that call.' : p === lv.ports.length - 1 ? 'The final port: everything aboard for here comes off and pays.' : 'A later call. You plan it when she gets there.' }),
+        h('div', { class: 'pk-facts', html: `<span>${port.price === null ? 'No bunkers here' : `Bunkers <b>$${port.price}/t</b>${port.lot && port.lot > 1 ? ` in lots of ${port.lot}` : ''}`}</span>${port.bar !== undefined ? `<span>Harbour bar: at most <b>${port.bar} t</b> aboard</span>` : ''}` }),
+        offers.length ? h('ul', { class: 'pk-list', html: rows }) : h('p', { text: 'No cargo offered here.' }),
+      ],
+    });
   }
 
   private hold(box: BoxId): void {
@@ -436,6 +449,23 @@ export class App {
     this.coachEvent('place');
   }
 
+  /** One tap: the crane puts the box on the best legal stack. */
+  private autoLoad(box: BoxId): void {
+    const m = this.model!;
+    const bay = m.autoBay(box);
+    if (bay === null) {
+      const lv = m.level;
+      const bays = m.baysAt(m.port);
+      const full = bays.every((b) => b.length >= lv.ship.tiers);
+      const r = full ? null : m.canPlace(box, bays.findIndex((b) => b.length < lv.ship.tiers));
+      this.view.wiggle(box);
+      audio.play('invalid');
+      toast(this.ui, full ? 'MATE: the hold is full. Take a box off first.' : r && !r.ok ? r.text : 'MATE: no stack can take it.');
+      return;
+    }
+    this.place(box, bay);
+  }
+
   private unload(box: BoxId): void {
     const m = this.model!;
     if (!m.unload(box)) return;
@@ -459,7 +489,7 @@ export class App {
   }
 
   private get canSail(): boolean {
-    return !!this.model && !this.model.sailRefusal();
+    return !!this.model && !this.model.legRefusal();
   }
 
   private bunker(d: number): void {
@@ -493,7 +523,12 @@ export class App {
     if (!m.undo()) return;
     this.release();
     audio.play('undo');
-    this.view.sync(m.port, m.baysAt(m.port), m.quayAt(m.port), m.port === prevPort ? 'edit' : 'tab');
+    if (m.port !== prevPort) {
+      toast(this.ui, `Back at ${m.level.ports[m.port].name}.`);
+      this.showPort();
+      return;
+    }
+    this.view.sync(m.port, m.baysAt(m.port), m.quayAt(m.port), 'edit');
     this.refresh();
   }
 
@@ -501,7 +536,7 @@ export class App {
     const m = this.model;
     if (!m) return;
     const r = m.sailRefusal();
-    if (r && r.code !== 'stars' && r.port !== m.port && r.port < m.calls) this.selectPort(r.port);
+    void r;
   }
 
   // ───────────────────────────── the pilot (hints) ─────────────────────────────
@@ -519,7 +554,7 @@ export class App {
       return;
     }
     if (this.save.pilots <= 0 && !DEBUG) {
-      toast(this.ui, 'PILOT: no pilots left. Earn one with every new ★★★.');
+      toast(this.ui, 'PILOT: no hints left. Earn one with every new ★★★.');
       return;
     }
     if (!this.bestPlan) this.bestPlan = m.level.best ?? solve(m.level)?.plan ?? null;
@@ -527,7 +562,7 @@ export class App {
     if (!best) return;
     const lv = m.level;
     if (m.profit >= lv.stars[2] && !m.sailRefusal()) {
-      toast(this.ui, 'PILOT: she is ready. That is the best voyage there is. Sail!');
+      toast(this.ui, 'PILOT: this is the best voyage there is. Sail on!');
       return;
     }
     const mine = maskOf(m.plan);
@@ -548,18 +583,18 @@ export class App {
       port = b.from;
       box = b.id;
       ashore = true;
-      msg = `PILOT: leave ${name(b.id)} ashore at ${lv.ports[b.from].name}.`;
+      msg = b.from < m.port ? `PILOT: back at ${lv.ports[b.from].name}, ${name(b.id)} should have stayed ashore. Undo to go back.` : b.from > m.port ? `PILOT: at ${lv.ports[b.from].name}, leave ${name(b.id)} ashore.` : `PILOT: leave ${name(b.id)} ashore.`;
     } else if (missing.length) {
       const b = missing.sort((x, y) => (x.from === m.port ? -1 : 0) - (y.from === m.port ? -1 : 0))[0];
       port = b.from;
       box = b.id;
       const bay = best[b.from].loads.find((l) => l.box === b.id)?.bay;
-      msg = `PILOT: ship ${name(b.id)} from ${lv.ports[b.from].name}${bay !== undefined && lv.ship.tiers > 1 ? `, stack ${bay + 1}` : ''}.`;
+      msg = b.from < m.port ? `PILOT: ${name(b.id)} should have sailed from ${lv.ports[b.from].name}. Undo to go back.` : b.from > m.port ? `PILOT: at ${lv.ports[b.from].name}, ship ${name(b.id)}. Leave room for it.` : `PILOT: ship ${name(b.id)}${bay !== undefined && lv.ship.tiers > 1 ? ` on stack ${bay + 1}` : ''}.`;
     } else {
       const i = best.findIndex((c, k) => c.bunker !== m.plan[k].bunker);
       if (i >= 0 && !lv.auto) {
         port = i;
-        msg = `PILOT: bunker ${best[i].bunker} t at ${lv.ports[i].name}.`;
+        msg = i === m.port ? `PILOT: bunker ${best[i].bunker} t here.` : i < m.port ? `PILOT: at ${lv.ports[i].name} she should have bunkered ${best[i].bunker} t. Undo to go back.` : `PILOT: at ${lv.ports[i].name}, bunker ${best[i].bunker} t.`;
       } else {
         msg = 'PILOT: right boxes, wrong stacks. Mind what comes off first.';
       }
@@ -573,7 +608,6 @@ export class App {
 
   private showHint(hint: { msg: string; port: number; box?: BoxId; ashore?: boolean }): void {
     const m = this.model!;
-    if (hint.port !== m.port && hint.port < m.calls) this.selectPort(hint.port);
     audio.play('bell');
     toast(this.ui, hint.msg, 4200);
     if (hint.box === undefined) return;
@@ -598,24 +632,15 @@ export class App {
     if (this.mode !== 'plan' || dialogOpen() || !this.model) return;
     const m = this.model;
     const p = this.view.pick(e.clientX, e.clientY);
-    if (DEBUG) console.log('down', e.clientX, e.clientY, JSON.stringify(p), 'held', this.held, 'port', m.port);
-    if (!p) {
-      this.release();
-      return;
-    }
+    if (!p) return;
     if (p.kind === 'box') {
       const where = m.whereAt(m.port, p.box);
       if (where.at === 'quay') {
-        if (this.held === p.box) {
-          this.release();
-          return;
-        }
-        this.hold(p.box);
+        // a tap loads it; a drag lets you choose the stack
         this.drag = { x: e.clientX, y: e.clientY, moved: false, box: p.box };
         return;
       }
       if (where.at === 'ship') {
-        if (this.held !== null) return this.place(this.held, where.bay);
         const here = m.loadedHere(m.port);
         if (here.has(p.box)) {
           const bays = m.baysAt(m.port);
@@ -624,32 +649,34 @@ export class App {
           return;
         }
         const from = m.level.boxes[p.box].from;
-        toast(this.ui, `MATE: loaded at ${m.level.ports[from].name}. Plan it there.`);
+        toast(this.ui, `MATE: loaded at ${m.level.ports[from].name}. Undo to go back there.`);
         audio.play('invalid', { volume: 0.4 });
-        return;
       }
     }
-    if (p.kind === 'bay' && this.held !== null) this.place(this.held, p.bay);
   }
 
   private onMove(e: PointerEvent): void {
-    if (!this.drag || this.held === null) return;
-    if (!this.drag.moved && Math.hypot(e.clientX - this.drag.x, e.clientY - this.drag.y) < 10) return;
-    this.drag.moved = true;
+    const d = this.drag;
+    if (!d) return;
+    if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 12) return;
+    if (!d.moved) {
+      d.moved = true;
+      this.hold(d.box);
+    }
     this.view.dragHeld(e.clientX, e.clientY);
   }
 
   private onUp(e: PointerEvent): void {
     const d = this.drag;
     this.drag = null;
-    if (!d || !d.moved || this.held === null) return;
+    if (!d || !this.model) return;
+    if (!d.moved) return this.autoLoad(d.box);
+    if (this.held === null) return;
     const bay = e.clientY < (this.anchors?.waterY ?? 0) + 20 ? this.view.bayAtX(e.clientX) : null;
     if (bay !== null) this.place(this.held, bay);
     else {
-      const b = this.held;
       this.release();
-      this.view.sync(this.model!.port, this.model!.baysAt(this.model!.port), this.model!.quayAt(this.model!.port), 'edit');
-      void b;
+      this.view.sync(this.model.port, this.model.baysAt(this.model.port), this.model.quayAt(this.model.port), 'edit');
     }
   }
 
@@ -728,34 +755,30 @@ export class App {
   private explain(): void {
     const m = this.model;
     if (!m) return;
-    const r = m.sailRefusal();
+    const r = m.legRefusal();
     if (!r) return;
-    const lv = m.level;
     audio.play('whistle', { volume: 0.5 });
     let advice = '';
     let pulse: Parameters<Hud['pulse']>[0] = null;
     if (r.code === 'short') {
-      // the fuel has to come from the last pump at or before the short leg
-      let k = r.port;
-      while (k > 0 && lv.ports[k].price === null) k--;
-      if (k !== m.port) this.selectPort(k);
-      advice = ` Tap NEED at ${lv.ports[k].name} for just enough.`;
+      advice = m.level.ports[m.port].price === null ? ' Undo to go back to the last port with bunkers.' : ' Tap BUY for just enough.';
       pulse = 'need';
     } else if (r.code === 'overMarks') {
-      if (r.port !== m.port) this.selectPort(r.port);
-      advice = ' Fuel weighs too: land a box (tap it on the ship) or take less fuel.';
+      advice = ' Fuel weighs too: take a box off (tap it on the ship) or buy less fuel.';
       pulse = 'dwt';
-    } else if (r.code === 'stars') {
-      advice = ' Carry more freight, or burn less fuel.';
-      pulse = 'rule';
-    } else if (r.port < m.calls && r.port !== m.port) {
-      this.selectPort(r.port);
+    } else if (r.code === 'bar' || r.code === 'barAhead' || r.code === 'zone') {
+      advice = ' Carry less, or take less fuel.';
+      pulse = 'dwt';
+    } else if (r.code === 'bridge') {
+      advice = ' She needs more weight aboard to sit low enough.';
+      pulse = 'dwt';
     }
     this.hud?.pulse(pulse);
     setTimeout(() => this.hud?.pulse(null), 3200);
     toast(this.ui, r.text + advice, 4600);
   }
 
+  /** Sail one leg: from the port she's at to the next, then plan the next call there. */
   private async sail(): Promise<void> {
     const m = this.model;
     if (!m || this.mode !== 'plan') return;
@@ -763,61 +786,61 @@ export class App {
     this.release();
     this.mode = 'sailing';
     this.fast = false;
-    this.clearCoach();
+    if (!this.tutor) this.clearCoach();
+    this.tutor?.el.classList.add('hide');
     this.coachEvent('sail');
     this.hud?.setBusy(true);
     const lv = m.level;
     const pr = m.sim.projection;
     const P = lv.ports.length;
-    let freight = 0;
+    const i = m.port;
     const banner = h('div', { class: 'banner' });
     this.ui.append(banner);
     const say = (big: string, small = '') => (banner.innerHTML = `${escapeHtml(big)}${small ? `<small>${escapeHtml(small)}</small>` : ''}`);
-    const wait = (s: number) => new Promise<void>((r) => this.view.tweens.after(s, r));
+    const wait = (sec: number) => new Promise<void>((r) => this.view.tweens.after(sec, r));
     audio.play('flag');
-    for (let i = 0; i < P - 1; i++) {
-      // at port i, as planned
-      this.view.sync(i, m.baysAt(i), m.quayAt(i), 'tab');
-      const leg = pr.legs[i];
-      this.view.setLoad(leg.weight / lv.ship.capacity, false);
-      say(i === 0 ? 'Let go all lines' : `Sailing from ${lv.ports[i].name}`, `${lv.ports[i].code} ▸ ${lv.ports[i + 1].code} · ${lv.legs[i].days} days · burns ${leg.burn} t`);
-      audio.engine(true, leg.band / Math.max(1, lv.ship.bands.length - 1));
-      await this.view.steam('out', 1.1);
-      say('Full away', `fuel ${leg.fuelOut} t ▸ ${leg.fuelIn} t at ${lv.ports[i + 1].name}`);
-      // burn the leg: the hull rises a tick per tonne
-      const cargo = leg.weight - leg.fuelOut;
-      for (let k = 0; k < leg.burn; k++) {
-        await wait(Math.max(0.06, 0.7 / leg.burn));
-        audio.play('drain', { pitch: Math.max(0, 11 - k) });
-        this.view.setLoad((cargo + leg.fuelOut - k - 1) / lv.ship.capacity, false);
-      }
-      // arrive at i + 1: the boxes for here are still aboard
-      const next = i + 1;
-      this.view.sync(next, m.baysAt(i), lv.boxes.filter((b) => b.from === next).map((b) => b.id).filter((id) => next < P - 1), 'tab');
-      this.view.setPortSign(next);
-      await this.view.steam('in', 1.1);
-      audio.engine(false);
-      audio.play('toot');
-      say(`${lv.ports[next].name}`, `${lv.ports[next].code} · ROB ${leg.fuelIn} t`);
-      const delivered = pr.calls[next].delivered;
-      const dur = this.view.discharge(delivered, (id, at) => {
-        const b = lv.boxes[id];
-        freight += b.freight;
-        this.pop(`+$${b.freight}`, at.x, at.y);
-        audio.play('coin', { pitch: Math.random() });
-      }, this.fast ? 0.1 : 0.22);
-      await wait(dur);
-      if (next < P - 1) {
-        this.view.setLoad(pr.legs[next].weight / lv.ship.capacity);
-        this.view.sync(next, m.baysAt(next), m.quayAt(next), 'edit');
-        await wait(m.sim.plan[next].loads.length ? 0.75 : 0.2);
-      } else {
-        this.view.setLoad(Math.max(0, pr.finalRob) / lv.ship.capacity);
-      }
+    const leg = pr.legs[i];
+    this.view.setBunker(0);
+    say(i === 0 ? 'Let go all lines' : `Sailing from ${lv.ports[i].name}`, `to ${lv.ports[i + 1].name} · ${lv.legs[i].days} day${lv.legs[i].days > 1 ? 's' : ''} · burns ${leg.burn} t`);
+    audio.engine(true, leg.band / Math.max(1, lv.ship.bands.length - 1));
+    await this.view.steam('out', 1.1);
+    say('Full away', `fuel ${leg.fuelOut} t → ${leg.fuelIn} t at ${lv.ports[i + 1].name}`);
+    // burn the leg: the hull rises a tick per tonne
+    const cargo = leg.weight - leg.fuelOut;
+    for (let k = 0; k < leg.burn; k++) {
+      await wait(Math.max(0.06, 0.7 / leg.burn));
+      audio.play('drain', { pitch: Math.max(0, 11 - k) });
+      this.view.setLoad((cargo + leg.fuelOut - k - 1) / lv.ship.capacity, false);
     }
+    // arrive: the boxes for here are still aboard
+    const next = i + 1;
+    this.view.sync(next, m.baysAt(i), lv.boxes.filter((b) => b.from === next).map((b) => b.id), 'tab');
+    this.view.setPortSign(next);
+    await this.view.steam('in', 1.1);
+    audio.engine(false);
+    audio.play('toot');
+    say(`${lv.ports[next].name}`, `arrived · ${leg.fuelIn} t of fuel left`);
+    const delivered = pr.calls[next].delivered;
+    const dur = this.view.discharge(delivered, (id, at) => {
+      this.pop(`+$${lv.boxes[id].freight}`, at.x, at.y);
+      audio.play('coin', { pitch: Math.random() });
+    }, this.fast ? 0.1 : 0.22);
+    await wait(dur);
     banner.remove();
-    void freight;
-    await this.report();
+    m.advance();
+    if (next >= P - 1) {
+      this.view.setLoad(Math.max(0, pr.finalRob) / lv.ship.capacity);
+      await this.report();
+      return;
+    }
+    // the next call: plan it here
+    this.mode = 'plan';
+    this.hud?.setBusy(false);
+    this.tutor?.el.classList.remove('hide');
+    this.view.sync(next, m.baysAt(next), m.quayAt(next), 'edit');
+    this.lastWeight = -1;
+    this.refresh();
+    toast(this.ui, `${lv.ports[next].name}: load what's offered here, buy fuel, sail on.`, 3200);
   }
 
   private pop(text: string, x: number, y: number): void {
@@ -844,7 +867,7 @@ export class App {
     if (firstThree) this.save.pilots = Math.min(9, this.save.pilots + 1);
     writeSave(this.save);
     if (stars === 3) this.view.celebrate();
-    audio.play('win');
+    audio.play(stars ? 'win' : 'fail');
     // let the moment land before the paperwork
     await new Promise<void>((r) => setTimeout(r, stars === 3 ? 1900 : 900));
     const last = lv.ports[lv.ports.length - 1];
@@ -868,19 +891,21 @@ export class App {
         <div class="ln net"><span>Net</span><b class="num">$${pr.profit}</b></div>
         <div class="par caps">★ $${lv.stars[0]} · ★★ $${lv.stars[1]} · ★★★ $${lv.stars[2]}</div>
         <ul class="remarks">${remarks.join('')}</ul>
-        <p class="logbook">${stars === 3 ? escapeHtml(lv.logbook ?? 'Full and down, and not a tonne wasted.') : `The best voyage earns <b>$${lv.stars[2]}</b>. ${pr.profit < lv.stars[1] ? 'Look again at what you left ashore.' : 'Close. One more change.'}`}</p>`,
+        <p class="logbook">${stars === 3 ? escapeHtml(lv.logbook ?? 'Full and down, and not a tonne wasted.') : !stars ? `The charter needed <b>$${lv.stars[0]}</b>. Try another load: more freight, less fuel.` : `The best voyage earns <b>$${lv.stars[2]}</b>. ${pr.profit < lv.stars[1] ? 'Look again at what you left ashore.' : 'Close. One more change.'}`}</p>`,
     });
     const isLast = lv.n >= this.levels.length;
     openDialog({
-      title: stars === 3 ? 'Full & Down' : stars === 2 ? 'Well sailed' : 'Contract met',
-      head: stars === 3 ? 'yellow' : 'navy',
+      title: stars === 3 ? 'Full & Down' : stars === 2 ? 'Well sailed' : stars ? 'Contract met' : 'Contract not met',
+      head: stars === 3 ? 'yellow' : stars ? 'navy' : 'red',
       cls: 'report-dlg',
       body: [card],
       row: true,
-      buttons: [
-        { label: 'Improve', onClick: () => this.backToPlan() },
-        { label: isLast ? 'Chart' : 'Next voyage', cls: 'blue', onClick: () => (isLast ? this.showMap() : this.play(lv.n + 1)) },
-      ],
+      buttons: stars
+        ? [
+            { label: 'Improve', onClick: () => this.backToPlan() },
+            { label: isLast ? 'Chart' : 'Next voyage', cls: 'blue', onClick: () => (isLast ? this.showMap() : this.play(lv.n + 1)) },
+          ]
+        : [{ label: 'Try again', cls: 'blue', onClick: () => this.backToPlan() }],
     });
     // stamps slam one by one
     const els = [...document.querySelectorAll<HTMLElement>('.report .stamp.on')];
@@ -892,9 +917,11 @@ export class App {
     );
   }
 
+  /** Back to the first port with the same plan, to try again or improve it. */
   private backToPlan(): void {
     const m = this.model;
     if (!m) return;
+    m.select(0);
     this.mode = 'plan';
     this.hud?.setBusy(false);
     this.view.load(m.level);
@@ -902,6 +929,7 @@ export class App {
     this.view.sync(m.port, m.baysAt(m.port), m.quayAt(m.port), 'instant');
     this.lastWeight = -1;
     this.refresh(false);
+    this.tutor?.el.classList.remove('hide');
   }
 
   // ───────────────────────────── menus ─────────────────────────────

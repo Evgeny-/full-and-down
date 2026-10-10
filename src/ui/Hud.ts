@@ -78,9 +78,9 @@ export class Hud {
     this.dock = h('div', { class: 'dock' });
     this.undoBtn = h('button', { class: 'btn token', html: glyph('undo', 22), attrs: { 'aria-label': 'Undo' } });
     this.undoBtn.addEventListener('click', () => on.onUndo());
-    this.hintBtn = h('button', { class: 'btn pilot', html: `<span class="flagsw G"></span><span>Pilot</span>` });
+    this.hintBtn = h('button', { class: 'btn pilot', html: `${glyph('bulb', 22)}<span>Hint</span>` });
     this.hintBtn.addEventListener('click', () => on.onHint());
-    this.sailBtn = h('button', { class: 'btn blue sail', html: `<span class="flagsw P"></span><span class="lbl">Sail<small></small></span>` });
+    this.sailBtn = h('button', { class: 'btn blue sail', html: `<span class="flagsw P"></span><span class="lbl"><span class="to">Sail</span><small></small></span>` });
     this.sailBtn.addEventListener('click', () => on.onSail());
     this.dock.append(this.undoBtn, this.hintBtn, this.sailBtn);
     this.root.append(this.top, this.rule, this.strip, this.dwt, this.tags, this.bunker, this.dock);
@@ -126,9 +126,11 @@ export class Hud {
     this.renderStrip(m, pr);
     this.renderDwt(m, pr, anchors);
     this.renderBunker(m, pr);
-    const refusal = m.sailRefusal();
+    const refusal = m.legRefusal();
     this.sailBtn.classList.toggle('blocked', !!refusal);
-    this.sailBtn.querySelector('small')!.textContent = refusal ? shortReason(lv, refusal) : '';
+    const next = lv.ports[Math.min(lv.ports.length - 1, m.port + 1)];
+    this.sailBtn.querySelector('.to')!.textContent = 'Sail';
+    this.sailBtn.querySelector('small')!.textContent = refusal ? shortReason(lv, refusal) : `to ${next.name}${m.port + 1 === lv.ports.length - 1 ? ' · final' : ''}`;
     this.undoBtn.disabled = !m.canUndo;
     void this.voice;
   }
@@ -213,8 +215,10 @@ export class Hud {
       const pump = p.price === null ? `<span class="pump none">no fuel</span>` : `<span class="pump">${glyph('fuel', 11)}$${p.price}${p.lot && p.lot > 1 ? `<i>×${p.lot}</i>` : ''}</span>`;
       const bar = p.bar !== undefined ? `<span class="barsign" title="Harbour bar: at most ${p.bar} t aboard here">≤${p.bar}</span>` : '';
       const dot = m.bouncedPorts.has(i) || problemPorts.has(i) ? '<i class="dot"></i>' : '';
+      const state = i < m.port ? 'done' : i === m.port ? 'here' : 'later';
       parts.push(`
-        <button class="port ${sel ? 'sel' : ''} ${last ? 'last' : ''}" data-port="${i}" ${last ? 'disabled' : ''}>
+        <button class="port ${sel ? 'sel' : ''} ${last ? 'last' : ''} ${state}" data-port="${i}">
+          ${state === 'here' ? '<span class="youare">here</span>' : state === 'done' ? '<span class="tick">✓</span>' : ''}
           <span class="pflag">${flagSvg(p.flag as FlagId, 24, 16)}${dot}${bar}</span>
           <span class="code num">${p.code}</span>
           ${last ? '<span class="pump fin">final</span>' : pump}
@@ -241,8 +245,7 @@ export class Hud {
     this.strip.innerHTML = parts.join('');
     this.strip.querySelectorAll<HTMLButtonElement>('.port').forEach((b) =>
       b.addEventListener('click', () => {
-        const i = Number(b.dataset.port);
-        if (i < P - 1) this.on.onTab(i);
+        this.on.onTab(Number(b.dataset.port));
       }),
     );
   }
@@ -306,9 +309,9 @@ export class Hud {
       } else {
         const lot = p.lot ?? 1;
         this.bunker.innerHTML = `
-          <span class="bk-l"><span class="caps">Bunkers $${p.price}/t · ${p.name}</span><b>${glyph('fuel', 14)} <span class="num aboard"></span> aboard${lot > 1 ? ` <em class="lot">lots of ${lot}</em>` : ''}</b></span>
-          <span class="stepper"><button class="btn small token minus" aria-label="Less fuel">${glyph('minus', 18)}</button><span class="num amt"></span><button class="btn small token plus" aria-label="More fuel">${glyph('plus', 18)}</button></span>
-          <button class="btn small need">Need</button>`;
+          <span class="bk-l"><span class="caps">Fuel · $${p.price}/t at ${p.name}${lot > 1 ? ` · lots of ${lot}` : ''}</span><b>${glyph('fuel', 14)} <span class="num aboard"></span><i class="burns"></i></b></span>
+          <span class="stepper"><button class="btn small token minus" aria-label="Less fuel">${glyph('minus', 18)}</button><span class="num amt" title="bought here"></span><button class="btn small token plus" aria-label="More fuel">${glyph('plus', 18)}</button></span>
+          <button class="btn small need">Buy</button>`;
         holdRepeat(this.bunker.querySelector<HTMLButtonElement>('.minus')!, () => this.on.onBunker(-1));
         holdRepeat(this.bunker.querySelector<HTMLButtonElement>('.plus')!, () => this.on.onBunker(1));
         this.bunker.querySelector('.need')!.addEventListener('click', () => this.on.onNeed());
@@ -322,6 +325,25 @@ export class Hud {
     const plus = this.bunker.querySelector<HTMLButtonElement>('.plus');
     if (minus) minus.disabled = bought <= 0;
     if (plus) plus.disabled = leg.fuelOut + (p.lot ?? 1) > lv.ship.tank;
+    const burns = this.bunker.querySelector('.burns');
+    if (burns) burns.textContent = `aboard · burns ${leg.burn}`;
+    const needBtn = this.bunker.querySelector<HTMLButtonElement>('.need');
+    if (needBtn && p.price !== null) {
+      const total = m.needTotal();
+      const more = total === null ? null : total - bought;
+      if (more === null) {
+        needBtn.textContent = 'Too heavy';
+        needBtn.disabled = true;
+      } else if (more > 0) {
+        needBtn.innerHTML = `Buy ${more} t<small>$${more * p.price}</small>`;
+        needBtn.disabled = false;
+        needBtn.classList.remove('ok');
+      } else {
+        needBtn.innerHTML = more < 0 ? `${-more} t extra` : '✓ Enough';
+        needBtn.disabled = more === 0;
+        needBtn.classList.toggle('ok', more === 0);
+      }
+    }
   }
 
   /** Freight tags under the boxes on the quay. */

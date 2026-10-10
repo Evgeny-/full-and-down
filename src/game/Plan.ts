@@ -173,6 +173,12 @@ export class PlanModel {
     return true;
   }
 
+  /** Total bunkers to buy here to reach the next pump on the reserve (no side effects). */
+  needTotal(): number | null {
+    if (this.port >= this.calls) return null;
+    return needAt(this.level, this.plan, this.port);
+  }
+
   /** Set this port's bunkers to just enough for the next leg. */
   need(): number | null {
     if (this.level.auto) return null;
@@ -198,6 +204,54 @@ export class PlanModel {
     this.bouncedPorts = new Set(sim.bounced.filter((b) => b.box !== undefined).map((b) => b.port));
     this.plan = clonePlan(sim.plan);
     this.sim = sim;
+  }
+
+  /**
+   * Port by port: may she sail the leg from the port she's at? Only this leg's problems count
+   * (fuel for this leg, her marks and bars here and on arrival, contract boxes here). Later legs
+   * are planned when she gets there.
+   */
+  legRefusal(): Refusal | null {
+    const pr = this.sim.projection;
+    const here = this.port;
+    const p = pr.problems.find((x) => (x.port === here && x.code !== 'barAhead') || (x.code === 'barAhead' && x.port === here + 1));
+    return p ?? null;
+  }
+
+  /** Sail to the next port (the plan for this call is locked in; undo comes back). */
+  advance(): void {
+    this.push();
+    this.port = Math.min(this.calls, this.port + 1);
+  }
+
+  get atLastCall(): boolean {
+    return this.port === this.calls - 1;
+  }
+
+  /** The best stack for a box: the same destination on top, then the tightest legal fit, then an empty stack. */
+  autoBay(box: BoxId): number | null {
+    const lv = this.level;
+    const b = lv.boxes[box];
+    const bays = this.baysAt(this.port);
+    let best: number | null = null;
+    let bestScore = -Infinity;
+    bays.forEach((bay, i) => {
+      if (placeRefusal(lv, bay, i, b)) return;
+      let score: number;
+      if (!bay.length) score = 1;
+      else {
+        const top = lv.boxes[bay[bay.length - 1]];
+        score = top.to === b.to ? 4 : 3 - (top.to - b.to) * 0.5;
+      }
+      // keep plugged stacks for reefers
+      if (!b.reefer && (lv.ship.plugs ?? []).includes(i) && lv.mechanics.includes('reefer')) score -= 2;
+      score -= bay.length * 0.01;
+      if (score > bestScore) {
+        bestScore = score;
+        best = i;
+      }
+    });
+    return best;
   }
 
   /** Why SAIL is refused, in the voice of whoever would stop her (null = clear to sail). */
