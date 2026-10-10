@@ -1,6 +1,6 @@
 import { h } from './dom';
 import { glyph, starSvg } from './glyphs';
-import { flagSvg, type FlagId } from '../render/flags';
+import { portFlagImg } from '../render/portFlag';
 import { portColor } from '../render/portStyle';
 import { bandOf } from '../core/rules';
 import type { Level, Projection } from '../core/types';
@@ -219,7 +219,7 @@ export class Hud {
       parts.push(`
         <button class="port ${sel ? 'sel' : ''} ${last ? 'last' : ''} ${state}" data-port="${i}">
           ${state === 'here' ? '<span class="youare">here</span>' : state === 'done' ? '<span class="tick">✓</span>' : ''}
-          <span class="pflag">${flagSvg(p.flag as FlagId, 24, 16)}${dot}${bar}</span>
+          <span class="pflag">${portFlagImg(p, 24, 16)}${dot}${bar}</span>
           <span class="code num">${p.code}</span>
           ${last ? '<span class="pump fin">final</span>' : pump}
           ${arrive !== null ? `<span class="rob num ${robOk ? '' : 'bad'}">ROB ${arrive}</span>` : `<span class="rob num start">ROB ${lv.startFuel}</span>`}

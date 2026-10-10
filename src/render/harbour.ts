@@ -107,7 +107,11 @@ export class Backdrop {
     }
     this.group.add(rocks);
     // lighthouse at the end of the mole: red and white bands
-    const lhX = -width * 0.16 + width * 0.31;
+    const lhX = -width * 0.16 + width * 0.31 - 0.45;
+    const plinth = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.5, 0.75, 16), new THREE.MeshStandardMaterial({ color: '#b9b3a7', roughness: 0.9 }));
+    plinth.position.set(lhX, 0.0, -7.2);
+    plinth.castShadow = true;
+    this.group.add(plinth);
     const [lc, lg] = canvas(16, 128);
     for (let i = 0; i < 8; i++) {
       lg.fillStyle = i % 2 ? '#f6f3ea' : PAL.flagRed;

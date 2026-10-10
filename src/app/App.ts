@@ -14,7 +14,6 @@ import { NOTICES, COACH, type CoachStep } from './notices';
 import { areaOf } from './areas';
 import { starsFor } from '../core/rules';
 import { maskOf, solve } from '../core/solver';
-import { flagSvg, type FlagId } from '../render/flags';
 import type { BoxId, Call, Level } from '../core/types';
 
 const params = new URLSearchParams(location.search);
@@ -384,6 +383,7 @@ export class App {
     this.release();
     this.view.sync(m.port, m.baysAt(m.port), m.quayAt(m.port), 'tab');
     this.view.setPortSign(m.port);
+    this.view.setScenery(m.port);
     this.lastWeight = -1;
     this.refresh();
   }
@@ -817,6 +817,7 @@ export class App {
     const next = i + 1;
     this.view.sync(next, m.baysAt(i), lv.boxes.filter((b) => b.from === next).map((b) => b.id), 'tab');
     this.view.setPortSign(next);
+    this.view.setScenery(next);
     await this.view.steam('in', 1.1);
     audio.engine(false);
     audio.play('toot');
@@ -923,6 +924,7 @@ export class App {
     const m = this.model;
     if (!m) return;
     m.select(0);
+    this.view.setScenery(0);
     this.mode = 'plan';
     this.hud?.setBusy(false);
     this.view.load(m.level);
@@ -1052,8 +1054,5 @@ export class App {
   }
 }
 
-export function flagHtml(id: string, w = 24, h2 = 16): string {
-  return flagSvg(id as FlagId, w, h2);
-}
 
 void glyph;

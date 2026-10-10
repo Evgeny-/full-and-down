@@ -3,14 +3,16 @@ import { addHarbourLights, createRenderer, LOW_END, type HarbourLights } from '.
 import { Tweens, arc, ease, squash } from './anim';
 import { Water } from './water';
 import { ShipModel, LIGHT_Y, MARK_Y, BOX_H, BOX_W, SLOT } from './ship';
-import { Quay, Backdrop, QUAY_Y } from './harbour';
+import { Quay, QUAY_Y } from './harbour';
+import { buildScenery } from './scenery';
 import { buildHull } from './hull';
 import { AdaptiveRenderScale } from './AdaptiveRenderScale';
 import { FxView } from './FxView';
 import { makeBox } from './boxes';
 import { portColor } from './portStyle';
 import { canvas, toTexture, FONT_NUM, FONT_TEXT } from './paint';
-import { drawFlag, type FlagId } from './flags';
+import { type FlagId } from './flags';
+import { drawPortFlag } from './portFlag';
 import { ClothFlag, dressLine } from './flagMeshes';
 import { PAL } from './palette';
 import { audio } from '../audio/audio';
@@ -86,7 +88,9 @@ export class GameView {
   /** the quay and the far shore: they slide away while the ship sails */
   private world = new THREE.Group();
   private quay!: Quay;
-  private backdrop!: Backdrop;
+  /** the far shore of the port she's at (each port has its own) */
+  private scenery: THREE.Group | null = null;
+  private sceneryCache = new Map<number, THREE.Group>();
   private sign!: THREE.Mesh;
   private draft = new Spring();
   private roll = new Spring(16, 1.6);
@@ -142,8 +146,9 @@ export class GameView {
     this.quayWidth = width;
     this.quay = new Quay(width);
     this.world.add(this.quay.group);
-    this.backdrop = new Backdrop(width);
-    this.world.add(this.backdrop.group);
+    this.sceneryCache.clear();
+    this.scenery = null;
+    this.setScenery(0);
     this.sign = this.makeSign();
     this.world.add(this.sign);
     this.buildBarge();
@@ -169,7 +174,7 @@ export class GameView {
       this.bayHits.push(m);
     }
     for (const b of level.boxes) {
-      const mesh = makeBox({ color: portColor(b.to), weight: b.weight, flag: level.ports[b.to].flag as FlagId, kind: b.reefer && level.mechanics.includes('reefer') ? 'reefer' : undefined, seal: b.contract });
+      const mesh = makeBox({ color: portColor(b.to), weight: b.weight, flag: level.ports[b.to].flag as FlagId, port: level.ports[b.to], kind: b.reefer && level.mechanics.includes('reefer') ? 'reefer' : undefined, seal: b.contract });
       mesh.userData.box = b.id;
       mesh.visible = false;
       this.world.add(mesh);
@@ -194,6 +199,20 @@ export class GameView {
     return m;
   }
 
+  /** The far shore, breakwater and landmark of port `i` (built once per level, then reused). */
+  setScenery(i: number): void {
+    const width = this.quayWidth;
+    let g = this.sceneryCache.get(i);
+    if (!g) {
+      g = buildScenery(this.level.ports[i].name, width);
+      this.sceneryCache.set(i, g);
+    }
+    if (this.scenery === g) return;
+    this.scenery?.removeFromParent();
+    this.scenery = g;
+    this.world.add(g);
+  }
+
   /** Paint the enamel port sign on the quay. */
   setPortSign(port: number): void {
     const p = this.level.ports[port];
@@ -211,7 +230,7 @@ export class GameView {
     g.beginPath();
     g.roundRect(12, 12, 488, 104, 9);
     g.stroke();
-    drawFlag(g, p.flag as FlagId, 30, 34, 78, 56);
+    drawPortFlag(g, p, 30, 34, 78, 56);
     g.fillStyle = '#f8f7f2';
     g.font = `700 64px ${FONT_NUM}`;
     g.textBaseline = 'middle';
@@ -949,6 +968,7 @@ export class GameView {
       for (const f of this.cloth) if (f.mesh.visible) f.update(t, 0.6 + this.speed * 0.8);
     }
     this.water.uniforms.uTime.value = t;
+    (this.scenery?.userData.update as ((t: number) => void) | undefined)?.(t);
     this.fx.update(dt, this.camera);
     if (!this.night && LOW_END) void 0;
   }

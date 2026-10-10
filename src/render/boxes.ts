@@ -3,11 +3,15 @@ import { canvas, toTexture, FONT_NUM, hexA, shade, roundRect } from './paint';
 import { PAL } from './palette';
 import { BOX_H, BOX_LEN, BOX_W } from './ship';
 import { drawFlag, type FlagId } from './flags';
+import type { Port } from '../core/types';
+import { drawPortFlag } from './portFlag';
 
 export interface BoxLook {
   color: string;
   weight: number;
   flag: FlagId;
+  /** the destination port: its national flag goes on the sticker */
+  port?: Port;
   kind?: 'box' | 'reefer' | 'dg' | 'heavy';
   /** contract cargo: a red seal */
   seal?: boolean;
@@ -75,7 +79,8 @@ function paintSide(look: BoxLook): THREE.CanvasTexture {
   const fy = 14;
   g.fillStyle = 'rgba(0,0,0,0.25)';
   g.fillRect(fx + 2, fy + 3, fw, fh);
-  drawFlag(g, look.flag, fx, fy, fw, fh);
+  if (look.port) drawPortFlag(g, look.port, fx, fy, fw, fh);
+  else drawFlag(g, look.flag, fx, fy, fw, fh);
   if (look.seal) {
     // a contract seal: a red wax disc with a white tick
     const cx = look.kind === 'reefer' ? W - 160 : W - 104;
@@ -149,7 +154,7 @@ function paintEnd(look: BoxLook): THREE.CanvasTexture {
 }
 
 export function boxMaterials(look: BoxLook): THREE.Material[] {
-  const key = `${look.color}|${look.weight}|${look.flag}|${look.kind ?? 'box'}|${look.seal ? 1 : 0}`;
+  const key = `${look.color}|${look.weight}|${look.flag}|${look.port?.name ?? ''}|${look.kind ?? 'box'}|${look.seal ? 1 : 0}`;
   let mats = cache.get(key);
   if (!mats) {
     const side = new THREE.MeshStandardMaterial({ map: paintSide(look), roughness: 0.62, metalness: 0.05 });
